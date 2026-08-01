@@ -1,0 +1,60 @@
+import "server-only";
+
+/**
+ * Server-only environment access. Importing this file from a client component
+ * is a build error (thanks to `server-only`), which keeps secrets out of the
+ * browser bundle. Values are read lazily so a missing key only throws when it
+ * is actually used at runtime — not at build time with placeholder envs.
+ */
+
+function req(name: string): string {
+  const v = process.env[name];
+  if (!v || v.startsWith("your-") || v.includes("YOUR-PROJECT-ref")) {
+    throw new Error(
+      `Missing/placeholder env var: ${name}. Set it in .env.local (see .env.example).`,
+    );
+  }
+  return v;
+}
+
+export const serverEnv = {
+  get supabaseUrl() {
+    return req("NEXT_PUBLIC_SUPABASE_URL");
+  },
+  get anonKey() {
+    return req("NEXT_PUBLIC_SUPABASE_ANON_KEY");
+  },
+  get serviceRoleKey() {
+    return req("SUPABASE_SERVICE_ROLE_KEY");
+  },
+  get n8nComputationWebhookUrl() {
+    // May legitimately be empty until the client provides it (COMPUTATION_DRIVER=local).
+    return process.env.N8N_COMPUTATION_WEBHOOK_URL ?? "";
+  },
+  get resendApiKey() {
+    return process.env.RESEND_API_KEY ?? "";
+  },
+  /** resend (default) | n8n — flip the alert transport with no redeploy. */
+  get alertDriver(): "resend" | "n8n" {
+    return process.env.ALERT_EMAIL_DRIVER === "n8n" ? "n8n" : "resend";
+  },
+  /** local (default) | n8n — SOA computation source; see lib/computation. */
+  get computationDriver(): "local" | "n8n" {
+    return process.env.COMPUTATION_DRIVER === "n8n" ? "n8n" : "local";
+  },
+  /** From-address for Resend. Resend's shared onboarding sender works for tests. */
+  get resendFrom() {
+    return process.env.RESEND_FROM ?? "Sun Miles PMS <onboarding@resend.dev>";
+  },
+  /** Comma-separated recipient(s) for operational alerts. */
+  get alertEmailTo() {
+    return process.env.ALERT_EMAIL_TO ?? "";
+  },
+  get n8nAlertWebhookUrl() {
+    return process.env.N8N_ALERT_WEBHOOK_URL ?? "";
+  },
+  /** Shared secret the cron scheduler must present to hit /api/cron/*. */
+  get cronSecret() {
+    return process.env.CRON_SECRET ?? "";
+  },
+};

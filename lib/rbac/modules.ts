@@ -1,0 +1,208 @@
+/**
+ * Role-Based Access Control map — the single source of truth.
+ *
+ * Section 7 of the build brief is a working draft, so the ENTIRE access map
+ * lives in this one file: refining who can read/write a module is an edit here
+ * and nowhere else. No feature code hardcodes role checks.
+ *
+ * TODO(client-confirm): exact per-role WRITE permissions still to be confirmed.
+ */
+
+export const ALL_ROLE_KEYS = [
+  "owner", "consultant", "managing_officer", "operations_manager", "accounting",
+  "admin", "hotel_rental_monitoring", "hotel_cashier", "room_attendant", "guard",
+  "electrician", "utility", "warehouse_timekeeper", "errand_liaison",
+  "broker", "buyer", "tenant", "guest",
+] as const;
+
+export type RoleKey = (typeof ALL_ROLE_KEYS)[number];
+
+/**
+ * External, self-service roles. They never sign into the staff app:
+ * buyer/tenant/guest use public PIN / booking-ref portals; the broker portal
+ * is Phase 3. Kept here so staff/external is derived, not hardcoded twice.
+ */
+export const EXTERNAL_ROLE_KEYS = ["broker", "buyer", "tenant", "guest"] as const;
+
+/** Staff roles = everything that is not external. */
+export const STAFF_ROLE_KEYS: RoleKey[] = ALL_ROLE_KEYS.filter(
+  (r) => !(EXTERNAL_ROLE_KEYS as readonly string[]).includes(r),
+);
+
+export type ModuleKey =
+  | "inventory"
+  | "collections"
+  | "transmittals"
+  | "buyers"
+  | "documents"
+  | "disputes"
+  | "repair"
+  | "hotel"
+  | "housekeeping"
+  | "owner"
+  | "finance"
+  | "attendance"
+  | "hr"
+  | "users";
+
+export interface ModuleDef {
+  key: ModuleKey;
+  path: string;
+  label: string;
+  blurb: string;
+  milestone: string;
+  /** Roles that may READ the module (and therefore see it in the nav). */
+  read: readonly RoleKey[];
+  /** Roles that may WRITE within the module. */
+  write: readonly RoleKey[];
+}
+
+export const MODULES: Record<ModuleKey, ModuleDef> = {
+  inventory: {
+    key: "inventory",
+    path: "/inventory",
+    label: "Inventory",
+    blurb: "Property & unit / room registry.",
+    milestone: "M1",
+    read: STAFF_ROLE_KEYS,
+    write: ["admin", "operations_manager", "managing_officer"],
+  },
+  collections: {
+    key: "collections",
+    path: "/collections",
+    label: "Collections",
+    blurb: "Daily collections & cash transmittal.",
+    milestone: "M2",
+    // Governance: the owner is intentionally EXCLUDED here — the owner sees the
+    // simplified Owner Dashboard only; their daily total is surfaced there.
+    read: ["managing_officer", "consultant", "accounting", "hotel_rental_monitoring"],
+    write: ["hotel_rental_monitoring", "accounting"],
+  },
+  transmittals: {
+    key: "transmittals",
+    path: "/transmittals",
+    label: "Transmittals",
+    blurb: "Cash transmittal & bank deposit.",
+    milestone: "M2",
+    read: ["accounting", "errand_liaison", "hotel_rental_monitoring", "managing_officer"],
+    write: ["hotel_rental_monitoring", "accounting", "errand_liaison", "managing_officer"],
+  },
+  buyers: {
+    key: "buyers",
+    path: "/buyers",
+    label: "Buyers",
+    blurb: "Buyer accounts, SOA & payment history.",
+    milestone: "M3–M4",
+    read: ["accounting", "admin", "consultant", "managing_officer"],
+    write: ["accounting", "admin"],
+  },
+  documents: {
+    key: "documents",
+    path: "/documents",
+    label: "Documents",
+    blurb: "Per-buyer document tracker.",
+    milestone: "M4",
+    read: ["admin", "accounting", "consultant", "managing_officer"],
+    write: ["admin", "accounting"],
+  },
+  disputes: {
+    key: "disputes",
+    path: "/disputes",
+    label: "Disputes",
+    blurb: "Case log per unit.",
+    milestone: "M5",
+    read: ["consultant", "managing_officer", "operations_manager"],
+    write: ["consultant", "admin"],
+  },
+  repair: {
+    key: "repair",
+    path: "/repairs",
+    label: "Repair Requests",
+    blurb: "Tenant & guest repair tickets.",
+    milestone: "M7",
+    read: ["operations_manager", "electrician", "utility", "admin"],
+    write: ["operations_manager", "electrician", "utility", "admin"],
+  },
+  hotel: {
+    key: "hotel",
+    path: "/hotel",
+    label: "Hotel Ops",
+    blurb: "Room board, stays & receipts.",
+    milestone: "Hotel",
+    read: ["hotel_cashier", "hotel_rental_monitoring", "room_attendant", "operations_manager", "managing_officer", "admin"],
+    write: ["hotel_cashier", "hotel_rental_monitoring", "admin"],
+  },
+  housekeeping: {
+    key: "housekeeping",
+    path: "/housekeeping",
+    label: "Housekeeping",
+    blurb: "Room cleaning, supplies & turnover.",
+    milestone: "Hotel-C",
+    read: ["room_attendant", "hotel_cashier", "hotel_rental_monitoring", "operations_manager", "managing_officer", "admin"],
+    write: ["room_attendant", "operations_manager", "admin"],
+  },
+  owner: {
+    key: "owner",
+    path: "/owner",
+    label: "Owner Dashboard",
+    blurb: "Simplified weekly overview.",
+    milestone: "M6",
+    read: ["owner", "managing_officer", "consultant"],
+    write: [],
+  },
+  finance: {
+    key: "finance",
+    path: "/finance",
+    label: "P&L / Reports",
+    blurb: "Sales, expenses & profit.",
+    milestone: "M9",
+    read: ["owner", "managing_officer", "consultant", "accounting", "admin"],
+    write: ["accounting", "admin"],
+  },
+  attendance: {
+    key: "attendance",
+    path: "/attendance",
+    label: "Attendance",
+    blurb: "Clock in / out with photo.",
+    milestone: "M8",
+    read: STAFF_ROLE_KEYS,
+    write: STAFF_ROLE_KEYS,
+  },
+  hr: {
+    key: "hr",
+    path: "/hr",
+    label: "HR / Payroll",
+    blurb: "DTR & payroll summary.",
+    milestone: "M8",
+    read: ["warehouse_timekeeper", "accounting", "admin", "managing_officer"],
+    write: ["admin", "accounting"],
+  },
+  users: {
+    key: "users",
+    path: "/users",
+    label: "Users & Roles",
+    blurb: "Staff accounts & access.",
+    milestone: "Admin",
+    // TODO(client-confirm): should managing_officer also be able to edit users?
+    read: ["admin", "managing_officer"],
+    write: ["admin"],
+  },
+};
+
+export const MODULE_LIST: ModuleDef[] = Object.values(MODULES);
+
+/** Modules the given roles may see in the nav (dedup + preserves declared order). */
+export function accessibleModules(roleKeys: readonly string[]): ModuleDef[] {
+  const set = new Set(roleKeys);
+  return MODULE_LIST.filter((m) => m.read.some((r) => set.has(r)));
+}
+
+export function canReadModule(roleKeys: readonly string[], key: ModuleKey): boolean {
+  const set = new Set(roleKeys);
+  return MODULES[key].read.some((r) => set.has(r));
+}
+
+export function canWriteModule(roleKeys: readonly string[], key: ModuleKey): boolean {
+  const set = new Set(roleKeys);
+  return MODULES[key].write.some((r) => set.has(r));
+}

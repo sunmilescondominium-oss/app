@@ -1,0 +1,235 @@
+/**
+ * Central, browser-safe app configuration.
+ *
+ * Prime directive: APP_BRAND is the ONLY brand string that may surface anywhere
+ * in the shell, login, or printable reports. The GHL / GoHighLevel brand must
+ * NEVER appear in the UI. Keep the string here and import it everywhere.
+ *
+ * Do NOT put secrets in this file — it is importable from client components.
+ * Server-only env access lives in lib/env.ts.
+ */
+
+export const APP_BRAND =
+  "Sun Miles Property Management Corporation — powered by BizAutoFlow";
+
+// Short label. Deliberately avoids the acronym "PMS" (ambiguous — e.g.
+// Preventive Maintenance Services in other industries). Spell out Property
+// Management so the meaning is unmistakable.
+export const APP_BRAND_SHORT = "Sun Miles Property Management";
+
+/**
+ * Business lines a unit can belong to. Recategorizing a unit between lines is a
+ * data change (units.business_line), never a code change. This typed list is
+ * only for consistent UI labels.
+ * TODO(client-confirm): promote to a lookup table if a 5th line is ever needed.
+ */
+export const BUSINESS_LINES = [
+  { key: "condo_sales", label: "Condo Sales" },
+  { key: "rental", label: "Residential Rental" },
+  { key: "hotel", label: "Hotel / Short-Stay" },
+  { key: "airbnb", label: "Airbnb Pool" },
+] as const;
+
+export type BusinessLineKey = (typeof BUSINESS_LINES)[number]["key"];
+
+/** Unit availability states (Section 4 / M1). */
+export const UNIT_STATUSES = [
+  "available",
+  "occupied",
+  "reserved",
+  "under_maintenance",
+  "blocked",
+] as const;
+
+export type UnitStatus = (typeof UNIT_STATUSES)[number];
+
+/** Collection categories (broader than unit business lines — adds parking/utility). */
+export const COLLECTION_CATEGORIES = [
+  { key: "condo_sales", label: "Condo Sales" },
+  { key: "rental", label: "Rental" },
+  { key: "hotel", label: "Hotel / Short-Stay" },
+  { key: "airbnb", label: "Airbnb" },
+  { key: "parking", label: "Parking" },
+  { key: "utility", label: "Utility" },
+  { key: "other", label: "Other" },
+] as const;
+
+export type CollectionCategory = (typeof COLLECTION_CATEGORIES)[number]["key"];
+
+export const PAYMENT_TYPES = [
+  { key: "cash", label: "Cash" },
+  { key: "gcash", label: "GCash" },
+  { key: "card", label: "Card" },
+  { key: "bank_transfer", label: "Bank Transfer" },
+  { key: "check", label: "Check" },
+  { key: "other", label: "Other" },
+] as const;
+
+export type PaymentType = (typeof PAYMENT_TYPES)[number]["key"];
+
+/** Buyer amortization schemes (M3). Scheme-specific terms live in computation_params. */
+export const PAYMENT_SCHEMES = [
+  { key: "fixed", label: "Fixed" },
+  { key: "step_up", label: "Step Up" },
+  { key: "balloon", label: "Balloon" },
+] as const;
+
+export type PaymentScheme = (typeof PAYMENT_SCHEMES)[number]["key"];
+
+export const BUYER_STATUSES = [
+  { key: "current", label: "Current" },
+  { key: "overdue", label: "Overdue" },
+  { key: "restructured", label: "Restructured" },
+  { key: "in_dispute", label: "In dispute" },
+] as const;
+
+export type BuyerStatus = (typeof BUYER_STATUSES)[number]["key"];
+
+export const PAYMENT_DOC_TYPES = [
+  { key: "OR", label: "OR — Official Receipt" },
+  { key: "PR", label: "PR — Provisional Receipt" },
+  { key: "AR", label: "AR — Acknowledgement Receipt" },
+] as const;
+
+export type PaymentDocType = (typeof PAYMENT_DOC_TYPES)[number]["key"];
+
+/** Dispute / case statuses (M5). */
+export const DISPUTE_STATUSES = [
+  { key: "open", label: "Open" },
+  { key: "in_progress", label: "In progress" },
+  { key: "resolved", label: "Resolved" },
+  { key: "escalated", label: "Escalated" },
+] as const;
+
+export type DisputeStatus = (typeof DISPUTE_STATUSES)[number]["key"];
+
+/** Buyer document statuses (M4). */
+export const DOCUMENT_STATUSES = [
+  { key: "not_required", label: "Not required" },
+  { key: "pending", label: "Pending" },
+  { key: "received", label: "Received" },
+  { key: "signed", label: "Signed" },
+  { key: "filed", label: "Filed" },
+  { key: "overdue", label: "Overdue" },
+  { key: "disputed", label: "Disputed" },
+] as const;
+
+export type DocumentStatus = (typeof DOCUMENT_STATUSES)[number]["key"];
+
+/** Document statuses that count a document as "done" for a milestone gate. */
+export const DOC_DONE_STATUSES = ["received", "signed", "filed"] as const;
+
+/** Milestone gates: reservation → CTS → loan → title. */
+export const MILESTONE_GATES = [
+  { key: "reservation", label: "Reservation" },
+  { key: "cts", label: "Contract to Sell" },
+  { key: "loan", label: "Loan Application" },
+  { key: "title", label: "Title Transfer" },
+] as const;
+
+export type MilestoneGate = (typeof MILESTONE_GATES)[number]["key"];
+
+/** Repair-request urgency, statuses, and common issue types (M7). */
+export const REPAIR_URGENCY = [
+  { key: "low", label: "Low" },
+  { key: "normal", label: "Normal" },
+  { key: "urgent", label: "Urgent" },
+] as const;
+
+export type RepairUrgency = (typeof REPAIR_URGENCY)[number]["key"];
+
+export const REPAIR_STATUSES = [
+  { key: "submitted", label: "Submitted" },
+  { key: "assigned", label: "Assigned" },
+  { key: "in_progress", label: "In progress" },
+  { key: "completed", label: "Completed" },
+] as const;
+
+export type RepairStatus = (typeof REPAIR_STATUSES)[number]["key"];
+
+export const REPAIR_ISSUE_TYPES = [
+  "Electrical",
+  "Plumbing",
+  "Aircon",
+  "Appliance",
+  "Structural",
+  "Housekeeping",
+  "Pest control",
+  "Other",
+] as const;
+
+/** Hotel payment methods (M-Hotel). */
+export const HOTEL_PAYMENT_METHODS = [
+  { key: "cash", label: "Cash" },
+  { key: "gcash", label: "GCash" },
+  { key: "maya", label: "Maya" },
+  { key: "bank_transfer", label: "Bank Transfer" },
+] as const;
+
+export type HotelPaymentMethod = (typeof HOTEL_PAYMENT_METHODS)[number]["key"];
+
+export const HOTEL_MENU_CATEGORIES = [
+  "Food",
+  "Beverage",
+  "Consumable",
+  "Service",
+  "Other",
+] as const;
+
+/** Tax modes (config-driven; accounting confirms which applies). */
+export const TAX_MODES = [
+  { key: "none", label: "No tax", defaultRate: 0 },
+  { key: "vat_inclusive", label: "VAT-inclusive (12%)", defaultRate: 0.12 },
+  { key: "non_vat", label: "Non-VAT (3% percentage)", defaultRate: 0.03 },
+] as const;
+
+export type TaxMode = (typeof TAX_MODES)[number]["key"];
+
+/** Housekeeping (Hotel Phase C). */
+export const HOUSEKEEPING_STATUSES = [
+  { key: "pending", label: "Pending" },
+  { key: "in_progress", label: "In progress" },
+  { key: "done", label: "Ready" },
+] as const;
+
+export type HousekeepingStatus = (typeof HOUSEKEEPING_STATUSES)[number]["key"];
+
+export const HOUSEKEEPING_SHIFTS = [
+  { key: "morning", label: "Morning" },
+  { key: "afternoon", label: "Afternoon" },
+  { key: "night", label: "Night" },
+] as const;
+
+/** Pre-checkout room asset check (config-driven; TODO(client-confirm) counts). */
+export const ROOM_ASSET_CHECKLIST = [
+  { key: "pillows", label: "Pillows", expected: 2 },
+  { key: "towels", label: "Bath towels", expected: 2 },
+  { key: "blanket", label: "Blanket", expected: 1 },
+  { key: "tv_remote", label: "TV remote", expected: 1 },
+  { key: "ac_remote", label: "Aircon remote", expected: 1 },
+  { key: "glass", label: "Drinking glass", expected: 2 },
+] as const;
+
+/** Cleaning task checklist. */
+export const CLEANING_CHECKLIST = [
+  { key: "linens", label: "Change bed linens" },
+  { key: "bathroom", label: "Sanitize bathroom" },
+  { key: "trash", label: "Empty trash" },
+  { key: "restock", label: "Restock supplies" },
+  { key: "floor", label: "Sweep & mop floor" },
+  { key: "aircon", label: "Wipe aircon & vents" },
+] as const;
+
+/** Expense categories for P&L (Module 9). */
+export const EXPENSE_CATEGORIES = [
+  "Utilities",
+  "Salaries & Wages",
+  "Supplies",
+  "Repairs & Maintenance",
+  "Marketing",
+  "Taxes & Licenses",
+  "Professional Fees",
+  "Rent",
+  "Others",
+] as const;
+

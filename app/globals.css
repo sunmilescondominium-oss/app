@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+/*
+ * Sun Miles PMS base theme.
+ * TODO(client-confirm): replace the placeholder brand palette (amber "sun"
+ * accent + slate neutrals) once official Sun Miles logo/colors are provided.
+ */
+:root {
+  --brand: #d97706; /* amber-600 */
+  --brand-strong: #b45309; /* amber-700 */
+  --brand-ink: #7c2d12;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: #f8fafc; /* slate-50 */
+  color: #0f172a; /* slate-900 */
+  font-family: var(--font-geist-sans), system-ui, -apple-system, "Segoe UI",
+    Roboto, Arial, sans-serif;
+}
+
+/* Print helpers — used by the Owner Dashboard (M6) print-to-PDF. */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: #ffffff;
+  }
+}

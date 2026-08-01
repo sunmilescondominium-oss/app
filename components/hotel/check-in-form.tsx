@@ -1,0 +1,130 @@
+"use client";
+
+import { useActionState, useEffect, useState } from "react";
+import { checkIn, type ActionResult } from "@/app/(app)/hotel/actions";
+import { roomCharge, promoDiscount } from "@/lib/hotel/rates";
+import { peso } from "@/lib/collections/summary";
+import type { RatePlan, Promo } from "@/lib/hotel/types";
+
+const inputCls =
+  "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
+const labelCls = "mb-1 block text-xs font-medium text-slate-600";
+
+export function CheckInForm({
+  unitId,
+  ratePlans,
+  promos,
+  onDone,
+}: {
+  unitId: string;
+  ratePlans: RatePlan[];
+  promos: Promo[];
+  onDone: () => void;
+}) {
+  const [state, action, pending] = useActionState<ActionResult | undefined, FormData>(
+    checkIn.bind(null, unitId),
+    undefined,
+  );
+
+  const [planId, setPlanId] = useState(ratePlans[0]?.id ?? "");
+  const plan = ratePlans.find((p) => p.id === planId);
+  const [hours, setHours] = useState<number>(ratePlans[0]?.base_hours ?? 3);
+  const [promoId, setPromoId] = useState("");
+  const promo = promos.find((p) => p.id === promoId);
+
+  useEffect(() => {
+    if (state?.ok) onDone();
+  }, [state, onDone]);
+
+  const effHours = plan ? Math.max(hours, plan.base_hours) : hours;
+  const rc = plan ? roomCharge(plan.base_rate, plan.extra_hour_rate, plan.base_hours, effHours) : 0;
+  const disc = promo ? promoDiscount(rc, promo.disc_type, promo.disc_value) : 0;
+
+  return (
+    <form action={action} className="space-y-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div>
+          <label className={labelCls}>Guest label</label>
+          <input name="guest_label" className={inputCls} placeholder="Guest / name or ref" />
+        </div>
+        <div>
+          <label className={labelCls}>Contact (optional)</label>
+          <input name="guest_contact" className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>Rate plan *</label>
+          <select
+            name="rate_plan_id"
+            value={planId}
+            onChange={(e) => {
+              setPlanId(e.target.value);
+              const p = ratePlans.find((x) => x.id === e.target.value);
+              if (p) setHours(p.base_hours);
+            }}
+            className={inputCls}
+          >
+            {ratePlans.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name} — {peso(p.base_rate)} / {p.base_hours}h
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className={labelCls}>Hours (min {plan?.base_hours ?? 3})</label>
+          <input
+            name="planned_hours"
+            type="number"
+            min={plan?.base_hours ?? 1}
+            value={effHours}
+            onChange={(e) => setHours(parseInt(e.target.value, 10) || plan?.base_hours || 1)}
+            className={inputCls}
+          />
+        </div>
+        <div className="sm:col-span-2">
+          <label className={labelCls}>Promo (optional)</label>
+          <select name="promo_id" value={promoId} onChange={(e) => setPromoId(e.target.value)} className={inputCls}>
+            <option value="">— none —</option>
+            {promos.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name} ({p.disc_type === "percent" ? `${p.disc_value}%` : peso(p.disc_value)})
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="rounded-lg bg-slate-50 px-4 py-3 text-sm">
+        <div className="flex justify-between">
+          <span className="text-slate-500">Room charge</span>
+          <span className="tabular-nums">{peso(rc)}</span>
+        </div>
+        {disc > 0 && (
+          <div className="flex justify-between text-emerald-700">
+            <span>Discount</span>
+            <span className="tabular-nums">− {peso(disc)}</span>
+          </div>
+        )}
+        <div className="mt-1 flex justify-between border-t border-slate-200 pt-1 font-semibold">
+          <span>Total</span>
+          <span className="tabular-nums">{peso(Math.max(0, rc - disc))}</span>
+        </div>
+      </div>
+
+      {state && !state.ok && (
+        <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+          {state.error}
+        </p>
+      )}
+
+      <div className="flex justify-end gap-2">
+        <button type="button" onClick={onDone} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">
+          Cancel
+        </button>
+        <button type="submit" disabled={pending} className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-60">
+          {pending ? "Checking in…" : "Check in"}
+        </button>
+      </div>
+    </form>
+  );
+}
