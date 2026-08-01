@@ -1,11 +1,13 @@
+import Link from "next/link";
 import { requireModule } from "@/lib/auth/dal";
 import { canWriteModule } from "@/lib/rbac/modules";
-import { payrollReport, staffPayList } from "@/lib/hr/queries";
+import { payrollReport, staffPayList, getPayrollSettings } from "@/lib/hr/queries";
 import { todayManila, peso } from "@/lib/collections/summary";
 import { APP_BRAND_SHORT } from "@/lib/config";
 import { PageHeader } from "@/components/ui";
 import { PrintButton } from "@/components/print-button";
 import { PayPanel } from "@/components/hr/pay-panel";
+import { PayrollSettingsPanel } from "@/components/hr/settings-panel";
 
 export const metadata = { title: "HR / Payroll" };
 
@@ -26,7 +28,11 @@ export default async function HrPage({
   const from = (typeof sp.from === "string" && sp.from) || monthStart();
   const to = (typeof sp.to === "string" && sp.to) || todayManila();
 
-  const [report, payList] = await Promise.all([payrollReport(from, to), canWrite ? staffPayList() : Promise.resolve([])]);
+  const [report, payList, settings] = await Promise.all([
+    payrollReport(from, to),
+    canWrite ? staffPayList() : Promise.resolve([]),
+    getPayrollSettings(),
+  ]);
 
   const inputCls =
     "rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
@@ -34,13 +40,13 @@ export default async function HrPage({
   return (
     <>
       <div className="no-print mb-4 flex items-center justify-between gap-3">
-        <PageHeader title="HR / Payroll" subtitle={`DTR & payroll · ${from} to ${to}`} />
-        <PrintButton label="Print DTR" />
+        <PageHeader title="HR / Payroll" subtitle={`DTR & payroll (PH daily-rate) · ${from} to ${to}`} />
+        <PrintButton label="Print payroll" />
       </div>
 
       <div className="mb-4 hidden border-b border-slate-300 pb-3 print:block">
         <p className="text-lg font-bold">{APP_BRAND_SHORT}</p>
-        <p className="text-sm">Daily Time Record & Payroll Summary — {from} to {to}</p>
+        <p className="text-sm">Payroll Summary — {from} to {to}</p>
       </div>
 
       <form method="get" className="no-print mb-4 flex flex-wrap items-end gap-3 rounded-2xl border border-slate-200 bg-white p-4">
@@ -57,51 +63,81 @@ export default async function HrPage({
         </button>
       </form>
 
-      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">DTR & payroll</h2>
+      {canWrite && (
+        <div className="mb-6">
+          <PayrollSettingsPanel settings={settings} />
+        </div>
+      )}
+
+      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Payroll summary</h2>
       <div className="mb-6 overflow-x-auto rounded-2xl border border-slate-200 bg-white">
-        <table className="w-full min-w-[640px] text-left text-sm">
+        <table className="w-full min-w-[900px] text-left text-sm">
           <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
             <tr>
-              <th className="px-4 py-3">Staff</th>
-              <th className="px-4 py-3 text-right">Days</th>
-              <th className="px-4 py-3 text-right">Hours</th>
-              <th className="px-4 py-3 text-right">Rate/hr</th>
-              <th className="px-4 py-3 text-right">Gross pay</th>
+              <th className="px-3 py-3">Staff</th>
+              <th className="px-3 py-3 text-right">Daily</th>
+              <th className="px-3 py-3 text-right">Days</th>
+              <th className="px-3 py-3 text-right">½</th>
+              <th className="px-3 py-3 text-right">Late (m)</th>
+              <th className="px-3 py-3 text-right">UT (m)</th>
+              <th className="px-3 py-3 text-right">OT (h)</th>
+              <th className="px-3 py-3 text-right">Night (h)</th>
+              <th className="px-3 py-3 text-right">Basic</th>
+              <th className="px-3 py-3 text-right">OT pay</th>
+              <th className="px-3 py-3 text-right">Night</th>
+              <th className="px-3 py-3 text-right">Deduct</th>
+              <th className="px-3 py-3 text-right">Net pay</th>
             </tr>
           </thead>
           <tbody>
             {report.rows.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-slate-500">No completed time records in this range.</td>
+                <td colSpan={13} className="px-4 py-8 text-center text-slate-500">No completed time records in this range.</td>
               </tr>
             )}
             {report.rows.map((r) => (
               <tr key={r.userId} className="border-b border-slate-100 last:border-0">
-                <td className="px-4 py-2.5">{r.label}</td>
-                <td className="px-4 py-2.5 text-right tabular-nums">{r.days}</td>
-                <td className="px-4 py-2.5 text-right tabular-nums">{r.hours.toFixed(2)}</td>
-                <td className="px-4 py-2.5 text-right tabular-nums">{r.hourlyRate ? peso(r.hourlyRate) : <span className="text-amber-600">set rate</span>}</td>
-                <td className="px-4 py-2.5 text-right tabular-nums">{peso(r.gross)}</td>
+                <td className="px-3 py-2.5">
+                  <Link href={`/hr/${r.userId}?from=${from}&to=${to}`} className="font-medium text-amber-700 hover:underline">
+                    {r.label}
+                  </Link>
+                </td>
+                <td className="px-3 py-2.5 text-right tabular-nums">{r.dailyRate ? peso(r.dailyRate) : <span className="text-amber-600">set</span>}</td>
+                <td className="px-3 py-2.5 text-right tabular-nums">{r.daysPresent}</td>
+                <td className="px-3 py-2.5 text-right tabular-nums">{r.halfDays || "—"}</td>
+                <td className="px-3 py-2.5 text-right tabular-nums">{r.lateMinutes || "—"}</td>
+                <td className="px-3 py-2.5 text-right tabular-nums">{r.undertimeMinutes || "—"}</td>
+                <td className="px-3 py-2.5 text-right tabular-nums">{r.otHours || "—"}</td>
+                <td className="px-3 py-2.5 text-right tabular-nums">{r.nightHours || "—"}</td>
+                <td className="px-3 py-2.5 text-right tabular-nums">{peso(r.basicPay)}</td>
+                <td className="px-3 py-2.5 text-right tabular-nums">{r.otPay ? peso(r.otPay) : "—"}</td>
+                <td className="px-3 py-2.5 text-right tabular-nums">{r.nightPay ? peso(r.nightPay) : "—"}</td>
+                <td className="px-3 py-2.5 text-right tabular-nums text-red-700">{r.deductions ? `(${peso(r.deductions)})` : "—"}</td>
+                <td className="px-3 py-2.5 text-right font-semibold tabular-nums">{peso(r.netPay)}</td>
               </tr>
             ))}
           </tbody>
           <tfoot>
             <tr className="border-t border-slate-200 font-semibold">
-              <td className="px-4 py-3">Total</td>
-              <td className="px-4 py-3" />
-              <td className="px-4 py-3 text-right tabular-nums">{report.hoursTotal.toFixed(2)}</td>
-              <td className="px-4 py-3" />
-              <td className="px-4 py-3 text-right tabular-nums">{peso(report.grossTotal)}</td>
+              <td className="px-3 py-3" colSpan={8}>Total</td>
+              <td className="px-3 py-3 text-right tabular-nums">{peso(report.basicTotal)}</td>
+              <td className="px-3 py-3 text-right tabular-nums">{peso(report.otTotal)}</td>
+              <td className="px-3 py-3 text-right tabular-nums">{peso(report.nightTotal)}</td>
+              <td className="px-3 py-3 text-right tabular-nums text-red-700">{report.deductionTotal ? `(${peso(report.deductionTotal)})` : "—"}</td>
+              <td className="px-3 py-3 text-right tabular-nums">{peso(report.netTotal)}</td>
             </tr>
           </tfoot>
         </table>
       </div>
+      <p className="mb-6 text-xs text-slate-400">
+        Hourly = daily ÷ {settings.standard_hours}. OT = hourly × {settings.ot_multiplier}. Night diff = {Math.round(settings.night_diff_rate * 100)}% ({settings.night_start.slice(0, 5)}–{settings.night_end.slice(0, 5)}). Undertime is not offset by OT (Art. 88). Click a name for the daily DTR.
+      </p>
 
       {canWrite && (
         <>
-          <h2 className="no-print mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Hourly rates</h2>
+          <h2 className="no-print mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Daily rates</h2>
           <PayPanel rows={payList} />
-          <p className="no-print mt-2 text-xs text-slate-400">Rates feed the gross-pay column. Confirm final payroll figures with accounting.</p>
+          <p className="no-print mt-2 text-xs text-slate-400">Confirm final payroll figures with accounting.</p>
         </>
       )}
     </>

@@ -10,25 +10,38 @@ export interface TimeRecord {
   note: string | null;
 }
 
-/** A staff member's DTR total over a period (aggregated for HR). */
+/** A staff member's payroll totals over a period (PH daily-rate basis). */
 export interface DtrRow {
   userId: string;
   label: string;
-  days: number;
-  hours: number;
-  hourlyRate: number;
-  gross: number;
+  dailyRate: number;
+  daysPresent: number;
+  halfDays: number;
+  lateDays: number;
+  lateMinutes: number;
+  undertimeMinutes: number;
+  regularHours: number;
+  otHours: number;
+  nightHours: number;
+  basicPay: number;
+  otPay: number;
+  nightPay: number;
+  deductions: number;
+  netPay: number;
 }
 
 export interface PayrollReport {
   from: string;
   to: string;
   rows: DtrRow[];
-  hoursTotal: number;
-  grossTotal: number;
+  netTotal: number;
+  basicTotal: number;
+  otTotal: number;
+  nightTotal: number;
+  deductionTotal: number;
 }
 
 export interface StaffPay {
   user_id: string;
-  hourly_rate: number;
+  daily_rate: number;
 }

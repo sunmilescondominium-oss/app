@@ -5,11 +5,11 @@ import { useRouter } from "next/navigation";
 import { setStaffPay } from "@/app/(app)/hr/actions";
 import { peso } from "@/lib/collections/summary";
 
-type Row = { userId: string; label: string; hourlyRate: number };
+type Row = { userId: string; label: string; dailyRate: number };
 
 function RateRow({ row }: { row: Row }) {
   const router = useRouter();
-  const [rate, setRate] = useState(row.hourlyRate);
+  const [rate, setRate] = useState(row.dailyRate);
   const [busy, setBusy] = useState(false);
 
   async function save() {
@@ -26,7 +26,8 @@ function RateRow({ row }: { row: Row }) {
   return (
     <tr className="border-b border-slate-100 last:border-0">
       <td className="px-4 py-2.5">{row.label}</td>
-      <td className="px-4 py-2.5 text-right tabular-nums">{peso(row.hourlyRate)}/hr</td>
+      <td className="px-4 py-2.5 text-right tabular-nums">{peso(row.dailyRate)}/day</td>
+      <td className="px-4 py-2.5 text-right text-slate-400 tabular-nums">{peso(row.dailyRate / 8)}/hr</td>
       <td className="px-4 py-2.5 text-right">
         <div className="flex items-center justify-end gap-2">
           <input
@@ -40,7 +41,7 @@ function RateRow({ row }: { row: Row }) {
           <button
             type="button"
             onClick={save}
-            disabled={busy || rate === row.hourlyRate}
+            disabled={busy || rate === row.dailyRate}
             className="rounded-lg bg-amber-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-50"
           >
             Save
@@ -54,12 +55,13 @@ function RateRow({ row }: { row: Row }) {
 export function PayPanel({ rows }: { rows: Row[] }) {
   return (
     <div className="no-print overflow-x-auto rounded-2xl border border-slate-200 bg-white">
-      <table className="w-full min-w-[520px] text-left text-sm">
+      <table className="w-full min-w-[560px] text-left text-sm">
         <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
           <tr>
             <th className="px-4 py-3">Staff</th>
-            <th className="px-4 py-3 text-right">Current rate</th>
-            <th className="px-4 py-3 text-right">Set rate</th>
+            <th className="px-4 py-3 text-right">Daily rate</th>
+            <th className="px-4 py-3 text-right">Hourly (÷8)</th>
+            <th className="px-4 py-3 text-right">Set daily rate</th>
           </tr>
         </thead>
         <tbody>

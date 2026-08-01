@@ -1,0 +1,131 @@
+import Link from "next/link";
+import { requireModule } from "@/lib/auth/dal";
+import { dtrDetail } from "@/lib/hr/queries";
+import { todayManila, peso } from "@/lib/collections/summary";
+import { APP_BRAND_SHORT } from "@/lib/config";
+import { PageHeader } from "@/components/ui";
+import { PrintButton } from "@/components/print-button";
+
+export const metadata = { title: "DTR detail" };
+
+function monthStart(): string {
+  const d = new Date();
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)).toISOString().slice(0, 10);
+}
+
+function t(iso: string | null): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleTimeString("en-PH", { timeZone: "Asia/Manila", hour: "2-digit", minute: "2-digit" });
+}
+
+const STATUS: Record<string, string> = {
+  present: "text-emerald-700",
+  half_day: "text-amber-700",
+  absent: "text-red-700",
+  open: "text-slate-400",
+};
+
+export default async function DtrDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ userId: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  await requireModule("hr");
+  const { userId } = await params;
+  const sp = await searchParams;
+  const from = (typeof sp.from === "string" && sp.from) || monthStart();
+  const to = (typeof sp.to === "string" && sp.to) || todayManila();
+
+  const { label, dailyRate, days } = await dtrDetail(userId, from, to);
+
+  const totals = days.reduce(
+    (a, d) => ({
+      basic: a.basic + d.basicPay,
+      ot: a.ot + d.otPay,
+      night: a.night + d.nightPay,
+      deduct: a.deduct + d.lateDeduction + d.undertimeDeduction,
+      net: a.net + d.netPay,
+    }),
+    { basic: 0, ot: 0, night: 0, deduct: 0, net: 0 },
+  );
+  const r2 = (n: number) => Math.round(n * 100) / 100;
+
+  return (
+    <>
+      <div className="no-print mb-4 flex items-center justify-between gap-3">
+        <div>
+          <Link href={`/hr?from=${from}&to=${to}`} className="text-xs text-amber-700 hover:underline">
+            ← Back to payroll
+          </Link>
+          <PageHeader title={`DTR — ${label}`} subtitle={`${peso(dailyRate)}/day · ${from} to ${to}`} />
+        </div>
+        <PrintButton label="Print DTR" />
+      </div>
+
+      <div className="mb-4 hidden border-b border-slate-300 pb-3 print:block">
+        <p className="text-lg font-bold">{APP_BRAND_SHORT}</p>
+        <p className="text-sm">Daily Time Record — {label} · {peso(dailyRate)}/day · {from} to {to}</p>
+      </div>
+
+      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+        <table className="w-full min-w-[840px] text-left text-sm">
+          <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+            <tr>
+              <th className="px-3 py-3">Date</th>
+              <th className="px-3 py-3">In</th>
+              <th className="px-3 py-3">Out</th>
+              <th className="px-3 py-3">Status</th>
+              <th className="px-3 py-3 text-right">Late (m)</th>
+              <th className="px-3 py-3 text-right">UT (m)</th>
+              <th className="px-3 py-3 text-right">Reg (h)</th>
+              <th className="px-3 py-3 text-right">OT (h)</th>
+              <th className="px-3 py-3 text-right">Night (h)</th>
+              <th className="px-3 py-3 text-right">Basic</th>
+              <th className="px-3 py-3 text-right">OT</th>
+              <th className="px-3 py-3 text-right">Night</th>
+              <th className="px-3 py-3 text-right">Net</th>
+            </tr>
+          </thead>
+          <tbody>
+            {days.length === 0 && (
+              <tr>
+                <td colSpan={13} className="px-4 py-8 text-center text-slate-500">No records in this range.</td>
+              </tr>
+            )}
+            {days.map((d, i) => (
+              <tr key={`${d.date}-${i}`} className="border-b border-slate-100 last:border-0">
+                <td className="px-3 py-2.5">{d.date}</td>
+                <td className="px-3 py-2.5">{t(d.timeIn)}</td>
+                <td className="px-3 py-2.5">{d.timeOut ? t(d.timeOut) : <span className="text-emerald-600">open</span>}</td>
+                <td className={`px-3 py-2.5 capitalize ${STATUS[d.status]}`}>{d.status.replace("_", " ")}</td>
+                <td className="px-3 py-2.5 text-right tabular-nums">{d.lateMinutes || "—"}</td>
+                <td className="px-3 py-2.5 text-right tabular-nums">{d.undertimeMinutes || "—"}</td>
+                <td className="px-3 py-2.5 text-right tabular-nums">{d.regularHours || "—"}</td>
+                <td className="px-3 py-2.5 text-right tabular-nums">{d.otHours || "—"}</td>
+                <td className="px-3 py-2.5 text-right tabular-nums">{d.nightHours || "—"}</td>
+                <td className="px-3 py-2.5 text-right tabular-nums">{peso(d.basicPay)}</td>
+                <td className="px-3 py-2.5 text-right tabular-nums">{d.otPay ? peso(d.otPay) : "—"}</td>
+                <td className="px-3 py-2.5 text-right tabular-nums">{d.nightPay ? peso(d.nightPay) : "—"}</td>
+                <td className="px-3 py-2.5 text-right font-semibold tabular-nums">{peso(d.netPay)}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr className="border-t border-slate-200 font-semibold">
+              <td className="px-3 py-3" colSpan={9}>Total</td>
+              <td className="px-3 py-3 text-right tabular-nums">{peso(r2(totals.basic))}</td>
+              <td className="px-3 py-3 text-right tabular-nums">{peso(r2(totals.ot))}</td>
+              <td className="px-3 py-3 text-right tabular-nums">{peso(r2(totals.night))}</td>
+              <td className="px-3 py-3 text-right tabular-nums">{peso(r2(totals.net))}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      {totals.deduct > 0 && (
+        <p className="mt-2 text-xs text-slate-500">Total late/undertime deductions already reflected in Basic: {peso(r2(totals.deduct))}.</p>
+      )}
+    </>
+  );
+}
