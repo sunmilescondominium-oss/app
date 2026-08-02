@@ -9,10 +9,12 @@ export function LeaveConflictFlags({ c }: { c: LeaveConflict }) {
       ? { text: `${c.leadDays}d notice`, tone: "green" }
       : { text: `Short notice (${c.leadDays}d)`, tone: "amber" },
   );
-  for (const r of c.soleRoles) chips.push({ text: `No cover: ${r.label}`, tone: "red" });
+  for (const r of c.soleRoles) chips.push({ text: `Only staff: ${r.label}`, tone: "red" });
+  for (const r of c.uncoveredRoles) chips.push({ text: `Nobody scheduled: ${r.label}`, tone: "red" });
   if (c.openRepairs > 0) chips.push({ text: `${c.openRepairs} open repair${c.openRepairs > 1 ? "s" : ""}`, tone: "amber" });
   if (c.openHousekeeping > 0)
     chips.push({ text: `${c.openHousekeeping} cleaning task${c.openHousekeeping > 1 ? "s" : ""}`, tone: "amber" });
+  if (c.noScheduleData) chips.push({ text: "No shifts set for these dates", tone: "amber" });
   if (!c.hasConcern) chips.push({ text: "Coverage OK", tone: "green" });
 
   const tones: Record<string, string> = {
@@ -30,7 +32,7 @@ export function LeaveConflictFlags({ c }: { c: LeaveConflict }) {
       ))}
       {c.coverage.length > 0 && (
         <span className="text-[11px] text-slate-400">
-          coverage: {c.coverage.map((r) => `${r.label} +${r.others}`).join(", ")}
+          coverage: {c.coverage.map((r) => `${r.label} ${r.scheduled}/${r.others} scheduled`).join(", ")}
         </span>
       )}
     </div>

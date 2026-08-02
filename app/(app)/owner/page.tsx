@@ -19,7 +19,10 @@ export default async function OwnerPage() {
 
   const pending = await listLeave("pending");
   const leaveItems = await Promise.all(
-    pending.map(async (req) => ({ req, conflict: await analyzeLeave({ userId: req.user_id, start_date: req.start_date }) })),
+    pending.map(async (req) => ({
+      req,
+      conflict: await analyzeLeave({ userId: req.user_id, start_date: req.start_date, end_date: req.end_date }),
+    })),
   );
 
   const cards = [
