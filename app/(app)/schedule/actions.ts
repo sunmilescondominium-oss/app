@@ -39,6 +39,29 @@ export async function assignShift(_prev: ActionResult | undefined, formData: For
   return { ok: true };
 }
 
+/** One-click assign using the org default schedule (for the weekly grid). */
+export async function quickAssignShift(userId: string, workDate: string): Promise<ActionResult> {
+  const user = await requireModuleWrite("scheduling");
+  if (!userId || !workDate) return { ok: false, error: "Missing staff or date." };
+
+  const { getPayrollSettings } = await import("@/lib/hr/queries");
+  const s = await getPayrollSettings();
+  const start = s.scheduled_time_in.slice(0, 5);
+  const [h, m] = start.split(":").map(Number);
+  const endMins = (h * 60 + m + (s.standard_hours + s.break_hours) * 60) % (24 * 60);
+  const end = `${String(Math.floor(endMins / 60)).padStart(2, "0")}:${String(endMins % 60).padStart(2, "0")}`;
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("shift_schedules")
+    .upsert({ user_id: userId, work_date: workDate, start_time: start, end_time: end, created_by: user.userId }, { onConflict: "user_id,work_date" });
+  if (error) return { ok: false, error: error.message };
+
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "create", entity: "shift_schedules", entityId: `${userId}:${workDate}`, diff: { quick: true, start, end } });
+  revalidatePath("/schedule");
+  return { ok: true };
+}
+
 export async function removeShift(id: string): Promise<ActionResult> {
   const user = await requireModuleWrite("scheduling");
   const supabase = await createClient();
