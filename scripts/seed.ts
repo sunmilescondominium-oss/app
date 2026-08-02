@@ -106,6 +106,13 @@ async function main() {
     } else {
       console.log("✔ storage bucket attendance-photos ready (private)");
     }
+
+    const staffBucket = await admin.storage.createBucket("staff-photos", { public: false });
+    if (staffBucket.error && !/exist/i.test(staffBucket.error.message)) {
+      console.warn("⚠ bucket staff-photos:", staffBucket.error.message);
+    } else {
+      console.log("✔ storage bucket staff-photos ready (private)");
+    }
   } finally {
     await sql.end();
   }

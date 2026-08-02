@@ -1,0 +1,72 @@
+"use client";
+
+import { useActionState, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { requestLeave, cancelLeave, type ActionResult } from "@/app/(app)/me/actions";
+import { LEAVE_TYPES, LEAVE_MIN_LEAD_DAYS } from "@/lib/config";
+
+const cls =
+  "rounded-lg border border-slate-300 px-2.5 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
+
+export function LeaveForm() {
+  const router = useRouter();
+  const [state, action, pending] = useActionState<ActionResult | undefined, FormData>(requestLeave, undefined);
+  useEffect(() => {
+    if (state?.ok) router.refresh();
+  }, [state, router]);
+
+  return (
+    <form action={action} className="flex flex-wrap items-end gap-2 rounded-2xl border border-slate-200 bg-white p-4">
+      <div>
+        <label className="mb-1 block text-xs font-medium text-slate-600">Type</label>
+        <select name="leave_type" defaultValue={LEAVE_TYPES[0]} className={cls}>
+          {LEAVE_TYPES.map((t) => (
+            <option key={t} value={t}>{t}</option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label className="mb-1 block text-xs font-medium text-slate-600">From</label>
+        <input type="date" name="start_date" required className={cls} />
+      </div>
+      <div>
+        <label className="mb-1 block text-xs font-medium text-slate-600">To</label>
+        <input type="date" name="end_date" required className={cls} />
+      </div>
+      <div className="min-w-[10rem] flex-1">
+        <label className="mb-1 block text-xs font-medium text-slate-600">Reason</label>
+        <input name="reason" placeholder="Optional" className={`${cls} w-full`} />
+      </div>
+      <button
+        type="submit"
+        disabled={pending}
+        className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-60"
+      >
+        {pending ? "Submitting…" : "Request leave"}
+      </button>
+      <p className="w-full text-xs text-slate-400">Please file at least {LEAVE_MIN_LEAD_DAYS} days ahead so coverage can be arranged.</p>
+      {state && !state.ok && <p className="w-full text-sm text-red-700">{state.error}</p>}
+    </form>
+  );
+}
+
+export function CancelLeave({ id }: { id: string }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  async function onCancel() {
+    if (!window.confirm("Cancel this request?")) return;
+    setBusy(true);
+    const res = await cancelLeave(id);
+    setBusy(false);
+    if (!res.ok) {
+      window.alert(res.error);
+      return;
+    }
+    router.refresh();
+  }
+  return (
+    <button type="button" onClick={onCancel} disabled={busy} className="text-xs font-medium text-rose-600 hover:underline disabled:opacity-50">
+      cancel
+    </button>
+  );
+}

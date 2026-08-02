@@ -233,3 +233,25 @@ export const EXPENSE_CATEGORIES = [
   "Others",
 ] as const;
 
+// Employee leave — TODO(client-confirm): confirm the leave types your company
+// grants and which are paid. Editable here without a deploy.
+export const LEAVE_TYPES = [
+  "Vacation",
+  "Sick",
+  "Emergency",
+  "Service Incentive Leave (SIL)",
+  "Unpaid",
+] as const;
+
+export const LEAVE_STATUSES = [
+  { key: "pending", label: "Pending", tone: "amber" },
+  { key: "approved", label: "Approved", tone: "green" },
+  { key: "rejected", label: "Rejected", tone: "red" },
+  { key: "cancelled", label: "Cancelled", tone: "slate" },
+] as const;
+
+export type LeaveStatus = (typeof LEAVE_STATUSES)[number]["key"];
+
+/** Minimum notice (days) a leave request should give before it starts. */
+export const LEAVE_MIN_LEAD_DAYS = 3; // TODO(client-confirm)
+

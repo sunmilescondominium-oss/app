@@ -13,6 +13,7 @@ import { PageHeader } from "@/components/ui";
 import { PrintButton } from "@/components/print-button";
 import { ExpensePanel } from "@/components/finance/expense-panel";
 import { VatSettings } from "@/components/finance/vat-settings";
+import { SalesByLineChart, MonthlyChart } from "@/components/finance/charts";
 
 export const metadata = { title: "P&L / Reports" };
 
@@ -75,6 +76,18 @@ export default async function FinancePage({
           <VatSettings settings={settings} />
         </div>
       )}
+
+      {/* Charts */}
+      <section className="mb-6 grid gap-4 lg:grid-cols-2">
+        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          <p className="mb-3 text-sm font-semibold text-slate-800">Sales by business line</p>
+          <SalesByLineChart rows={sales.rows} />
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          <p className="mb-3 text-sm font-semibold text-slate-800">Income vs expense — last 6 months</p>
+          <MonthlyChart points={monthly} />
+        </div>
+      </section>
 
       {/* Sales report */}
       <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Sales (income)</h2>

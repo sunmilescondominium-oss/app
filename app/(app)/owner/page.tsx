@@ -1,8 +1,11 @@
 import { requireModule } from "@/lib/auth/dal";
 import { getOwnerSnapshot } from "@/lib/owner/queries";
+import { listLeave } from "@/lib/employees/queries";
+import { analyzeLeave } from "@/lib/employees/leave-analysis";
 import { peso } from "@/lib/collections/summary";
 import { APP_BRAND, APP_BRAND_SHORT } from "@/lib/config";
 import { PrintButton } from "@/components/print-button";
+import { PendingLeave } from "@/components/employees/pending-leave";
 
 export const metadata = { title: "Owner Dashboard" };
 
@@ -13,6 +16,11 @@ export const metadata = { title: "Owner Dashboard" };
 export default async function OwnerPage() {
   await requireModule("owner");
   const s = await getOwnerSnapshot();
+
+  const pending = await listLeave("pending");
+  const leaveItems = await Promise.all(
+    pending.map(async (req) => ({ req, conflict: await analyzeLeave({ userId: req.user_id, start_date: req.start_date }) })),
+  );
 
   const cards = [
     { label: "Money collected this week", value: peso(s.weekTotal), tone: "text-emerald-700" },
@@ -63,6 +71,19 @@ export default async function OwnerPage() {
             ))}
           </ul>
         )}
+      </div>
+
+      <div className="mt-8 rounded-2xl border-2 border-slate-200 bg-white p-6">
+        <h2 className="text-2xl font-bold text-slate-900">
+          Leave requests
+          {leaveItems.length > 0 && (
+            <span className="ml-2 rounded-full bg-amber-100 px-3 py-0.5 align-middle text-lg text-amber-800">{leaveItems.length}</span>
+          )}
+        </h2>
+        <p className="mt-1 text-base text-slate-500">Flags show where a leave would leave work uncovered. You can approve or reject.</p>
+        <div className="mt-4 text-[15px] leading-normal">
+          <PendingLeave items={leaveItems} canDecide />
+        </div>
       </div>
 
       <p className="mt-8 text-center text-sm text-slate-500">{APP_BRAND}</p>

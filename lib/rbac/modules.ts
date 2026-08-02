@@ -43,7 +43,13 @@ export type ModuleKey =
   | "finance"
   | "attendance"
   | "hr"
+  | "employee"
+  | "employees"
   | "users";
+
+/** Roles that may approve/reject leave — TODO(client-confirm). Owner included so
+ *  the owner can act on requests surfaced in the Owner Dashboard. */
+export const LEAVE_APPROVER_ROLES: RoleKey[] = ["owner", "admin", "managing_officer", "operations_manager"];
 
 export interface ModuleDef {
   key: ModuleKey;
@@ -176,6 +182,25 @@ export const MODULES: Record<ModuleKey, ModuleDef> = {
     milestone: "M8",
     read: ["warehouse_timekeeper", "accounting", "admin", "managing_officer"],
     write: ["admin", "accounting"],
+  },
+  employee: {
+    key: "employee",
+    path: "/me",
+    label: "My Portal",
+    blurb: "My attendance, payslip & leave.",
+    milestone: "M8",
+    read: STAFF_ROLE_KEYS,
+    write: STAFF_ROLE_KEYS,
+  },
+  employees: {
+    key: "employees",
+    path: "/employees",
+    label: "Employees",
+    blurb: "Staff roster, photos & leave approvals.",
+    milestone: "M8",
+    // Roster viewers + photo uploaders — HR / admin / consultant / ops / top users.
+    read: ["admin", "managing_officer", "operations_manager", "consultant", "accounting", "warehouse_timekeeper"],
+    write: ["admin", "managing_officer", "operations_manager", "consultant", "accounting", "warehouse_timekeeper"],
   },
   users: {
     key: "users",

@@ -1,0 +1,84 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { requireModuleWrite, requireAuth, userHasAnyRole } from "@/lib/auth/dal";
+import { LEAVE_APPROVER_ROLES } from "@/lib/rbac/modules";
+import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { logAudit } from "@/lib/audit";
+import { sendAlert } from "@/lib/alerts/sendAlert";
+
+export type ActionResult = { ok: true } | { ok: false; error: string };
+
+/** Upload a staff photo (HR / admin / consultant / ops / top users). */
+export async function uploadStaffPhoto(userId: string, formData: FormData): Promise<ActionResult> {
+  const user = await requireModuleWrite("employees");
+  const photo = formData.get("photo");
+  if (!(photo instanceof File) || photo.size === 0) return { ok: false, error: "Choose a photo." };
+  if (!photo.type.startsWith("image/")) return { ok: false, error: "File must be an image." };
+  if (photo.size > 8 * 1024 * 1024) return { ok: false, error: "Photo too large (max 8 MB)." };
+
+  const admin = createAdminClient();
+  const path = `${userId}/${Date.now()}.jpg`;
+  const bytes = new Uint8Array(await photo.arrayBuffer());
+  const up = await admin.storage.from("staff-photos").upload(path, bytes, { contentType: photo.type || "image/jpeg" });
+  if (up.error) return { ok: false, error: up.error.message };
+
+  const { error } = await admin.from("profiles").update({ photo_path: path }).eq("id", userId);
+  if (error) return { ok: false, error: error.message };
+
+  await logAudit({
+    actorUserId: user.userId,
+    actorRoles: user.roleKeys,
+    action: "update",
+    entity: "profiles",
+    entityId: userId,
+    diff: { photo: true },
+  });
+  revalidatePath("/employees");
+  revalidatePath("/me");
+  return { ok: true };
+}
+
+/** Approve or reject a leave request — approver roles (incl. owner) only. */
+export async function decideLeave(id: string, status: "approved" | "rejected", note?: string): Promise<ActionResult> {
+  const user = await requireAuth();
+  if (!userHasAnyRole(user, LEAVE_APPROVER_ROLES)) return { ok: false, error: "You cannot approve leave." };
+  if (status !== "approved" && status !== "rejected") return { ok: false, error: "Invalid decision." };
+
+  const supabase = await createClient();
+  const { data: row, error } = await supabase
+    .from("leave_requests")
+    .update({ status, decided_by: user.userId, decided_at: new Date().toISOString(), decision_note: note || null })
+    .eq("id", id)
+    .eq("status", "pending")
+    .select("user_id, leave_type, start_date, end_date")
+    .single();
+  if (error) return { ok: false, error: error.message };
+
+  await logAudit({
+    actorUserId: user.userId,
+    actorRoles: user.roleKeys,
+    action: "update",
+    entity: "leave_requests",
+    entityId: id,
+    diff: { status },
+  });
+
+  // Announcement — notify the configured recipients of an approved leave so the
+  // team can adjust coverage ahead of time. Best-effort; never blocks approval.
+  if (status === "approved" && row) {
+    const admin = createAdminClient();
+    const { data: prof } = await admin.from("profiles").select("display_label").eq("id", row.user_id).maybeSingle();
+    const who = (prof?.display_label as string) || "A staff member";
+    await sendAlert({
+      subject: `Approved leave: ${who} (${row.start_date}–${row.end_date})`,
+      body: `${who} is on ${row.leave_type} leave from ${row.start_date} to ${row.end_date}. Please arrange coverage for any affected roles/tasks.`,
+    }).catch(() => {});
+  }
+
+  revalidatePath("/employees");
+  revalidatePath("/me");
+  revalidatePath("/owner");
+  return { ok: true };
+}
