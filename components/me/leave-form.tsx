@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { requestLeave, cancelLeave, type ActionResult } from "@/app/(app)/me/actions";
+import { requestLeave, requestOB, cancelLeave, type ActionResult } from "@/app/(app)/me/actions";
 import { LEAVE_TYPES, LEAVE_MIN_LEAD_DAYS } from "@/lib/config";
 
 const cls =
@@ -45,6 +45,43 @@ export function LeaveForm() {
         {pending ? "Submitting…" : "Request leave"}
       </button>
       <p className="w-full text-xs text-slate-400">Please file at least {LEAVE_MIN_LEAD_DAYS} days ahead so coverage can be arranged.</p>
+      {state && !state.ok && <p className="w-full text-sm text-red-700">{state.error}</p>}
+    </form>
+  );
+}
+
+export function ObForm() {
+  const router = useRouter();
+  const [state, action, pending] = useActionState<ActionResult | undefined, FormData>(requestOB, undefined);
+  useEffect(() => {
+    if (state?.ok) router.refresh();
+  }, [state, router]);
+
+  return (
+    <form action={action} className="flex flex-wrap items-end gap-2 rounded-2xl border border-sky-200 bg-sky-50/40 p-4">
+      <div>
+        <label className="mb-1 block text-xs font-medium text-slate-600">OB date</label>
+        <input type="date" name="start_date" required className={cls} />
+      </div>
+      <div>
+        <label className="mb-1 block text-xs font-medium text-slate-600">Until (optional)</label>
+        <input type="date" name="end_date" className={cls} />
+      </div>
+      <div>
+        <label className="mb-1 block text-xs font-medium text-slate-600">Duration</label>
+        <select name="duration" defaultValue="whole_day" className={cls}>
+          <option value="whole_day">Whole day</option>
+          <option value="half_day">Half day</option>
+        </select>
+      </div>
+      <div className="min-w-[10rem] flex-1">
+        <label className="mb-1 block text-xs font-medium text-slate-600">Where / purpose</label>
+        <input name="reason" placeholder="e.g. City Hall permit" className={`${cls} w-full`} />
+      </div>
+      <button type="submit" disabled={pending} className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700 disabled:opacity-60">
+        {pending ? "Submitting…" : "File OB"}
+      </button>
+      <p className="w-full text-xs text-slate-400">Official Business needs approval. It is auto-cancelled if you clock in on that day.</p>
       {state && !state.ok && <p className="w-full text-sm text-red-700">{state.error}</p>}
     </form>
   );

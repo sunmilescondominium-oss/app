@@ -45,6 +45,7 @@ export type ModuleKey =
   | "hr"
   | "employee"
   | "employees"
+  | "scheduling"
   | "users";
 
 /** Roles that may approve/reject leave — TODO(client-confirm). Owner included so
@@ -201,6 +202,15 @@ export const MODULES: Record<ModuleKey, ModuleDef> = {
     // Roster viewers + photo uploaders — HR / admin / consultant / ops / top users.
     read: ["admin", "managing_officer", "operations_manager", "consultant", "accounting", "warehouse_timekeeper"],
     write: ["admin", "managing_officer", "operations_manager", "consultant", "accounting", "warehouse_timekeeper"],
+  },
+  scheduling: {
+    key: "scheduling",
+    path: "/schedule",
+    label: "Shift Schedule",
+    blurb: "Assign staff shifts per day.",
+    milestone: "M8",
+    read: ["admin", "managing_officer", "operations_manager", "warehouse_timekeeper"],
+    write: ["admin", "managing_officer", "operations_manager", "warehouse_timekeeper"],
   },
   users: {
     key: "users",

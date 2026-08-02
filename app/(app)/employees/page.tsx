@@ -6,6 +6,7 @@ import { peso } from "@/lib/collections/summary";
 import { PageHeader } from "@/components/ui";
 import { Avatar } from "@/components/employees/avatar";
 import { PhotoUpload } from "@/components/employees/photo-upload";
+import { CredentialSetter } from "@/components/employees/credential-setter";
 import { PendingLeave } from "@/components/employees/pending-leave";
 
 export const metadata = { title: "Employees" };
@@ -24,7 +25,17 @@ export default async function EmployeesPage() {
 
   return (
     <>
-      <PageHeader title="Employees" subtitle="Staff roster, photos & leave approvals." />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <PageHeader title="Employees" subtitle="Staff roster, photos & leave approvals." />
+        <a
+          href="/attendance-portal"
+          target="_blank"
+          rel="noreferrer"
+          className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+        >
+          Open attendance kiosk ↗
+        </a>
+      </div>
 
       <h2 className="mb-2 mt-4 text-sm font-semibold uppercase tracking-wide text-slate-500">
         Pending leave {items.length > 0 && <span className="ml-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">{items.length}</span>}
@@ -42,6 +53,7 @@ export default async function EmployeesPage() {
               <th className="px-4 py-3">Roles</th>
               <th className="px-4 py-3 text-right">Daily rate</th>
               <th className="px-4 py-3">Status</th>
+              {canWrite && <th className="px-4 py-3 text-right">Kiosk ID</th>}
               {canWrite && <th className="px-4 py-3 text-right">Photo</th>}
             </tr>
           </thead>
@@ -75,6 +87,11 @@ export default async function EmployeesPage() {
                     <span className="text-slate-400">Inactive</span>
                   )}
                 </td>
+                {canWrite && (
+                  <td className="px-4 py-2.5 text-right">
+                    <CredentialSetter userId={e.id} employeeNo={e.employeeNo} hasPasscode={e.hasPasscode} />
+                  </td>
+                )}
                 {canWrite && (
                   <td className="px-4 py-2.5 text-right">
                     <PhotoUpload userId={e.id} />

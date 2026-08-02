@@ -49,6 +49,45 @@ export async function requestLeave(_prev: ActionResult | undefined, formData: Fo
   return { ok: true };
 }
 
+/** Employee files an Official Business request (approval workflow, like leave). */
+export async function requestOB(_prev: ActionResult | undefined, formData: FormData): Promise<ActionResult> {
+  const user = await requireModule("employee");
+
+  const start_date = String(formData.get("start_date") ?? "");
+  const end_date = String(formData.get("end_date") ?? "") || start_date;
+  const duration = String(formData.get("duration") ?? "whole_day");
+  const reason = String(formData.get("reason") ?? "").trim() || null;
+
+  if (!start_date) return { ok: false, error: "Enter the OB date." };
+  if (end_date < start_date) return { ok: false, error: "End date is before start date." };
+  if (start_date < todayManila()) return { ok: false, error: "OB date cannot be in the past." };
+  if (duration !== "whole_day" && duration !== "half_day") return { ok: false, error: "Choose whole or half day." };
+
+  const spanDays = Math.round((new Date(end_date).getTime() - new Date(start_date).getTime()) / 86_400_000) + 1;
+  const days = duration === "half_day" ? 0.5 : spanDays;
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("leave_requests")
+    .insert({ user_id: user.userId, category: "ob", leave_type: "Official Business", duration, start_date, end_date, days, reason })
+    .select("id")
+    .single();
+  if (error) return { ok: false, error: error.message };
+
+  await logAudit({
+    actorUserId: user.userId,
+    actorRoles: user.roleKeys,
+    action: "create",
+    entity: "leave_requests",
+    entityId: data.id,
+    diff: { category: "ob", duration, start_date, end_date },
+  });
+  revalidatePath("/me");
+  revalidatePath("/employees");
+  revalidatePath("/owner");
+  return { ok: true };
+}
+
 /** Employee cancels their own still-pending request. */
 export async function cancelLeave(id: string): Promise<ActionResult> {
   const user = await requireModule("employee");

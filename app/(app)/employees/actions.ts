@@ -40,6 +40,38 @@ export async function uploadStaffPhoto(userId: string, formData: FormData): Prom
   return { ok: true };
 }
 
+/** Set an employee's kiosk credentials (ID number + passcode). */
+export async function setEmployeeCredentials(userId: string, employeeNo: string, passcode: string): Promise<ActionResult> {
+  const user = await requireModuleWrite("employees");
+  const emp = employeeNo.trim();
+  if (!emp) return { ok: false, error: "Enter an ID number." };
+  if (passcode && passcode.trim().length < 4) return { ok: false, error: "Passcode must be at least 4 characters." };
+
+  const { hashPasscode } = await import("@/lib/employees/passcode");
+  const admin = createAdminClient();
+
+  // Enforce unique ID number across staff.
+  const { data: clash } = await admin.from("profiles").select("id").eq("employee_no", emp).neq("id", userId).maybeSingle();
+  if (clash) return { ok: false, error: "That ID number is already used by another employee." };
+
+  const patch: Record<string, unknown> = { employee_no: emp };
+  if (passcode.trim()) patch.passcode_hash = hashPasscode(emp, passcode);
+
+  const { error } = await admin.from("profiles").update(patch).eq("id", userId);
+  if (error) return { ok: false, error: error.message };
+
+  await logAudit({
+    actorUserId: user.userId,
+    actorRoles: user.roleKeys,
+    action: "update",
+    entity: "profiles",
+    entityId: userId,
+    diff: { employee_no: emp, passcode_changed: Boolean(passcode.trim()) },
+  });
+  revalidatePath("/employees");
+  return { ok: true };
+}
+
 /** Approve or reject a leave request — approver roles (incl. owner) only. */
 export async function decideLeave(id: string, status: "approved" | "rejected", note?: string): Promise<ActionResult> {
   const user = await requireAuth();

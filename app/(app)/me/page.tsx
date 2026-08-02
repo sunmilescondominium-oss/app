@@ -5,7 +5,7 @@ import { myRecentRecords } from "@/lib/attendance/queries";
 import { LEAVE_STATUSES } from "@/lib/config";
 import { PageHeader } from "@/components/ui";
 import { Avatar } from "@/components/employees/avatar";
-import { LeaveForm, CancelLeave } from "@/components/me/leave-form";
+import { LeaveForm, ObForm, CancelLeave } from "@/components/me/leave-form";
 
 export const metadata = { title: "My Portal" };
 
@@ -94,8 +94,11 @@ export default async function MyPortalPage() {
 
         {/* Leave */}
         <section>
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Leave requests</h2>
-          <LeaveForm />
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Leave & Official Business</h2>
+          <div className="space-y-2">
+            <LeaveForm />
+            <ObForm />
+          </div>
           <div className="mt-3 rounded-2xl border border-slate-200 bg-white">
             <table className="w-full text-left text-sm">
               <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">

@@ -15,7 +15,7 @@ export async function employeeList(): Promise<EmployeeRow[]> {
   const ids = list.users.map((u) => u.id);
   const guard = ids.length ? ids : ["__none__"];
   const [{ data: profiles }, { data: roleRows }, { data: pay }] = await Promise.all([
-    admin.from("profiles").select("id, display_label, photo_path, is_active").in("id", guard),
+    admin.from("profiles").select("id, display_label, photo_path, is_active, employee_no, passcode_hash").in("id", guard),
     admin.from("user_roles").select("user_id, role_key").in("user_id", guard),
     admin.from("staff_pay").select("user_id, daily_rate").in("user_id", guard),
   ]);
@@ -31,7 +31,9 @@ export async function employeeList(): Promise<EmployeeRow[]> {
 
   return list.users
     .map((u) => {
-      const p = prof.get(u.id) as { display_label?: string; photo_path?: string | null; is_active?: boolean } | undefined;
+      const p = prof.get(u.id) as
+        | { display_label?: string; photo_path?: string | null; is_active?: boolean; employee_no?: string | null; passcode_hash?: string | null }
+        | undefined;
       return {
         id: u.id,
         label: p?.display_label ?? "—",
@@ -40,6 +42,8 @@ export async function employeeList(): Promise<EmployeeRow[]> {
         photoPath: p?.photo_path ?? null,
         active: p?.is_active ?? true,
         dailyRate: rate.get(u.id) ?? 0,
+        employeeNo: p?.employee_no ?? null,
+        hasPasscode: Boolean(p?.passcode_hash),
       };
     })
     // Staff first (those holding any role), then by label.

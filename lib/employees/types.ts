@@ -6,6 +6,8 @@ export interface EmployeeRow {
   photoPath: string | null;
   active: boolean;
   dailyRate: number;
+  employeeNo: string | null;
+  hasPasscode: boolean;
 }
 
 export interface LeaveRequest {
