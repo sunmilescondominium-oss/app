@@ -25,6 +25,7 @@ export function KioskClock() {
   const [scanning, setScanning] = useState(false);
   const [msg, setMsg] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
   const [obConfirm, setObConfirm] = useState<string | null>(null);
+  const [scannedToken, setScannedToken] = useState<string | null>(null);
   const pendingQr = useRef<string | undefined>(undefined);
 
   const startCamera = useCallback(async () => {
@@ -98,6 +99,7 @@ export function KioskClock() {
       setEmployeeNo("");
       setPasscode("");
       setObConfirm(null);
+      setScannedToken(null);
       pendingQr.current = undefined;
       router.refresh();
       return;
@@ -147,12 +149,14 @@ export function KioskClock() {
       const token = await decodeFrame();
       if (token) {
         stopScan();
-        await run(false, token);
+        // Load the badge — the punch only happens when they tap Clock In/Out.
+        setScannedToken(token);
+        setMsg({ tone: "ok", text: "QR badge recognized — now tap Clock In or Clock Out." });
       }
     }, 400);
   }
 
-  const canSubmit = employeeNo.trim() && passcode.trim() && !busy && camReady;
+  const canSubmit = (Boolean(scannedToken) || (employeeNo.trim() && passcode.trim())) && !busy && camReady;
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -194,11 +198,22 @@ export function KioskClock() {
         {scanning ? "Cancel scan" : "📷 Scan QR badge"}
       </button>
 
-      <div className="mb-1 text-center text-xs text-slate-400">or enter manually</div>
-      <div className="space-y-2">
-        <input value={employeeNo} onChange={(e) => setEmployeeNo(e.target.value)} placeholder="ID number" className={inputCls} autoComplete="off" />
-        <input value={passcode} onChange={(e) => setPasscode(e.target.value)} type="password" inputMode="numeric" placeholder="Passcode" className={inputCls} autoComplete="off" />
-      </div>
+      {scannedToken ? (
+        <div className="flex items-center justify-between rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          <span>✓ QR badge loaded — tap Clock {mode === "in" ? "In" : "Out"}.</span>
+          <button type="button" onClick={() => { setScannedToken(null); setMsg(null); }} className="text-xs font-medium text-emerald-700 hover:underline">
+            clear
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="mb-1 text-center text-xs text-slate-400">or enter manually</div>
+          <div className="space-y-2">
+            <input value={employeeNo} onChange={(e) => setEmployeeNo(e.target.value)} placeholder="ID number" className={inputCls} autoComplete="off" />
+            <input value={passcode} onChange={(e) => setPasscode(e.target.value)} type="password" inputMode="numeric" placeholder="Passcode" className={inputCls} autoComplete="off" />
+          </div>
+        </>
+      )}
 
       {obConfirm ? (
         <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
@@ -215,7 +230,7 @@ export function KioskClock() {
       ) : (
         <button
           type="button"
-          onClick={() => run(false)}
+          onClick={() => run(false, scannedToken ?? undefined)}
           disabled={!canSubmit}
           className={`mt-3 w-full rounded-lg px-4 py-2.5 font-semibold text-white disabled:opacity-50 ${
             mode === "in" ? "bg-emerald-600 hover:bg-emerald-700" : "bg-rose-600 hover:bg-rose-700"

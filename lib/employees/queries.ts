@@ -44,7 +44,7 @@ export async function employeeList(): Promise<EmployeeRow[]> {
         dailyRate: rate.get(u.id) ?? 0,
         employeeNo: p?.employee_no ?? null,
         hasPasscode: Boolean(p?.passcode_hash),
-        hasQr: Boolean(p?.qr_token),
+        qrToken: p?.qr_token ?? null,
       };
     })
     // Staff first (those holding any role), then by label.

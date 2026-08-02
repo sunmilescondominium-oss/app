@@ -103,7 +103,7 @@ export default async function EmployeesPage() {
                   <td className="px-4 py-2.5">
                     <div className="flex flex-col items-end gap-1.5">
                       <CredentialSetter userId={e.id} employeeNo={e.employeeNo} hasPasscode={e.hasPasscode} />
-                      <QrControl userId={e.id} label={e.label} hasQr={e.hasQr} />
+                      <QrControl userId={e.id} label={e.label} qrToken={e.qrToken} />
                     </div>
                   </td>
                 )}

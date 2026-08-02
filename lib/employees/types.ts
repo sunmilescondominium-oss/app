@@ -8,7 +8,7 @@ export interface EmployeeRow {
   dailyRate: number;
   employeeNo: string | null;
   hasPasscode: boolean;
-  hasQr: boolean;
+  qrToken: string | null;
 }
 
 export interface LeaveRequest {

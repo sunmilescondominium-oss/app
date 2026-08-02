@@ -95,6 +95,32 @@ export async function generateEmployeeQr(userId: string): Promise<ActionResult> 
   return { ok: true };
 }
 
+/** Set a custom QR badge code (for printing via an external QR/ID maker). */
+export async function setEmployeeQrCode(userId: string, code: string): Promise<ActionResult> {
+  const user = await requireModuleWrite("employees");
+  const c = code.trim();
+  if (!userId) return { ok: false, error: "Missing employee." };
+  if (c.length < 6) return { ok: false, error: "QR code must be at least 6 characters." };
+
+  const admin = createAdminClient();
+  const { data: clash } = await admin.from("profiles").select("id").eq("qr_token", c).neq("id", userId).maybeSingle();
+  if (clash) return { ok: false, error: "That QR code is already used by another employee." };
+
+  const { error } = await admin.from("profiles").update({ qr_token: c }).eq("id", userId);
+  if (error) return { ok: false, error: error.message };
+
+  await logAudit({
+    actorUserId: user.userId,
+    actorRoles: user.roleKeys,
+    action: "update",
+    entity: "profiles",
+    entityId: userId,
+    diff: { qr_token: "custom-set" },
+  });
+  revalidatePath("/employees");
+  return { ok: true };
+}
+
 /** Update the public kiosk privacy settings (access code + show photos). */
 export async function setKioskSettings(accessCode: string, showPhotos: boolean): Promise<ActionResult> {
   const user = await requireModuleWrite("employees");
