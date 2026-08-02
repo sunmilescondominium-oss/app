@@ -72,6 +72,29 @@ export async function setEmployeeCredentials(userId: string, employeeNo: string,
   return { ok: true };
 }
 
+/** Generate (or regenerate) a QR badge token for an employee. */
+export async function generateEmployeeQr(userId: string): Promise<ActionResult> {
+  const user = await requireModuleWrite("employees");
+  if (!userId) return { ok: false, error: "Missing employee." };
+
+  const { randomBytes } = await import("node:crypto");
+  const token = randomBytes(24).toString("base64url");
+  const admin = createAdminClient();
+  const { error } = await admin.from("profiles").update({ qr_token: token }).eq("id", userId);
+  if (error) return { ok: false, error: error.message };
+
+  await logAudit({
+    actorUserId: user.userId,
+    actorRoles: user.roleKeys,
+    action: "update",
+    entity: "profiles",
+    entityId: userId,
+    diff: { qr_token: "regenerated" },
+  });
+  revalidatePath("/employees");
+  return { ok: true };
+}
+
 /** Update the public kiosk privacy settings (access code + show photos). */
 export async function setKioskSettings(accessCode: string, showPhotos: boolean): Promise<ActionResult> {
   const user = await requireModuleWrite("employees");

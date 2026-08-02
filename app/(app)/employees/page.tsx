@@ -9,6 +9,7 @@ import { PageHeader } from "@/components/ui";
 import { Avatar } from "@/components/employees/avatar";
 import { PhotoUpload } from "@/components/employees/photo-upload";
 import { CredentialSetter } from "@/components/employees/credential-setter";
+import { QrControl } from "@/components/employees/qr-control";
 import { PendingLeave } from "@/components/employees/pending-leave";
 
 export const metadata = { title: "Employees" };
@@ -99,8 +100,11 @@ export default async function EmployeesPage() {
                   )}
                 </td>
                 {canWrite && (
-                  <td className="px-4 py-2.5 text-right">
-                    <CredentialSetter userId={e.id} employeeNo={e.employeeNo} hasPasscode={e.hasPasscode} />
+                  <td className="px-4 py-2.5">
+                    <div className="flex flex-col items-end gap-1.5">
+                      <CredentialSetter userId={e.id} employeeNo={e.employeeNo} hasPasscode={e.hasPasscode} />
+                      <QrControl userId={e.id} label={e.label} hasQr={e.hasQr} />
+                    </div>
                   </td>
                 )}
                 {canWrite && (

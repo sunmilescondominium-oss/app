@@ -51,8 +51,10 @@ async function clientIp(): Promise<string> {
 
 const BAD_CREDS = "ID number or passcode is incorrect.";
 
+type Staff = { id: string; display_label: string };
+
 /** Verify kiosk credentials → the staff profile, or null. */
-async function verify(employeeNo: string, passcode: string) {
+async function verify(employeeNo: string, passcode: string): Promise<Staff | null> {
   const admin = createAdminClient();
   const { data } = await admin
     .from("profiles")
@@ -61,7 +63,39 @@ async function verify(employeeNo: string, passcode: string) {
     .maybeSingle();
   if (!data || !data.is_active) return null;
   if (!data.passcode_hash || data.passcode_hash !== hashPasscode(employeeNo, passcode)) return null;
-  return data as { id: string; display_label: string };
+  return data as Staff;
+}
+
+/** Verify a scanned QR token → the staff profile, or null. */
+async function verifyByToken(token: string): Promise<Staff | null> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("profiles")
+    .select("id, display_label, is_active")
+    .eq("qr_token", token.trim())
+    .maybeSingle();
+  if (!data || !data.is_active) return null;
+  return data as Staff;
+}
+
+/** Resolve staff from a scanned QR token OR manual ID + passcode. */
+async function resolveStaff(formData: FormData): Promise<{ staff?: Staff; error?: string }> {
+  const token = String(formData.get("qr_token") ?? "").trim();
+  if (token) {
+    const s = await verifyByToken(token);
+    return s ? { staff: s } : { error: "QR badge not recognized." };
+  }
+  const employeeNo = String(formData.get("employee_no") ?? "").trim();
+  const passcode = String(formData.get("passcode") ?? "").trim();
+  if (!employeeNo || !passcode) return { error: "Enter your ID and passcode, or scan your QR badge." };
+  const s = await verify(employeeNo, passcode);
+  return s ? { staff: s } : { error: BAD_CREDS };
+}
+
+/** A photo is mandatory for every punch. */
+function requirePhoto(formData: FormData): boolean {
+  const p = formData.get("photo");
+  return p instanceof File && p.size > 0;
 }
 
 async function uploadPhoto(userId: string, kind: "in" | "out", photo: FormDataEntryValue | null): Promise<string | null> {
@@ -77,13 +111,11 @@ export async function portalCheckIn(_prev: KioskState, formData: FormData): Prom
   const ip = await clientIp();
   if (rateLimited(ip)) return { ok: false, error: "Too many attempts. Please wait a minute." };
 
-  const employeeNo = String(formData.get("employee_no") ?? "").trim();
-  const passcode = String(formData.get("passcode") ?? "").trim();
-  const confirmObCancel = String(formData.get("confirm_ob_cancel") ?? "") === "true";
-  if (!employeeNo || !passcode) return { ok: false, error: "Enter your ID number and passcode." };
+  if (!requirePhoto(formData)) return { ok: false, error: "A photo is required — take your photo, then clock in." };
 
-  const staff = await verify(employeeNo, passcode);
-  if (!staff) return { ok: false, error: BAD_CREDS };
+  const confirmObCancel = String(formData.get("confirm_ob_cancel") ?? "") === "true";
+  const { staff, error: credErr } = await resolveStaff(formData);
+  if (!staff) return { ok: false, error: credErr ?? BAD_CREDS };
 
   const admin = createAdminClient();
   const date = todayManila();
@@ -149,12 +181,10 @@ export async function portalCheckOut(_prev: KioskState, formData: FormData): Pro
   const ip = await clientIp();
   if (rateLimited(ip)) return { ok: false, error: "Too many attempts. Please wait a minute." };
 
-  const employeeNo = String(formData.get("employee_no") ?? "").trim();
-  const passcode = String(formData.get("passcode") ?? "").trim();
-  if (!employeeNo || !passcode) return { ok: false, error: "Enter your ID number and passcode." };
+  if (!requirePhoto(formData)) return { ok: false, error: "A photo is required — take your photo, then clock out." };
 
-  const staff = await verify(employeeNo, passcode);
-  if (!staff) return { ok: false, error: BAD_CREDS };
+  const { staff, error: credErr } = await resolveStaff(formData);
+  if (!staff) return { ok: false, error: credErr ?? BAD_CREDS };
 
   const admin = createAdminClient();
   const { data: open } = await admin
