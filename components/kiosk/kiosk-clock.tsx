@@ -13,6 +13,7 @@ export function KioskClock() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const detectorRef = useRef<{ detect: (v: HTMLVideoElement) => Promise<{ rawValue: string }[]> } | null>(null);
+  const jsqrRef = useRef<typeof import("jsqr").default | null>(null);
   const scanTimer = useRef<number | null>(null);
 
   const [mode, setMode] = useState<"in" | "out">("in");
@@ -25,8 +26,6 @@ export function KioskClock() {
   const [msg, setMsg] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
   const [obConfirm, setObConfirm] = useState<string | null>(null);
   const pendingQr = useRef<string | undefined>(undefined);
-
-  const qrSupported = typeof window !== "undefined" && "BarcodeDetector" in window;
 
   const startCamera = useCallback(async () => {
     setCamError(null);
@@ -111,30 +110,46 @@ export function KioskClock() {
     setMsg({ tone: "err", text: (res && "error" in res && res.error) || "Something went wrong." });
   }
 
+  /** Decode a QR from the current frame — native BarcodeDetector, else jsqr. */
+  async function decodeFrame(): Promise<string | null> {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !video.videoWidth || !canvas) return null;
+
+    if ("BarcodeDetector" in window) {
+      if (!detectorRef.current) {
+        const Detector = (window as unknown as { BarcodeDetector: new (o: { formats: string[] }) => typeof detectorRef.current }).BarcodeDetector;
+        detectorRef.current = new Detector({ formats: ["qr_code"] });
+      }
+      try {
+        const codes = await detectorRef.current!.detect(video);
+        return codes[0]?.rawValue ?? null;
+      } catch {
+        return null;
+      }
+    }
+
+    // Fallback: jsqr on the raw pixels (works on any browser).
+    if (!jsqrRef.current) jsqrRef.current = (await import("jsqr")).default;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    return jsqrRef.current(img.data, img.width, img.height)?.data ?? null;
+  }
+
   async function startScan() {
-    if (!qrSupported) {
-      setMsg({ tone: "err", text: "QR scanning isn't supported here — use ID + passcode." });
-      return;
-    }
-    if (!detectorRef.current) {
-      const Detector = (window as unknown as { BarcodeDetector: new (o: { formats: string[] }) => typeof detectorRef.current }).BarcodeDetector;
-      detectorRef.current = new Detector({ formats: ["qr_code"] });
-    }
     setScanning(true);
     setMsg(null);
     scanTimer.current = window.setInterval(async () => {
-      const video = videoRef.current;
-      if (!video || !video.videoWidth || !detectorRef.current) return;
-      try {
-        const codes = await detectorRef.current.detect(video);
-        if (codes.length && codes[0].rawValue) {
-          stopScan();
-          await run(false, codes[0].rawValue);
-        }
-      } catch {
-        /* keep scanning */
+      const token = await decodeFrame();
+      if (token) {
+        stopScan();
+        await run(false, token);
       }
-    }, 500);
+    }, 400);
   }
 
   const canSubmit = employeeNo.trim() && passcode.trim() && !busy && camReady;
@@ -170,16 +185,14 @@ export function KioskClock() {
       <canvas ref={canvasRef} className="hidden" />
       <p className="mb-3 text-center text-[11px] text-slate-400">Your photo is captured automatically when you clock {mode}.</p>
 
-      {qrSupported && (
-        <button
-          type="button"
-          onClick={scanning ? stopScan : startScan}
-          disabled={busy || !camReady}
-          className="mb-3 w-full rounded-lg border border-sky-300 bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-700 hover:bg-sky-100 disabled:opacity-50"
-        >
-          {scanning ? "Cancel scan" : "📷 Scan QR badge"}
-        </button>
-      )}
+      <button
+        type="button"
+        onClick={scanning ? stopScan : startScan}
+        disabled={busy || !camReady}
+        className="mb-3 w-full rounded-lg border border-sky-300 bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-700 hover:bg-sky-100 disabled:opacity-50"
+      >
+        {scanning ? "Cancel scan" : "📷 Scan QR badge"}
+      </button>
 
       <div className="mb-1 text-center text-xs text-slate-400">or enter manually</div>
       <div className="space-y-2">
