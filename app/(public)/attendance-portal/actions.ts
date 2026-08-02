@@ -1,12 +1,28 @@
 "use server";
 
-import { headers } from "next/headers";
+import { headers, cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { hashPasscode } from "@/lib/employees/passcode";
 import { logAudit } from "@/lib/audit";
 import { sendAlert } from "@/lib/alerts/sendAlert";
 import { todayManila } from "@/lib/collections/summary";
+import { getKioskSettings, kioskToken, KIOSK_COOKIE } from "@/lib/kiosk/settings";
+
+/** Unlock the kiosk on this device by entering the access code. */
+export async function unlockKiosk(_prev: { error: string } | undefined, formData: FormData): Promise<{ error: string } | undefined> {
+  const code = String(formData.get("access_code") ?? "").trim();
+  const { accessCode } = await getKioskSettings();
+  if (!accessCode || code !== accessCode) return { error: "Incorrect access code." };
+  const jar = await cookies();
+  jar.set(KIOSK_COOKIE, kioskToken(accessCode), {
+    httpOnly: true,
+    sameSite: "lax",
+    maxAge: 60 * 60 * 24 * 30,
+    path: "/",
+  });
+  return undefined;
+}
 
 export type KioskState =
   | { ok: true; message: string }

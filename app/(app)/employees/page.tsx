@@ -2,6 +2,8 @@ import { requireModule, userHasAnyRole } from "@/lib/auth/dal";
 import { canWriteModule, LEAVE_APPROVER_ROLES } from "@/lib/rbac/modules";
 import { employeeList, listLeave } from "@/lib/employees/queries";
 import { analyzeLeave } from "@/lib/employees/leave-analysis";
+import { getKioskSettings } from "@/lib/kiosk/settings";
+import { KioskSettingsPanel } from "@/components/employees/kiosk-settings";
 import { peso } from "@/lib/collections/summary";
 import { PageHeader } from "@/components/ui";
 import { Avatar } from "@/components/employees/avatar";
@@ -18,7 +20,7 @@ export default async function EmployeesPage() {
   const canWrite = canWriteModule(user.roleKeys, "employees");
   const canDecide = userHasAnyRole(user, LEAVE_APPROVER_ROLES);
 
-  const [employees, pending] = await Promise.all([employeeList(), listLeave("pending")]);
+  const [employees, pending, kiosk] = await Promise.all([employeeList(), listLeave("pending"), getKioskSettings()]);
   const items = await Promise.all(
     pending.map(async (req) => ({
       req,
@@ -39,6 +41,12 @@ export default async function EmployeesPage() {
           Open attendance kiosk ↗
         </a>
       </div>
+
+      {canWrite && (
+        <div className="mt-3">
+          <KioskSettingsPanel accessCode={kiosk.accessCode} showPhotos={kiosk.showPhotos} />
+        </div>
+      )}
 
       <h2 className="mb-2 mt-4 text-sm font-semibold uppercase tracking-wide text-slate-500">
         Pending leave {items.length > 0 && <span className="ml-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">{items.length}</span>}

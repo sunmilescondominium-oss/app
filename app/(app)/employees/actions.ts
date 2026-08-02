@@ -72,6 +72,27 @@ export async function setEmployeeCredentials(userId: string, employeeNo: string,
   return { ok: true };
 }
 
+/** Update the public kiosk privacy settings (access code + show photos). */
+export async function setKioskSettings(accessCode: string, showPhotos: boolean): Promise<ActionResult> {
+  const user = await requireModuleWrite("employees");
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("kiosk_settings")
+    .update({ access_code: accessCode.trim(), show_photos: showPhotos, updated_at: new Date().toISOString() })
+    .eq("id", 1);
+  if (error) return { ok: false, error: error.message };
+  await logAudit({
+    actorUserId: user.userId,
+    actorRoles: user.roleKeys,
+    action: "update",
+    entity: "kiosk_settings",
+    entityId: "1",
+    diff: { access_code_set: Boolean(accessCode.trim()), show_photos: showPhotos },
+  });
+  revalidatePath("/employees");
+  return { ok: true };
+}
+
 /** Approve or reject a leave request — approver roles (incl. owner) only. */
 export async function decideLeave(id: string, status: "approved" | "rejected", note?: string): Promise<ActionResult> {
   const user = await requireAuth();

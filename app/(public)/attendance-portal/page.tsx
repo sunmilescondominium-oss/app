@@ -1,6 +1,9 @@
+import { cookies } from "next/headers";
 import { todayBoard, type BoardStatus } from "@/lib/kiosk/queries";
+import { getKioskSettings, kioskUnlocked, KIOSK_COOKIE } from "@/lib/kiosk/settings";
 import { APP_BRAND_SHORT, APP_BRAND } from "@/lib/config";
 import { KioskClock } from "@/components/kiosk/kiosk-clock";
+import { KioskGate } from "@/components/kiosk/kiosk-gate";
 
 export const metadata = { title: "Attendance Kiosk" };
 export const dynamic = "force-dynamic";
@@ -24,6 +27,22 @@ function initials(label: string): string {
 }
 
 export default async function AttendanceKioskPage() {
+  const settings = await getKioskSettings();
+  const jar = await cookies();
+  const unlocked = kioskUnlocked(settings.accessCode, jar.get(KIOSK_COOKIE)?.value);
+
+  if (!unlocked) {
+    return (
+      <div className="mx-auto max-w-5xl px-4 py-8">
+        <header className="mb-2 text-center">
+          <h1 className="text-2xl font-bold text-slate-900">{APP_BRAND_SHORT}</h1>
+          <p className="text-slate-600">Attendance Kiosk</p>
+        </header>
+        <KioskGate />
+      </div>
+    );
+  }
+
   const { date, items } = await todayBoard();
 
   const order: BoardStatus[] = ["checked_in", "checked_out", "on_ob", "on_leave", "absent", "off"];
@@ -66,7 +85,7 @@ export default async function AttendanceKioskPage() {
             {items.length === 0 && <p className="text-sm text-slate-500">No staff to display yet.</p>}
             {items.map((i) => (
               <div key={i.id} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3">
-                {i.photoPath ? (
+                {settings.showPhotos && i.photoPath ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={`/api/kiosk/${i.id}/photo`} alt={i.label} className="h-11 w-11 shrink-0 rounded-full object-cover ring-1 ring-slate-200" />
                 ) : (
