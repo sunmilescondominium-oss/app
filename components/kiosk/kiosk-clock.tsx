@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { portalCheckIn, portalCheckOut, type KioskState } from "@/app/(public)/attendance-portal/actions";
+import { portalCheckIn, portalCheckOut, validateQrToken, type KioskState } from "@/app/(public)/attendance-portal/actions";
 
 const inputCls =
   "w-full rounded-lg border border-slate-300 px-3 py-2.5 text-slate-900 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
@@ -26,6 +26,7 @@ export function KioskClock() {
   const [msg, setMsg] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
   const [obConfirm, setObConfirm] = useState<string | null>(null);
   const [scannedToken, setScannedToken] = useState<string | null>(null);
+  const [scannedLabel, setScannedLabel] = useState<string | null>(null);
   const pendingQr = useRef<string | undefined>(undefined);
 
   const startCamera = useCallback(async () => {
@@ -100,6 +101,7 @@ export function KioskClock() {
       setPasscode("");
       setObConfirm(null);
       setScannedToken(null);
+      setScannedLabel(null);
       pendingQr.current = undefined;
       router.refresh();
       return;
@@ -145,13 +147,25 @@ export function KioskClock() {
   async function startScan() {
     setScanning(true);
     setMsg(null);
+    // Ask the camera to keep the badge in focus while scanning (best-effort).
+    const track = streamRef.current?.getVideoTracks()[0];
+    try {
+      await track?.applyConstraints({ advanced: [{ focusMode: "continuous" }] } as unknown as MediaTrackConstraints);
+    } catch {
+      /* not all cameras support focus control */
+    }
     scanTimer.current = window.setInterval(async () => {
       const token = await decodeFrame();
-      if (token) {
-        stopScan();
-        // Load the badge — the punch only happens when they tap Clock In/Out.
+      if (!token) return;
+      stopScan();
+      // Validate (accept) the badge before enabling the clock button.
+      const res = await validateQrToken(token);
+      if (res.ok) {
         setScannedToken(token);
-        setMsg({ tone: "ok", text: "QR badge recognized — now tap Clock In or Clock Out." });
+        setScannedLabel(res.label);
+        setMsg({ tone: "ok", text: `Badge accepted: ${res.label}. Tap Clock In or Clock Out.` });
+      } else {
+        setMsg({ tone: "err", text: res.error });
       }
     }, 400);
   }
@@ -200,8 +214,8 @@ export function KioskClock() {
 
       {scannedToken ? (
         <div className="flex items-center justify-between rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-          <span>✓ QR badge loaded — tap Clock {mode === "in" ? "In" : "Out"}.</span>
-          <button type="button" onClick={() => { setScannedToken(null); setMsg(null); }} className="text-xs font-medium text-emerald-700 hover:underline">
+          <span>✓ {scannedLabel ?? "Badge"} — tap Clock {mode === "in" ? "In" : "Out"}.</span>
+          <button type="button" onClick={() => { setScannedToken(null); setScannedLabel(null); setMsg(null); }} className="text-xs font-medium text-emerald-700 hover:underline">
             clear
           </button>
         </div>

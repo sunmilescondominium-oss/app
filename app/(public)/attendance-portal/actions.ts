@@ -98,6 +98,16 @@ function requirePhoto(formData: FormData): boolean {
   return p instanceof File && p.size > 0;
 }
 
+/** Validate a scanned QR token (no punch) so the kiosk can enable the button. */
+export async function validateQrToken(token: string): Promise<{ ok: true; label: string } | { ok: false; error: string }> {
+  const ip = await clientIp();
+  if (rateLimited(ip)) return { ok: false, error: "Too many attempts. Please wait a minute." };
+  const t = token.trim();
+  if (!t) return { ok: false, error: "Empty QR." };
+  const staff = await verifyByToken(t);
+  return staff ? { ok: true, label: staff.display_label } : { ok: false, error: "QR badge not recognized." };
+}
+
 async function uploadPhoto(userId: string, kind: "in" | "out", photo: FormDataEntryValue | null): Promise<string | null> {
   if (!(photo instanceof File) || photo.size === 0) return null;
   if (photo.size > 8 * 1024 * 1024) return null;
