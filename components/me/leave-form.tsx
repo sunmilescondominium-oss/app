@@ -2,8 +2,8 @@
 
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { requestLeave, requestOB, cancelLeave, type ActionResult } from "@/app/(app)/me/actions";
-import { LEAVE_TYPES, LEAVE_MIN_LEAD_DAYS } from "@/lib/config";
+import { requestLeave, requestOB, requestGeneral, cancelLeave, type ActionResult } from "@/app/(app)/me/actions";
+import { LEAVE_TYPES, LEAVE_MIN_LEAD_DAYS, REQUEST_TYPES } from "@/lib/config";
 
 const cls =
   "rounded-lg border border-slate-300 px-2.5 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
@@ -82,6 +82,53 @@ export function ObForm() {
         {pending ? "Submitting…" : "File OB"}
       </button>
       <p className="w-full text-xs text-slate-400">Official Business needs approval. It is auto-cancelled if you clock in on that day.</p>
+      {state && !state.ok && <p className="w-full text-sm text-red-700">{state.error}</p>}
+    </form>
+  );
+}
+
+export function RequestForm() {
+  const router = useRouter();
+  const [state, action, pending] = useActionState<ActionResult | undefined, FormData>(requestGeneral, undefined);
+  const [category, setCategory] = useState<string>(REQUEST_TYPES[0].key);
+  useEffect(() => {
+    if (state?.ok) router.refresh();
+  }, [state, router]);
+  const needsHours = REQUEST_TYPES.find((t) => t.key === category)?.needsHours;
+
+  return (
+    <form action={action} className="flex flex-wrap items-end gap-2 rounded-2xl border border-slate-200 bg-white p-4">
+      <div>
+        <label className="mb-1 block text-xs font-medium text-slate-600">Request</label>
+        <select name="category" value={category} onChange={(e) => setCategory(e.target.value)} className={cls}>
+          {REQUEST_TYPES.map((t) => (
+            <option key={t.key} value={t.key}>{t.label}</option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label className="mb-1 block text-xs font-medium text-slate-600">Date</label>
+        <input type="date" name="date" required className={cls} />
+      </div>
+      {needsHours && (
+        <div>
+          <label className="mb-1 block text-xs font-medium text-slate-600">Hours</label>
+          <input type="number" name="hours" step="0.5" min="0" max="24" className={`${cls} w-20`} />
+        </div>
+      )}
+      {category === "other" && (
+        <div>
+          <label className="mb-1 block text-xs font-medium text-slate-600">Subject</label>
+          <input name="subject" placeholder="e.g. Certificate" className={cls} />
+        </div>
+      )}
+      <div className="min-w-[10rem] flex-1">
+        <label className="mb-1 block text-xs font-medium text-slate-600">Details</label>
+        <input name="reason" placeholder="Optional" className={`${cls} w-full`} />
+      </div>
+      <button type="submit" disabled={pending} className="rounded-lg bg-slate-700 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60">
+        {pending ? "Submitting…" : "Submit request"}
+      </button>
       {state && !state.ok && <p className="w-full text-sm text-red-700">{state.error}</p>}
     </form>
   );

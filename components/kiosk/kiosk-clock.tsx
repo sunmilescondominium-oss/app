@@ -12,7 +12,6 @@ export function KioskClock() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const detectorRef = useRef<{ detect: (v: HTMLVideoElement) => Promise<{ rawValue: string }[]> } | null>(null);
   const jsqrRef = useRef<typeof import("jsqr").default | null>(null);
   const scanTimer = useRef<number | null>(null);
 
@@ -114,34 +113,20 @@ export function KioskClock() {
     setMsg({ tone: "err", text: (res && "error" in res && res.error) || "Something went wrong." });
   }
 
-  /** Decode a QR from the current frame — native BarcodeDetector, else jsqr. */
+  /** Decode a QR from the current frame with jsqr (reliable on every browser). */
   async function decodeFrame(): Promise<string | null> {
     const video = videoRef.current;
     const canvas = canvasRef.current;
     if (!video || !video.videoWidth || !canvas) return null;
 
-    if ("BarcodeDetector" in window) {
-      if (!detectorRef.current) {
-        const Detector = (window as unknown as { BarcodeDetector: new (o: { formats: string[] }) => typeof detectorRef.current }).BarcodeDetector;
-        detectorRef.current = new Detector({ formats: ["qr_code"] });
-      }
-      try {
-        const codes = await detectorRef.current!.detect(video);
-        return codes[0]?.rawValue ?? null;
-      } catch {
-        return null;
-      }
-    }
-
-    // Fallback: jsqr on the raw pixels (works on any browser).
     if (!jsqrRef.current) jsqrRef.current = (await import("jsqr")).default;
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
-    const ctx = canvas.getContext("2d");
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
     if (!ctx) return null;
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    return jsqrRef.current(img.data, img.width, img.height)?.data ?? null;
+    return jsqrRef.current(img.data, img.width, img.height, { inversionAttempts: "attemptBoth" })?.data ?? null;
   }
 
   async function startScan() {

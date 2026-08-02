@@ -7,10 +7,10 @@ export function PendingLeave({
   items,
   canDecide,
 }: {
-  items: { req: LeaveRequest; conflict: LeaveConflict }[];
+  items: { req: LeaveRequest; conflict: LeaveConflict | null }[];
   canDecide: boolean;
 }) {
-  if (items.length === 0) return <p className="text-sm text-slate-500">No pending leave requests.</p>;
+  if (items.length === 0) return <p className="text-sm text-slate-500">No pending requests.</p>;
   return (
     <div className="space-y-3">
       {items.map(({ req, conflict }) => (
@@ -21,14 +21,17 @@ export function PendingLeave({
                 {req.label} · <span className="text-slate-500">{req.leave_type}</span>
               </p>
               <p className="text-sm text-slate-500">
-                {req.start_date} → {req.end_date} ({req.days}d){req.reason ? ` · ${req.reason}` : ""}
+                {req.hours != null ? `${req.start_date} · ${req.hours}h` : `${req.start_date} → ${req.end_date} (${req.days}d)`}
+                {req.reason ? ` · ${req.reason}` : ""}
               </p>
             </div>
             {canDecide && <LeaveDecision id={req.id} />}
           </div>
-          <div className="mt-2">
-            <LeaveConflictFlags c={conflict} />
-          </div>
+          {conflict && (
+            <div className="mt-2">
+              <LeaveConflictFlags c={conflict} />
+            </div>
+          )}
         </div>
       ))}
     </div>

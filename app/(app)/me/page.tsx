@@ -5,7 +5,7 @@ import { myRecentRecords } from "@/lib/attendance/queries";
 import { LEAVE_STATUSES } from "@/lib/config";
 import { PageHeader } from "@/components/ui";
 import { Avatar } from "@/components/employees/avatar";
-import { LeaveForm, ObForm, CancelLeave } from "@/components/me/leave-form";
+import { LeaveForm, ObForm, RequestForm, CancelLeave } from "@/components/me/leave-form";
 
 export const metadata = { title: "My Portal" };
 
@@ -94,10 +94,11 @@ export default async function MyPortalPage() {
 
         {/* Leave */}
         <section>
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Leave & Official Business</h2>
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Requests</h2>
           <div className="space-y-2">
             <LeaveForm />
             <ObForm />
+            <RequestForm />
           </div>
           <div className="mt-3 rounded-2xl border border-slate-200 bg-white">
             <table className="w-full text-left text-sm">
@@ -116,7 +117,9 @@ export default async function MyPortalPage() {
                 {leave.map((l) => (
                   <tr key={l.id} className="border-b border-slate-100 last:border-0">
                     <td className="px-4 py-2.5">{l.leave_type}</td>
-                    <td className="px-4 py-2.5 text-slate-500">{l.start_date} → {l.end_date} ({l.days}d)</td>
+                    <td className="px-4 py-2.5 text-slate-500">
+                      {l.hours != null ? `${l.start_date} · ${l.hours}h` : `${l.start_date} → ${l.end_date} (${l.days}d)`}
+                    </td>
                     <td className="px-4 py-2.5">
                       <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium capitalize ${STATUS_TONE[l.status] ?? "bg-slate-100 text-slate-500"}`}>
                         {LEAVE_STATUSES.find((s) => s.key === l.status)?.label ?? l.status}

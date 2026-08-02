@@ -14,10 +14,12 @@ export interface EmployeeRow {
 export interface LeaveRequest {
   id: string;
   user_id: string;
+  category: string;
   leave_type: string;
   start_date: string;
   end_date: string;
   days: number;
+  hours: number | null;
   reason: string | null;
   status: string;
   decided_at: string | null;

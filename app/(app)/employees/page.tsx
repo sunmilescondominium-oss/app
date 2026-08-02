@@ -25,7 +25,10 @@ export default async function EmployeesPage() {
   const items = await Promise.all(
     pending.map(async (req) => ({
       req,
-      conflict: await analyzeLeave({ userId: req.user_id, start_date: req.start_date, end_date: req.end_date }),
+      conflict:
+        req.category === "leave" || req.category === "ob"
+          ? await analyzeLeave({ userId: req.user_id, start_date: req.start_date, end_date: req.end_date })
+          : null,
     })),
   );
 

@@ -88,6 +88,48 @@ export async function requestOB(_prev: ActionResult | undefined, formData: FormD
   return { ok: true };
 }
 
+/** Overtime / undertime / other request (same approval workflow). */
+export async function requestGeneral(_prev: ActionResult | undefined, formData: FormData): Promise<ActionResult> {
+  const user = await requireModule("employee");
+
+  const category = String(formData.get("category") ?? "");
+  const date = String(formData.get("date") ?? "");
+  const subject = String(formData.get("subject") ?? "").trim();
+  const reason = String(formData.get("reason") ?? "").trim() || null;
+  const hoursRaw = String(formData.get("hours") ?? "");
+
+  if (!["overtime", "undertime", "other"].includes(category)) return { ok: false, error: "Choose a request type." };
+  if (!date) return { ok: false, error: "Enter the date." };
+
+  let hours: number | null = null;
+  if (category !== "other") {
+    hours = Number(hoursRaw);
+    if (!Number.isFinite(hours) || hours <= 0 || hours > 24) return { ok: false, error: "Enter valid hours (1–24)." };
+  }
+  const leave_type = category === "other" ? subject || "Other request" : category === "overtime" ? "Overtime" : "Undertime";
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("leave_requests")
+    .insert({ user_id: user.userId, category, leave_type, start_date: date, end_date: date, days: 0, hours, reason })
+    .select("id")
+    .single();
+  if (error) return { ok: false, error: error.message };
+
+  await logAudit({
+    actorUserId: user.userId,
+    actorRoles: user.roleKeys,
+    action: "create",
+    entity: "leave_requests",
+    entityId: data.id,
+    diff: { category, date, hours },
+  });
+  revalidatePath("/me");
+  revalidatePath("/employees");
+  revalidatePath("/owner");
+  return { ok: true };
+}
+
 /** Employee cancels their own still-pending request. */
 export async function cancelLeave(id: string): Promise<ActionResult> {
   const user = await requireModule("employee");

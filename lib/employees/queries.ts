@@ -56,7 +56,7 @@ export async function listLeave(status?: string): Promise<LeaveRequest[]> {
   const admin = createAdminClient();
   let q = admin
     .from("leave_requests")
-    .select("id, user_id, leave_type, start_date, end_date, days, reason, status, decided_at, decision_note")
+    .select("id, user_id, category, leave_type, start_date, end_date, days, hours, reason, status, decided_at, decision_note")
     .order("created_at", { ascending: false });
   if (status) q = q.eq("status", status);
   const { data } = await q;

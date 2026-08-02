@@ -14,7 +14,7 @@ export async function myLeave(userId: string): Promise<LeaveRequest[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("leave_requests")
-    .select("id, user_id, leave_type, start_date, end_date, days, reason, status, decided_at, decision_note")
+    .select("id, user_id, category, leave_type, start_date, end_date, days, hours, reason, status, decided_at, decision_note")
     .eq("user_id", userId)
     .order("start_date", { ascending: false });
   return (data as LeaveRequest[]) ?? [];

@@ -255,3 +255,10 @@ export type LeaveStatus = (typeof LEAVE_STATUSES)[number]["key"];
 /** Minimum notice (days) a leave request should give before it starts. */
 export const LEAVE_MIN_LEAD_DAYS = 3; // TODO(client-confirm)
 
+/** Non-leave employee request types (share the same approval workflow). */
+export const REQUEST_TYPES = [
+  { key: "overtime", label: "Overtime", needsHours: true },
+  { key: "undertime", label: "Undertime", needsHours: true },
+  { key: "other", label: "Other request", needsHours: false },
+] as const;
+
