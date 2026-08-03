@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireModule } from "@/lib/auth/dal";
-import { rentalUnitDetail, duesForUnit, metersForUnit } from "@/lib/rentals/queries";
+import { rentalUnitDetail, duesForUnit, metersForUnit, leaseDocuments } from "@/lib/rentals/queries";
 import { peso } from "@/lib/collections/summary";
 import { PageHeader } from "@/components/ui";
 import { StartLeaseForm, LeaseActions, MeterForm, DueForm, MarkPaid } from "@/components/rentals/rental-forms";
+import { RenterDetails, LeaseDocsChecklist } from "@/components/rentals/renter-details";
 
 export const metadata = { title: "Unit" };
 
@@ -18,6 +19,7 @@ export default async function RentalUnitPage({ params }: { params: Promise<{ uni
   const { unitId } = await params;
   const [unit, dues, meters] = await Promise.all([rentalUnitDetail(unitId), duesForUnit(unitId), metersForUnit(unitId)]);
   if (!unit) notFound();
+  const docs = unit.lease ? await leaseDocuments(unit.lease.id) : [];
 
   const one = [{ id: unit.unitId, label: unit.unitNumber, businessLine: unit.businessLine }];
 
@@ -59,6 +61,14 @@ export default async function RentalUnitPage({ params }: { params: Promise<{ uni
           </div>
         )}
       </div>
+
+      {/* Renter details + document checklist */}
+      {unit.lease && (
+        <div className="mb-6 grid gap-4 lg:grid-cols-2">
+          <RenterDetails lease={unit.lease} />
+          <LeaseDocsChecklist leaseId={unit.lease.id} docs={docs} />
+        </div>
+      )}
 
       {/* Dues */}
       <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Dues</h2>

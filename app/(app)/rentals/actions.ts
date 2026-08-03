@@ -48,6 +48,13 @@ export async function startLease(_prev: ActionResult | undefined, formData: Form
       billing_cycle: String(formData.get("billing_cycle") ?? "monthly"),
       deposit: Number(formData.get("deposit") ?? "0") || 0,
       notes: String(formData.get("notes") ?? "").trim() || null,
+      lease_type: String(formData.get("lease_type") ?? "").trim() || null,
+      email: String(formData.get("email") ?? "").trim() || null,
+      permanent_address: String(formData.get("permanent_address") ?? "").trim() || null,
+      emergency_contact: String(formData.get("emergency_contact") ?? "").trim() || null,
+      emergency_phone: String(formData.get("emergency_phone") ?? "").trim() || null,
+      motor_plate: String(formData.get("motor_plate") ?? "").trim() || null,
+      transferred_from: String(formData.get("transferred_from") ?? "").trim() || null,
       created_by: user.userId,
     })
     .select("id")
@@ -141,6 +148,62 @@ export async function createDue(_prev: ActionResult | undefined, formData: FormD
   });
   if (error) return { ok: false, error: error.message };
   await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "create", entity: "rental_dues", entityId: unit_id, diff: { amount, due_date } });
+  revalidatePath("/rentals");
+  return { ok: true };
+}
+
+/** Update renter contact/personal details on an active lease. */
+export async function updateRenterDetails(_prev: ActionResult | undefined, formData: FormData): Promise<ActionResult> {
+  const user = await requireModuleWrite("rentals");
+  const leaseId = String(formData.get("lease_id") ?? "");
+  if (!leaseId) return { ok: false, error: "Missing lease." };
+  const str = (k: string) => String(formData.get(k) ?? "").trim() || null;
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("leases")
+    .update({
+      tenant_label: String(formData.get("tenant_label") ?? "").trim() || "Tenant",
+      contact: str("contact"),
+      email: str("email"),
+      permanent_address: str("permanent_address"),
+      emergency_contact: str("emergency_contact"),
+      emergency_phone: str("emergency_phone"),
+      motor_plate: str("motor_plate"),
+      lease_type: str("lease_type"),
+      transferred_from: str("transferred_from"),
+    })
+    .eq("id", leaseId);
+  if (error) return { ok: false, error: error.message };
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "update", entity: "leases", entityId: leaseId, diff: { renter_details: true } });
+  revalidatePath("/rentals");
+  return { ok: true };
+}
+
+/** Mark a required renter document submitted / not, with an optional file. */
+export async function setLeaseDocument(leaseId: string, docType: string, formData: FormData): Promise<ActionResult> {
+  const user = await requireModuleWrite("rentals");
+  if (!leaseId || !docType) return { ok: false, error: "Missing lease or document." };
+  const submitted = String(formData.get("submitted") ?? "") === "true";
+  const note = String(formData.get("note") ?? "").trim() || null;
+
+  const admin = createAdminClient();
+  let file_path: string | undefined;
+  const file = formData.get("file");
+  if (file instanceof File && file.size > 0) {
+    if (file.size > 12 * 1024 * 1024) return { ok: false, error: "File too large (max 12 MB)." };
+    const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const path = `${leaseId}/${Date.now()}-${safe}`;
+    const up = await admin.storage.from("lease-documents").upload(path, new Uint8Array(await file.arrayBuffer()), { contentType: file.type || "application/octet-stream" });
+    if (up.error) return { ok: false, error: up.error.message };
+    file_path = path;
+  }
+
+  const row: Record<string, unknown> = { lease_id: leaseId, doc_type: docType, submitted, note };
+  if (file_path) row.file_path = file_path;
+  const { error } = await admin.from("lease_documents").upsert(row, { onConflict: "lease_id,doc_type" });
+  if (error) return { ok: false, error: error.message };
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "update", entity: "lease_documents", entityId: leaseId, diff: { doc_type: docType, submitted } });
   revalidatePath("/rentals");
   return { ok: true };
 }

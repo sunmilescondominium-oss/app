@@ -287,6 +287,26 @@ export const BILLING_CYCLES = [
   { key: "nightly", label: "Nightly" },
 ] as const;
 
+/** Lease/booking type — new vs renewal vs extension vs transfer. */
+export const LEASE_TYPES = [
+  { key: "new", label: "New" },
+  { key: "renewal", label: "Renewal" },
+  { key: "extension", label: "Extension" },
+  { key: "transfer", label: "Transferred from another unit" },
+] as const;
+
+/** Documents a renter submits — checklist on the lease. */
+export const LEASE_DOC_TYPES = [
+  "Signed contract",
+  "Valid ID",
+  "Proof of address / billing",
+  "Motor / plate registration",
+  "Deposit / advance receipt",
+  "Post-dated checks",
+  "Emergency contact form",
+  "Other",
+] as const;
+
 /** How many hours before an Airbnb checkout to flag "checkout soon". */
 export const AIRBNB_CHECKOUT_SOON_HOURS = 3; // TODO(client-confirm)
 /** How many days before/after a due date to flag "due soon / overdue". */

@@ -175,6 +175,13 @@ export async function rentalUnitDetail(unitId: string): Promise<UnitDetail | nul
           startDate: lease.start_date as string,
           deposit: Number(lease.deposit),
           notes: (lease.notes as string | null) ?? null,
+          email: (lease.email as string | null) ?? null,
+          permanentAddress: (lease.permanent_address as string | null) ?? null,
+          emergencyContact: (lease.emergency_contact as string | null) ?? null,
+          emergencyPhone: (lease.emergency_phone as string | null) ?? null,
+          motorPlate: (lease.motor_plate as string | null) ?? null,
+          leaseType: (lease.lease_type as string | null) ?? null,
+          transferredFrom: (lease.transferred_from as string | null) ?? null,
         }
       : null,
     needsHousekeeping: !lease && Boolean(hk),
@@ -225,6 +232,24 @@ export async function metersForUnit(unitId: string): Promise<MeterRow[]> {
     readOn: r.read_on as string,
     consumption: cons.get(r.id as string) ?? null,
   }));
+}
+
+/** The lease's document checklist across the configured catalog. */
+export async function leaseDocuments(leaseId: string): Promise<import("./types").LeaseDoc[]> {
+  const { LEASE_DOC_TYPES } = await import("@/lib/config");
+  const admin = createAdminClient();
+  const { data } = await admin.from("lease_documents").select("id, doc_type, submitted, file_path, note").eq("lease_id", leaseId);
+  const byType = new Map((data ?? []).map((d) => [d.doc_type as string, d]));
+  return LEASE_DOC_TYPES.map((t) => {
+    const d = byType.get(t);
+    return {
+      docType: t,
+      submitted: Boolean(d?.submitted),
+      hasFile: Boolean(d?.file_path),
+      id: (d?.id as string | undefined) ?? null,
+      note: (d?.note as string | null) ?? null,
+    };
+  });
 }
 
 export interface BillLine {

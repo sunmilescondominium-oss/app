@@ -47,8 +47,29 @@ export interface UnitDetail {
   propertyName: string;
   businessLine: string;
   unitStatus: string;
-  lease: (LeaseInfo & { startDate: string; deposit: number; notes: string | null }) | null;
+  lease:
+    | (LeaseInfo & {
+        startDate: string;
+        deposit: number;
+        notes: string | null;
+        email: string | null;
+        permanentAddress: string | null;
+        emergencyContact: string | null;
+        emergencyPhone: string | null;
+        motorPlate: string | null;
+        leaseType: string | null;
+        transferredFrom: string | null;
+      })
+    | null;
   needsHousekeeping: boolean;
+}
+
+export interface LeaseDoc {
+  docType: string;
+  submitted: boolean;
+  hasFile: boolean;
+  id: string | null;
+  note: string | null;
 }
 
 export interface Reminder {

@@ -134,6 +134,13 @@ async function main() {
     } else {
       console.log("✔ storage bucket housekeeping-photos ready (private)");
     }
+
+    const leaseBucket = await admin.storage.createBucket("lease-documents", { public: false });
+    if (leaseBucket.error && !/exist/i.test(leaseBucket.error.message)) {
+      console.warn("⚠ bucket lease-documents:", leaseBucket.error.message);
+    } else {
+      console.log("✔ storage bucket lease-documents ready (private)");
+    }
   } finally {
     await sql.end();
   }
