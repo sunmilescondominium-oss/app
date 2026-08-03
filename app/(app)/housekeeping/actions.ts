@@ -13,6 +13,88 @@ function attendantRole(roleKeys: string[]): string {
   return roleKeys.includes("room_attendant") ? "room_attendant" : roleKeys[0] ?? "room_attendant";
 }
 
+type MovementReason = "issue" | "receive" | "adjust" | "count" | "replacement";
+
+/** Append a stock-movement audit row (service role). */
+async function logMovement(
+  admin: ReturnType<typeof createAdminClient>,
+  args: { supplyId: string; delta: number; reason: MovementReason; balanceAfter: number; userId: string; role: string; note?: string | null; refTask?: string | null },
+): Promise<void> {
+  await admin.from("stock_movements").insert({
+    supply_id: args.supplyId,
+    delta: args.delta,
+    reason: args.reason,
+    balance_after: args.balanceAfter,
+    actor_user_id: args.userId,
+    actor_role: args.role,
+    note: args.note ?? null,
+    ref_task: args.refTask ?? null,
+  });
+}
+
+/** Dispense/issue a supply for an operation — logged against the staff. */
+export async function issueStock(_prev: ActionResult | undefined, formData: FormData): Promise<ActionResult> {
+  const user = await requireModuleWrite("housekeeping");
+  const supplyId = String(formData.get("supply_id") ?? "").trim();
+  const qty = Number(formData.get("qty") ?? "");
+  const note = String(formData.get("note") ?? "").trim() || null;
+  if (!supplyId || !Number.isFinite(qty) || qty <= 0) return { ok: false, error: "Choose a supply and quantity." };
+
+  const admin = createAdminClient();
+  const { data: sup } = await admin.from("room_supplies").select("stock_qty").eq("id", supplyId).maybeSingle();
+  if (!sup) return { ok: false, error: "Supply not found." };
+  const balanceAfter = Math.max(0, Number(sup.stock_qty) - qty);
+  await admin.from("room_supplies").update({ stock_qty: balanceAfter }).eq("id", supplyId);
+  await logMovement(admin, { supplyId, delta: -qty, reason: "issue", balanceAfter, userId: user.userId, role: attendantRole(user.roleKeys), note });
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "update", entity: "room_supplies", entityId: supplyId, diff: { issued: qty } });
+  revalidatePath("/housekeeping");
+  return { ok: true };
+}
+
+/** Receive stock (delivery) — admin / operations. */
+export async function receiveStock(_prev: ActionResult | undefined, formData: FormData): Promise<ActionResult> {
+  const user = await requireAuth();
+  if (!userHasAnyRole(user, ["admin", "operations_manager", "managing_officer"])) return { ok: false, error: "Only admin/operations can receive stock." };
+  const supplyId = String(formData.get("supply_id") ?? "").trim();
+  const qty = Number(formData.get("qty") ?? "");
+  const note = String(formData.get("note") ?? "").trim() || null;
+  if (!supplyId || !Number.isFinite(qty) || qty <= 0) return { ok: false, error: "Choose a supply and quantity." };
+
+  const admin = createAdminClient();
+  const { data: sup } = await admin.from("room_supplies").select("stock_qty").eq("id", supplyId).maybeSingle();
+  if (!sup) return { ok: false, error: "Supply not found." };
+  const balanceAfter = Number(sup.stock_qty) + qty;
+  await admin.from("room_supplies").update({ stock_qty: balanceAfter }).eq("id", supplyId);
+  await logMovement(admin, { supplyId, delta: qty, reason: "receive", balanceAfter, userId: user.userId, role: firstStaffRole(user.roleKeys), note });
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "update", entity: "room_supplies", entityId: supplyId, diff: { received: qty } });
+  revalidatePath("/housekeeping");
+  return { ok: true };
+}
+
+/** Periodical physical count — set stock to the counted quantity, log variance. */
+export async function physicalCount(_prev: ActionResult | undefined, formData: FormData): Promise<ActionResult> {
+  const user = await requireAuth();
+  if (!userHasAnyRole(user, ["admin", "operations_manager", "managing_officer"])) return { ok: false, error: "Only admin/operations can record a count." };
+  const supplyId = String(formData.get("supply_id") ?? "").trim();
+  const counted = Number(formData.get("counted") ?? "");
+  const note = String(formData.get("note") ?? "").trim() || null;
+  if (!supplyId || !Number.isFinite(counted) || counted < 0) return { ok: false, error: "Enter the counted quantity." };
+
+  const admin = createAdminClient();
+  const { data: sup } = await admin.from("room_supplies").select("stock_qty").eq("id", supplyId).maybeSingle();
+  if (!sup) return { ok: false, error: "Supply not found." };
+  const variance = Math.round((counted - Number(sup.stock_qty)) * 100) / 100;
+  await admin.from("room_supplies").update({ stock_qty: counted }).eq("id", supplyId);
+  await logMovement(admin, { supplyId, delta: variance, reason: "count", balanceAfter: counted, userId: user.userId, role: firstStaffRole(user.roleKeys), note: `${note ? note + " · " : ""}variance ${variance >= 0 ? "+" : ""}${variance}` });
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "update", entity: "room_supplies", entityId: supplyId, diff: { counted, variance } });
+  revalidatePath("/housekeeping");
+  return { ok: true };
+}
+
+function firstStaffRole(roleKeys: string[]): string {
+  return roleKeys.find((r) => ["admin", "operations_manager", "managing_officer", "warehouse_timekeeper"].includes(r)) ?? roleKeys[0] ?? "admin";
+}
+
 /** Attach post-cleaning photos (bed, toilet, room, …) to a housekeeping task. */
 export async function uploadHousekeepingPhoto(taskId: string, formData: FormData): Promise<ActionResult> {
   const user = await requireModuleWrite("housekeeping");
@@ -67,7 +149,9 @@ export async function recordReplacement(
   const admin = createAdminClient();
   const { data: sup } = await admin.from("room_supplies").select("name, stock_qty").eq("id", supply_id).maybeSingle();
   if (!sup) return { ok: false, error: "Supply not found." };
-  await admin.from("room_supplies").update({ stock_qty: Math.max(0, Number(sup.stock_qty) - qty) }).eq("id", supply_id);
+  const replBalance = Math.max(0, Number(sup.stock_qty) - qty);
+  await admin.from("room_supplies").update({ stock_qty: replBalance }).eq("id", supply_id);
+  await logMovement(admin, { supplyId: supply_id, delta: -qty, reason: "replacement", balanceAfter: replBalance, userId: user.userId, role: attendantRole(user.roleKeys), note: sup.name as string, refTask: taskId });
 
   await supabase.from("housekeeping_events").insert({
     task_id: taskId,
@@ -144,8 +228,10 @@ export async function adjustStock(supplyId: string, delta: number): Promise<Acti
   const supabase = await createClient();
   const { data: sup } = await supabase.from("room_supplies").select("stock_qty").eq("id", supplyId).maybeSingle();
   if (!sup) return { ok: false, error: "Supply not found." };
-  const { error } = await supabase.from("room_supplies").update({ stock_qty: Math.max(0, Number(sup.stock_qty) + delta) }).eq("id", supplyId);
+  const adjBalance = Math.max(0, Number(sup.stock_qty) + delta);
+  const { error } = await supabase.from("room_supplies").update({ stock_qty: adjBalance }).eq("id", supplyId);
   if (error) return { ok: false, error: error.message };
+  await logMovement(createAdminClient(), { supplyId, delta, reason: "adjust", balanceAfter: adjBalance, userId: user.userId, role: firstStaffRole(user.roleKeys) });
   await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "update", entity: "room_supplies", entityId: supplyId, diff: { delta } });
   revalidatePath("/housekeeping");
   return { ok: true };

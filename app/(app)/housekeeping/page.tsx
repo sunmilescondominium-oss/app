@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { requireModule } from "@/lib/auth/dal";
-import { listHousekeepingTasks, listSupplies } from "@/lib/housekeeping/queries";
+import { listHousekeepingTasks, listSupplies, listStockMovements } from "@/lib/housekeeping/queries";
 import { HOUSEKEEPING_STATUSES } from "@/lib/config";
 import { PageHeader, Badge } from "@/components/ui";
 import { SuppliesPanel } from "@/components/housekeeping/supplies-panel";
+import { StockMovementsPanel } from "@/components/housekeeping/stock-movements";
 
 export const metadata = { title: "Housekeeping" };
 
@@ -18,7 +19,7 @@ export default async function HousekeepingPage() {
   const user = await requireModule("housekeeping");
   const canManageSupplies = user.roleKeys.some((r) => ["admin", "operations_manager"].includes(r));
 
-  const [tasks, supplies] = await Promise.all([listHousekeepingTasks(), listSupplies()]);
+  const [tasks, supplies, movements] = await Promise.all([listHousekeepingTasks(), listSupplies(), listStockMovements()]);
   const toClean = tasks.filter((t) => t.status !== "done").length;
 
   return (
@@ -70,6 +71,8 @@ export default async function HousekeepingPage() {
       </div>
 
       <SuppliesPanel supplies={supplies} canManage={canManageSupplies} />
+
+      <StockMovementsPanel supplies={supplies} movements={movements} canManage={canManageSupplies} />
     </>
   );
 }

@@ -7,6 +7,17 @@ export interface RoomSupply {
   is_active: boolean;
 }
 
+export interface StockMovement {
+  id: string;
+  supplyName: string;
+  delta: number;
+  reason: string;
+  balanceAfter: number;
+  actor: string;
+  note: string | null;
+  createdAt: string;
+}
+
 export interface HKChecklistItem {
   key: string;
   label: string;
