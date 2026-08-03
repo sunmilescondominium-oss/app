@@ -12,6 +12,7 @@ export const ALL_ROLE_KEYS = [
   "owner", "consultant", "managing_officer", "operations_manager", "accounting",
   "admin", "hotel_rental_monitoring", "hotel_cashier", "room_attendant", "guard",
   "electrician", "utility", "warehouse_timekeeper", "errand_liaison",
+  "admin_staff", "accounting_staff", "marketing_staff", "hr_staff",
   "broker", "buyer", "tenant", "guest",
 ] as const;
 
@@ -265,18 +266,57 @@ export const MODULES: Record<ModuleKey, ModuleDef> = {
 
 export const MODULE_LIST: ModuleDef[] = Object.values(MODULES);
 
-/** Modules the given roles may see in the nav (dedup + preserves declared order). */
+// ---------------------------------------------------------------------------
+// DB-driven override layer.
+//
+// role_permissions is GLOBAL config (role→module, not per-user), so it is safe
+// to cache in module scope. The DAL loads it once per request and calls
+// setPermissionOverrides(); every canRead/canWrite/accessibleModules check then
+// consults an override row first and falls back to the code default above.
+// ---------------------------------------------------------------------------
+
+export interface RolePermissionRow {
+  role_key: string;
+  module_key: string;
+  can_read: boolean;
+  can_write: boolean;
+}
+
+// key = `${role_key}:${module_key}`
+let PERMISSION_OVERRIDES: Map<string, { read: boolean; write: boolean }> = new Map();
+
+export function setPermissionOverrides(rows: RolePermissionRow[]): void {
+  const map = new Map<string, { read: boolean; write: boolean }>();
+  for (const r of rows) map.set(`${r.role_key}:${r.module_key}`, { read: r.can_read, write: r.can_write });
+  PERMISSION_OVERRIDES = map;
+}
+
+/** Does a single role grant read/write on a module — override wins over default. */
+function roleGrants(role: string, key: ModuleKey, kind: "read" | "write"): boolean {
+  const o = PERMISSION_OVERRIDES.get(`${role}:${key}`);
+  if (o) return kind === "read" ? o.read : o.write;
+  const def = (kind === "read" ? MODULES[key].read : MODULES[key].write) as readonly string[];
+  return def.includes(role);
+}
+
+/** Effective read/write for a role on a module (override-aware). For the admin UI. */
+export function effectivePermission(role: string, key: ModuleKey): { read: boolean; write: boolean } {
+  const o = PERMISSION_OVERRIDES.get(`${role}:${key}`);
+  if (o) return { read: o.read, write: o.write };
+  const rd = MODULES[key].read as readonly string[];
+  const wr = MODULES[key].write as readonly string[];
+  return { read: rd.includes(role), write: wr.includes(role) };
+}
+
+/** Modules the given roles may see in the nav (override-aware, declared order). */
 export function accessibleModules(roleKeys: readonly string[]): ModuleDef[] {
-  const set = new Set(roleKeys);
-  return MODULE_LIST.filter((m) => m.read.some((r) => set.has(r)));
+  return MODULE_LIST.filter((m) => roleKeys.some((r) => roleGrants(r, m.key, "read")));
 }
 
 export function canReadModule(roleKeys: readonly string[], key: ModuleKey): boolean {
-  const set = new Set(roleKeys);
-  return MODULES[key].read.some((r) => set.has(r));
+  return roleKeys.some((r) => roleGrants(r, key, "read"));
 }
 
 export function canWriteModule(roleKeys: readonly string[], key: ModuleKey): boolean {
-  const set = new Set(roleKeys);
-  return MODULES[key].write.some((r) => set.has(r));
+  return roleKeys.some((r) => roleGrants(r, key, "write"));
 }

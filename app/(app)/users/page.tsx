@@ -19,6 +19,13 @@ export default async function UsersPage() {
         subtitle="Give each person the roles their task needs — access to every module follows from the role."
         badge={<Badge tone="green">Live</Badge>}
       />
+      {canWrite && (
+        <div className="mb-4">
+          <a href="/users/access" className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-300 bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100">
+            ⚙ Access Control — grant modules per role
+          </a>
+        </div>
+      )}
       <UsersTable
         users={users}
         roles={roles}

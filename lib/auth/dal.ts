@@ -6,8 +6,13 @@ import { createClient } from "@/lib/supabase/server";
 import {
   canReadModule,
   canWriteModule,
+  setPermissionOverrides,
+  ALL_ROLE_KEYS,
   type ModuleKey,
 } from "@/lib/rbac/modules";
+
+/** Roles that may preview/"act as" ANY role (top-level; never an escalation). */
+const ACT_AS_ANY_ROLES = ["admin"];
 
 /**
  * Data Access Layer — the authoritative auth boundary.
@@ -30,6 +35,8 @@ export interface SessionUser {
   allRoleKeys: string[];
   /** The role currently being acted-as, or null. */
   actingAs: string | null;
+  /** True when the user may preview/act as any role (admin). */
+  canActAsAny: boolean;
 }
 
 export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
@@ -40,16 +47,25 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
   } = await supabase.auth.getUser();
   if (!user) return null;
 
-  const [{ data: roleRows }, { data: profile }] = await Promise.all([
+  const [{ data: roleRows }, { data: profile }, { data: permRows }] = await Promise.all([
     supabase.from("user_roles").select("role_key").eq("user_id", user.id),
     supabase.from("profiles").select("display_label").eq("id", user.id).maybeSingle(),
+    supabase.from("role_permissions").select("role_key, module_key, can_read, can_write"),
   ]);
   const allRoleKeys = (roleRows ?? []).map((r) => r.role_key as string);
 
-  // "Act as role" — restrict to a single held role (never an escalation).
+  // Load the global DB permission overrides into the RBAC layer for this request.
+  setPermissionOverrides((permRows ?? []) as never);
+
+  // "Act as role" — normally restricted to a held role (never an escalation).
+  // Admins may preview ANY role (admin already outranks all, so no escalation).
+  const canActAsAny = allRoleKeys.some((r) => ACT_AS_ANY_ROLES.includes(r));
   const cookieStore = await cookies();
   const requested = cookieStore.get("act_as_role")?.value ?? null;
-  const actingAs = requested && allRoleKeys.includes(requested) ? requested : null;
+  const validTarget =
+    requested != null &&
+    (allRoleKeys.includes(requested) || (canActAsAny && (ALL_ROLE_KEYS as readonly string[]).includes(requested)));
+  const actingAs = validTarget ? requested : null;
 
   return {
     userId: user.id,
@@ -58,6 +74,7 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
     roleKeys: actingAs ? [actingAs] : allRoleKeys,
     allRoleKeys,
     actingAs,
+    canActAsAny,
   };
 });
 

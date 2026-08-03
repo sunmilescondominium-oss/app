@@ -23,15 +23,16 @@ export default async function AppLayout({
   }));
 
   // Resolve human role labels from the DB (roles are data, not constants).
+  // Admins may preview ANY active role; everyone else only the roles they hold.
   const supabase = await createClient();
-  const { data: roleRows } = await supabase
-    .from("roles")
-    .select("role_key, label")
-    .in("role_key", user.allRoleKeys.length ? user.allRoleKeys : ["__none__"]);
+  const rolesQuery = supabase.from("roles").select("role_key, label, sort_order").eq("is_active", true).order("sort_order");
+  const { data: roleRows } = user.canActAsAny
+    ? await rolesQuery
+    : await rolesQuery.in("role_key", user.allRoleKeys.length ? user.allRoleKeys : ["__none__"]);
 
-  const allRoleOptions: RoleOption[] = user.allRoleKeys.map((key) => ({
-    key,
-    label: roleRows?.find((r) => r.role_key === key)?.label ?? key,
+  const allRoleOptions: RoleOption[] = (roleRows ?? []).map((r) => ({
+    key: r.role_key as string,
+    label: (r.label as string) ?? (r.role_key as string),
   }));
 
   return (
