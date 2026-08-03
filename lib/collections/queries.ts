@@ -56,6 +56,12 @@ export async function listUnitOptions(): Promise<UnitOption[]> {
   });
 }
 
+export async function getReceiptSeries(): Promise<{ context: string; prefix: string; next_no: number }[]> {
+  const admin = createAdminClient();
+  const { data } = await admin.from("receipt_series").select("context, prefix, next_no").order("context", { ascending: true });
+  return (data ?? []).map((r) => ({ context: r.context as string, prefix: (r.prefix as string) ?? "AR-", next_no: Number(r.next_no) }));
+}
+
 export async function listTransmittals(limit = 60): Promise<Transmittal[]> {
   // Service role: gated at the page by requireModule("transmittals"). Lets the
   // hotel cashier and other transmittal roles see rows regardless of table RLS.

@@ -168,9 +168,9 @@ export async function recordStayPayment(
   let receipt_no = String(formData.get("receipt_no") ?? "").trim();
   if (!receipt_no) receipt_no = `OR-${Date.now().toString(36).toUpperCase()}`;
 
-  // Internal serialized Acknowledgement Receipt number, alongside the OR.
+  // Internal Acknowledgement Receipt from the monitoring-configured hotel series.
   const adminForAr = createAdminClient();
-  const { data: arNo } = await adminForAr.rpc("next_hotel_ar");
+  const { data: arNo } = await adminForAr.rpc("next_receipt_no", { ctx: "hotel" });
   const ar_no = (arNo as string | null) ?? null;
 
   const { error } = await supabase.from("stay_payments").insert({

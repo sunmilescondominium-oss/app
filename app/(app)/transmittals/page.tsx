@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { requireModule } from "@/lib/auth/dal";
-import { listTransmittals } from "@/lib/collections/queries";
+import { listTransmittals, getReceiptSeries } from "@/lib/collections/queries";
 import { peso, todayManila } from "@/lib/collections/summary";
 import { PageHeader, Badge } from "@/components/ui";
 import { BuildTransmittalForm } from "@/components/transmittals/build-form";
+import { ReceiptSeriesPanel } from "@/components/transmittals/receipt-series";
 
 export const metadata = { title: "Transmittals" };
 
@@ -24,7 +25,8 @@ export default async function TransmittalsPage() {
   const canBuild = user.roleKeys.some((r) =>
     ["hotel_rental_monitoring", "accounting", "hotel_cashier"].includes(r),
   );
-  const transmittals = await listTransmittals();
+  const canSeries = user.roleKeys.some((r) => ["admin", "hotel_rental_monitoring"].includes(r));
+  const [transmittals, series] = await Promise.all([listTransmittals(), canSeries ? getReceiptSeries() : Promise.resolve([])]);
 
   // Daily reconciliation tally (accounting) — collected vs deposited per day.
   const byDate = new Map<string, { collected: number; deposited: number; reconciled: number; passbook: number; count: number }>();
@@ -48,6 +50,7 @@ export default async function TransmittalsPage() {
       />
 
       {canBuild && <BuildTransmittalForm defaultDate={todayManila()} />}
+      {canSeries && series.length > 0 && <ReceiptSeriesPanel series={series} />}
 
       {/* Daily reconciliation tally — accounting, before the final owner report */}
       <h2 className="mb-2 mt-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Daily reconciliation</h2>

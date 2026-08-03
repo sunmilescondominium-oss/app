@@ -211,7 +211,9 @@ export async function setLeaseDocument(leaseId: string, docType: string, formDat
 export async function markDuePaid(id: string): Promise<ActionResult> {
   const user = await requireModuleWrite("rentals");
   const admin = createAdminClient();
-  const { error } = await admin.from("rental_dues").update({ status: "paid", paid_on: todayManila() }).eq("id", id);
+  // Issue an Acknowledgement Receipt from the monitoring-configured rental series.
+  const { data: arNo } = await admin.rpc("next_receipt_no", { ctx: "rental" });
+  const { error } = await admin.from("rental_dues").update({ status: "paid", paid_on: todayManila(), ar_no: (arNo as string | null) ?? null }).eq("id", id);
   if (error) return { ok: false, error: error.message };
   await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "update", entity: "rental_dues", entityId: id, diff: { status: "paid" } });
   revalidatePath("/rentals");

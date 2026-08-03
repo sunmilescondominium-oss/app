@@ -92,6 +92,25 @@ export async function buildTransmittalForDate(
   return { ok: true };
 }
 
+/** Monitoring/admin sets the AR receipt series (prefix + next number). */
+export async function setReceiptSeries(context: "hotel" | "rental", prefix: string, nextNo: number): Promise<ActionResult> {
+  const user = await requireAuth();
+  if (!userHasAnyRole(user, ["admin", "hotel_rental_monitoring"]))
+    return { ok: false, error: "Only monitoring/admin can set the receipt series." };
+  if (!["hotel", "rental"].includes(context)) return { ok: false, error: "Invalid context." };
+  if (!Number.isInteger(nextNo) || nextNo < 1) return { ok: false, error: "Next number must be a positive integer." };
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("receipt_series")
+    .update({ prefix: prefix.trim(), next_no: nextNo, updated_by: user.userId, updated_at: new Date().toISOString() })
+    .eq("context", context);
+  if (error) return { ok: false, error: error.message };
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "update", entity: "receipt_series", entityId: context, diff: { prefix, nextNo } });
+  revalidatePath("/transmittals");
+  return { ok: true };
+}
+
 /** errand_liaison (or accounting/managing) confirms the bank deposit. */
 export async function depositTransmittal(
   id: string,
