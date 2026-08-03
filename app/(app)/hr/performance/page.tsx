@@ -50,6 +50,9 @@ export default async function StaffPerformancePage({
           <input type="date" name="to" defaultValue={to} className={inputCls} />
         </div>
         <button type="submit" className="rounded-lg bg-stone-800 px-4 py-2 text-sm font-medium text-white hover:bg-stone-900">Apply</button>
+        <a href={`/api/export/staff-performance?from=${from}&to=${to}`} className="ml-auto rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100">
+          ⬇ Export to Sheets
+        </a>
       </form>
 
       <div className="table-wrap">

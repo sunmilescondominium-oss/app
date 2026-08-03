@@ -58,6 +58,9 @@ export default async function CollectionsPage({
         >
           View
         </button>
+        <a href={`/api/export/collections?date=${date}`} className="ml-auto rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100">
+          ⬇ Export to Sheets
+        </a>
       </form>
 
       {/* Summary */}
