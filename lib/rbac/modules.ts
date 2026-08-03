@@ -43,6 +43,7 @@ export type ModuleKey =
   | "housekeeping"
   | "owner"
   | "finance"
+  | "banking"
   | "hr"
   | "employee"
   | "employees"
@@ -190,6 +191,15 @@ export const MODULES: Record<ModuleKey, ModuleDef> = {
     path: "/finance",
     label: "P&L / Reports",
     blurb: "Sales, expenses & profit.",
+    milestone: "M9",
+    read: ["owner", "managing_officer", "consultant", "accounting", "admin"],
+    write: ["accounting", "admin"],
+  },
+  banking: {
+    key: "banking",
+    path: "/banking",
+    label: "Bank & Reconciliation",
+    blurb: "Bank accounts, deposits, checks & reconciliation.",
     milestone: "M9",
     read: ["owner", "managing_officer", "consultant", "accounting", "admin"],
     write: ["accounting", "admin"],
