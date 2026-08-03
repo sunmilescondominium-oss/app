@@ -255,6 +255,31 @@ export type LeaveStatus = (typeof LEAVE_STATUSES)[number]["key"];
 /** Minimum notice (days) a leave request should give before it starts. */
 export const LEAVE_MIN_LEAD_DAYS = 3; // TODO(client-confirm)
 
+/** Rentals & Airbnb — utility types, due categories, billing cycles. */
+export const UTILITY_TYPES = [
+  { key: "electric", label: "Electric" },
+  { key: "water", label: "Water" },
+] as const;
+
+export const RENTAL_DUE_CATEGORIES = [
+  { key: "rent", label: "Rent" },
+  { key: "association_dues", label: "Association dues" },
+  { key: "electric", label: "Electric" },
+  { key: "water", label: "Water" },
+  { key: "parking", label: "Parking" },
+  { key: "other", label: "Other" },
+] as const;
+
+export const BILLING_CYCLES = [
+  { key: "monthly", label: "Monthly" },
+  { key: "nightly", label: "Nightly" },
+] as const;
+
+/** How many hours before an Airbnb checkout to flag "checkout soon". */
+export const AIRBNB_CHECKOUT_SOON_HOURS = 3; // TODO(client-confirm)
+/** How many days before/after a due date to flag "due soon / overdue". */
+export const DUE_SOON_DAYS = 3; // TODO(client-confirm)
+
 /** PHP bills & coins for the cash-count / transmittal denomination breakdown. */
 export const PHP_DENOMINATIONS = [
   { value: 1000, kind: "bill" },

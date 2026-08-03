@@ -38,6 +38,7 @@ export type ModuleKey =
   | "disputes"
   | "repair"
   | "hotel"
+  | "rentals"
   | "housekeeping"
   | "owner"
   | "finance"
@@ -139,6 +140,15 @@ export const MODULES: Record<ModuleKey, ModuleDef> = {
     milestone: "Hotel",
     read: ["hotel_cashier", "hotel_rental_monitoring", "room_attendant", "operations_manager", "managing_officer", "admin"],
     write: ["hotel_cashier", "hotel_rental_monitoring", "admin"],
+  },
+  rentals: {
+    key: "rentals",
+    path: "/rentals",
+    label: "Rentals & Airbnb",
+    blurb: "Occupancy, dues, meter readings.",
+    milestone: "B",
+    read: ["admin", "managing_officer", "operations_manager", "accounting", "hotel_rental_monitoring"],
+    write: ["admin", "managing_officer", "operations_manager", "accounting", "hotel_rental_monitoring"],
   },
   housekeeping: {
     key: "housekeeping",
