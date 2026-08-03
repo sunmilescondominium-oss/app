@@ -2,8 +2,8 @@
 
 import { useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
-import { useRef } from "react";
 import { assignRepair, setRepairStatus, uploadRepairPhoto } from "@/app/(app)/repairs/actions";
+import { CameraCapture } from "@/components/capture/camera-capture";
 import { REPAIR_STATUSES } from "@/lib/config";
 import type { RepairRequest } from "@/lib/repairs/types";
 
@@ -156,27 +156,21 @@ export function RepairsBoard({
 /** Before/after repair photos — view + (for staff) upload from the camera. */
 function RepairPhotos({ r, canWrite }: { r: RepairRequest; canWrite: boolean }) {
   const router = useRouter();
-  const beforeRef = useRef<HTMLInputElement>(null);
-  const afterRef = useRef<HTMLInputElement>(null);
-
-  async function upload(kind: "before" | "after", e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  async function onCapture(kind: "before" | "after", file: File, capturedAt: string) {
     const fd = new FormData();
     fd.append("photo", file);
+    fd.append("captured_at", capturedAt);
     const res = await uploadRepairPhoto(r.id, kind, fd);
-    e.target.value = "";
     if (!res.ok) return window.alert(res.error);
     router.refresh();
   }
 
   return (
-    <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px]">
+    <div className="mt-1 flex flex-wrap items-center gap-3 text-[11px]">
       {(["before", "after"] as const).map((kind) => {
         const has = kind === "before" ? r.before_photo_path : r.after_photo_path;
-        const ref = kind === "before" ? beforeRef : afterRef;
         return (
-          <span key={kind} className="flex items-center gap-1">
+          <span key={kind} className="flex items-center gap-1.5">
             {has ? (
               <a href={`/api/repairs/${r.id}/photo?kind=${kind}`} target="_blank" rel="noreferrer" className="font-medium text-amber-700 hover:underline">
                 {kind} ✓
@@ -185,10 +179,12 @@ function RepairPhotos({ r, canWrite }: { r: RepairRequest; canWrite: boolean }) 
               <span className="text-stone-400">{kind}</span>
             )}
             {canWrite && (
-              <>
-                <input ref={ref} type="file" accept="image/*" capture="environment" hidden onChange={(e) => upload(kind, e)} />
-                <button type="button" onClick={() => ref.current?.click()} className="text-stone-400 hover:text-amber-700">＋</button>
-              </>
+              <CameraCapture
+                label={`Repair · ${kind} · ${r.issue_type}`}
+                buttonText={has ? `retake ${kind}` : `${kind} photo`}
+                facingMode="environment"
+                onCapture={(f, at) => onCapture(kind, f, at)}
+              />
             )}
           </span>
         );

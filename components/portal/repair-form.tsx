@@ -1,11 +1,12 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import {
   submitRepairRequest,
   type SubmitState,
 } from "@/app/(public)/repair-request/actions";
 import { REPAIR_URGENCY, REPAIR_ISSUE_TYPES } from "@/lib/config";
+import { CameraCapture } from "@/components/capture/camera-capture";
 
 const inputCls =
   "w-full rounded-lg border border-stone-300 px-3 py-2.5 text-stone-900 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
@@ -16,6 +17,17 @@ export function RepairForm() {
     submitRepairRequest,
     undefined,
   );
+  const [photo, setPhoto] = useState<{ file: File; at: string } | null>(null);
+
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    if (photo) {
+      fd.set("photo", photo.file);
+      fd.set("captured_at", photo.at);
+    }
+    action(fd);
+  }
 
   if (state?.ok) {
     return (
@@ -41,7 +53,7 @@ export function RepairForm() {
   }
 
   return (
-    <form action={action} className="space-y-4 text-left">
+    <form onSubmit={handleSubmit} className="space-y-4 text-left">
       <div>
         <label className={labelCls}>I am a…</label>
         <select name="requester_type" defaultValue="tenant" className={inputCls}>
@@ -87,8 +99,15 @@ export function RepairForm() {
       </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
-          <label className={labelCls}>Photo (optional)</label>
-          <input name="photo" type="file" accept="image/*" className="text-sm" />
+          <label className={labelCls}>Photo of the issue (optional)</label>
+          {photo ? (
+            <p className="text-sm text-emerald-700">
+              ✓ Photo taken {new Date(photo.at).toLocaleTimeString("en-PH", { timeZone: "Asia/Manila", hour: "2-digit", minute: "2-digit" })}{" "}
+              <button type="button" onClick={() => setPhoto(null)} className="text-amber-700 underline">retake</button>
+            </p>
+          ) : (
+            <CameraCapture label="Repair request" buttonText="Take photo" onCapture={(f, at) => setPhoto({ file: f, at })} />
+          )}
         </div>
         <div>
           <label className={labelCls}>Email for updates (optional)</label>
