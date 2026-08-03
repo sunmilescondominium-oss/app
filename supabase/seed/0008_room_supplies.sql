@@ -11,7 +11,8 @@ insert into public.room_supplies (name, unit_label, stock_qty, reorder_level, so
   ('Blanket',             'pcs',  50,  10, 50),
   ('Bottled Water 500ml', 'pcs',  200, 40, 60),
   ('Toiletry Kit',        'pcs',  150, 30, 70),
-  ('Toilet Paper',        'roll', 180, 40, 80)
+  ('Toilet Paper',        'roll', 180, 40, 80),
+  ('Bath Soap',           'pcs',  200, 40, 90)
 on conflict (name) do update set
   unit_label    = excluded.unit_label,
   reorder_level = excluded.reorder_level,

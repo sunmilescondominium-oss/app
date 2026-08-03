@@ -208,6 +208,7 @@ export const ROOM_ASSET_CHECKLIST = [
   { key: "tv_remote", label: "TV remote", expected: 1 },
   { key: "ac_remote", label: "Aircon remote", expected: 1 },
   { key: "glass", label: "Drinking glass", expected: 2 },
+  { key: "bath_soap", label: "Bath soap", expected: 1 },
 ] as const;
 
 /** Cleaning task checklist. */
@@ -274,9 +275,10 @@ export const UTILITY_TYPES = [
 export const RENTAL_DUE_CATEGORIES = [
   { key: "rent", label: "Rent" },
   { key: "association_dues", label: "Association dues" },
-  { key: "electric", label: "Electric" },
+  { key: "electric", label: "Electric (Meralco)" },
   { key: "water", label: "Water" },
   { key: "parking", label: "Parking" },
+  { key: "repairs", label: "Repairs" },
   { key: "other", label: "Other" },
 ] as const;
 

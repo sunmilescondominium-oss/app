@@ -24,6 +24,7 @@ function mapTask(r: Record<string, unknown>): HousekeepingTask {
     completed_at: (r.completed_at as string) ?? null,
     created_at: r.created_at as string,
     unit_number: u?.unit_number ?? null,
+    photos: Array.isArray(r.photos) ? (r.photos as string[]) : [],
   };
 }
 

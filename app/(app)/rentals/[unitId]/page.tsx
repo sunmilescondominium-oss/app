@@ -23,9 +23,14 @@ export default async function RentalUnitPage({ params }: { params: Promise<{ uni
 
   return (
     <>
-      <div className="mb-4">
-        <Link href="/rentals" className="text-xs text-amber-700 hover:underline">← Back to Rentals &amp; Airbnb</Link>
-        <PageHeader title={`Unit ${unit.unitNumber}`} subtitle={`${unit.propertyName} · ${unit.businessLine}`} />
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <Link href="/rentals" className="text-xs text-amber-700 hover:underline">← Back to Rentals &amp; Airbnb</Link>
+          <PageHeader title={`Unit ${unit.unitNumber}`} subtitle={`${unit.propertyName} · ${unit.businessLine}`} />
+        </div>
+        <Link href={`/rentals/${unitId}/bill`} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          Monthly bill →
+        </Link>
       </div>
 
       {/* Occupancy */}

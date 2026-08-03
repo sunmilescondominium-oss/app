@@ -123,15 +123,20 @@ export async function createDue(_prev: ActionResult | undefined, formData: FormD
   if (!unit_id || !due_date) return { ok: false, error: "Choose a unit and due date." };
   if (!Number.isFinite(amount) || amount <= 0) return { ok: false, error: "Enter a valid amount." };
 
+  const category = String(formData.get("category") ?? "rent");
+  const remarks = String(formData.get("remarks") ?? "").trim() || null;
+  if ((category === "other" || category === "repairs") && !remarks)
+    return { ok: false, error: "Specify the item for this charge." };
+
   const admin = createAdminClient();
   const { data: lease } = await admin.from("leases").select("id").eq("unit_id", unit_id).eq("status", "active").maybeSingle();
   const { error } = await admin.from("rental_dues").insert({
     unit_id,
     lease_id: lease?.id ?? null,
-    category: String(formData.get("category") ?? "rent"),
+    category,
     due_date,
     amount,
-    remarks: String(formData.get("remarks") ?? "").trim() || null,
+    remarks,
     created_by: user.userId,
   });
   if (error) return { ok: false, error: error.message };

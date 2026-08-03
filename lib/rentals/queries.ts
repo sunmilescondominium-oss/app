@@ -181,11 +181,11 @@ export async function rentalUnitDetail(unitId: string): Promise<UnitDetail | nul
   };
 }
 
-export async function duesForUnit(unitId: string): Promise<(DueInfo & { paidOn: string | null })[]> {
+export async function duesForUnit(unitId: string): Promise<(DueInfo & { paidOn: string | null; remarks: string | null })[]> {
   const admin = createAdminClient();
   const { data } = await admin
     .from("rental_dues")
-    .select("id, category, amount, due_date, status, paid_on")
+    .select("id, category, amount, due_date, status, paid_on, remarks")
     .eq("unit_id", unitId)
     .order("due_date", { ascending: false });
   return (data ?? []).map((d) => ({
@@ -195,6 +195,7 @@ export async function duesForUnit(unitId: string): Promise<(DueInfo & { paidOn: 
     dueDate: d.due_date as string,
     status: d.status as string,
     paidOn: (d.paid_on as string | null) ?? null,
+    remarks: (d.remarks as string | null) ?? null,
     ...dueFlags(d.due_date as string),
   }));
 }
@@ -224,6 +225,40 @@ export async function metersForUnit(unitId: string): Promise<MeterRow[]> {
     readOn: r.read_on as string,
     consumption: cons.get(r.id as string) ?? null,
   }));
+}
+
+export interface BillLine {
+  label: string;
+  detail: string | null;
+  amount: number;
+}
+
+/** Monthly billing statement — monthly rent + all unpaid dues for the unit. */
+export async function unitBill(unitId: string): Promise<{
+  unit: UnitDetail;
+  lines: BillLine[];
+  total: number;
+} | null> {
+  const { RENTAL_DUE_CATEGORIES } = await import("@/lib/config");
+  const label = Object.fromEntries(RENTAL_DUE_CATEGORIES.map((c) => [c.key, c.label]));
+  const unit = await rentalUnitDetail(unitId);
+  if (!unit) return null;
+
+  const dues = await duesForUnit(unitId);
+  const lines: BillLine[] = [];
+  if (unit.lease && unit.lease.billingCycle === "monthly" && unit.lease.rentAmount > 0) {
+    lines.push({ label: "Monthly rent", detail: null, amount: unit.lease.rentAmount });
+  }
+  for (const d of dues.filter((x) => x.status === "unpaid")) {
+    const base = (label[d.category] as string) ?? d.category;
+    lines.push({
+      label: d.remarks ? `${base} — ${d.remarks}` : base,
+      detail: d.dueDate,
+      amount: d.amount,
+    });
+  }
+  const total = Math.round(lines.reduce((s, l) => s + l.amount, 0) * 100) / 100;
+  return { unit, lines, total };
 }
 
 export async function rentalUnitOptions(): Promise<{ id: string; label: string; businessLine: string }[]> {

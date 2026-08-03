@@ -127,6 +127,13 @@ async function main() {
     } else {
       console.log("✔ storage bucket payment-proofs ready (private)");
     }
+
+    const hkBucket = await admin.storage.createBucket("housekeeping-photos", { public: false });
+    if (hkBucket.error && !/exist/i.test(hkBucket.error.message)) {
+      console.warn("⚠ bucket housekeeping-photos:", hkBucket.error.message);
+    } else {
+      console.log("✔ storage bucket housekeeping-photos ready (private)");
+    }
   } finally {
     await sql.end();
   }

@@ -207,8 +207,9 @@ export const MODULES: Record<ModuleKey, ModuleDef> = {
     blurb: "Staff roster, photos & leave approvals.",
     milestone: "M8",
     // Roster viewers + photo uploaders — HR / admin / consultant / ops / top users.
-    read: ["admin", "managing_officer", "operations_manager", "consultant", "accounting", "warehouse_timekeeper"],
-    write: ["admin", "managing_officer", "operations_manager", "consultant", "accounting", "warehouse_timekeeper"],
+    // (warehouse_timekeeper handles only DTR + shift scheduling, not the roster.)
+    read: ["admin", "managing_officer", "operations_manager", "consultant", "accounting"],
+    write: ["admin", "managing_officer", "operations_manager", "consultant", "accounting"],
   },
   advances: {
     key: "advances",

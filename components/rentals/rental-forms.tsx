@@ -114,6 +114,7 @@ export function DueForm({ units }: { units: Unit[] }) {
       </select>
       <input name="amount" type="number" step="0.01" min="0" placeholder="Amount ₱" required className={`${cls} w-28`} />
       <input name="due_date" type="date" required className={cls} />
+      <input name="remarks" placeholder="Item / note (required for Other/Repairs)" className={`${cls} min-w-[12rem] flex-1`} />
       <button type="submit" disabled={pending} className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-60">
         {pending ? "Saving…" : "Add due"}
       </button>

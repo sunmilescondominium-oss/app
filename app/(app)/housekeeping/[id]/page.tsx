@@ -6,6 +6,7 @@ import { getTaskDetail } from "@/lib/housekeeping/queries";
 import { HOUSEKEEPING_STATUSES } from "@/lib/config";
 import { PageHeader, Badge } from "@/components/ui";
 import { TaskActions } from "@/components/housekeeping/task-actions";
+import { CleaningPhotos } from "@/components/housekeeping/cleaning-photos";
 
 export const metadata = { title: "Housekeeping task" };
 
@@ -57,7 +58,10 @@ export default async function TaskDetailPage({
       />
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <TaskActions detail={detail} canWrite={canWrite} />
+        <div className="space-y-6">
+          <TaskActions detail={detail} canWrite={canWrite} />
+          <CleaningPhotos taskId={task.id} count={task.photos.length} canWrite={canWrite} />
+        </div>
 
         <div>
           <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Activity log</h2>

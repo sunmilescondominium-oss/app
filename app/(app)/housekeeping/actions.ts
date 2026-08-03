@@ -13,6 +13,30 @@ function attendantRole(roleKeys: string[]): string {
   return roleKeys.includes("room_attendant") ? "room_attendant" : roleKeys[0] ?? "room_attendant";
 }
 
+/** Attach post-cleaning photos (bed, toilet, room, …) to a housekeeping task. */
+export async function uploadHousekeepingPhoto(taskId: string, formData: FormData): Promise<ActionResult> {
+  const user = await requireModuleWrite("housekeeping");
+  const photo = formData.get("photo");
+  const area = String(formData.get("area") ?? "").trim() || "room";
+  if (!(photo instanceof File) || photo.size === 0) return { ok: false, error: "Choose a photo." };
+  if (photo.size > 8 * 1024 * 1024) return { ok: false, error: "Photo too large (max 8 MB)." };
+
+  const admin = createAdminClient();
+  const path = `${taskId}/${area}-${Date.now()}.jpg`;
+  const up = await admin.storage.from("housekeeping-photos").upload(path, new Uint8Array(await photo.arrayBuffer()), { contentType: photo.type || "image/jpeg" });
+  if (up.error) return { ok: false, error: up.error.message };
+
+  const { data: task } = await admin.from("housekeeping_tasks").select("photos").eq("id", taskId).maybeSingle();
+  const photos = Array.isArray(task?.photos) ? (task!.photos as string[]) : [];
+  photos.push(path);
+  const { error } = await admin.from("housekeeping_tasks").update({ photos }).eq("id", taskId);
+  if (error) return { ok: false, error: error.message };
+
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "update", entity: "housekeeping_tasks", entityId: taskId, diff: { photo_area: area } });
+  revalidatePath(`/housekeeping/${taskId}`);
+  return { ok: true };
+}
+
 export async function startTask(taskId: string, shift: string): Promise<ActionResult> {
   const user = await requireModuleWrite("housekeeping");
   const supabase = await createClient();

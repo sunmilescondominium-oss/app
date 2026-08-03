@@ -26,6 +26,7 @@ export interface HousekeepingTask {
   completed_at: string | null;
   created_at: string;
   unit_number: string | null;
+  photos: string[];
 }
 
 export interface HousekeepingEvent {
