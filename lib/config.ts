@@ -255,6 +255,16 @@ export type LeaveStatus = (typeof LEAVE_STATUSES)[number]["key"];
 /** Minimum notice (days) a leave request should give before it starts. */
 export const LEAVE_MIN_LEAD_DAYS = 3; // TODO(client-confirm)
 
+/** Cash-advance workflow statuses. */
+export const ADVANCE_STATUSES = [
+  { key: "pending", label: "Pending", tone: "amber" },
+  { key: "approved", label: "Approved", tone: "sky" },
+  { key: "released", label: "Released", tone: "green" },
+  { key: "liquidated", label: "Liquidated", tone: "slate" },
+  { key: "rejected", label: "Rejected", tone: "red" },
+  { key: "cancelled", label: "Cancelled", tone: "slate" },
+] as const;
+
 /** Rentals & Airbnb — utility types, due categories, billing cycles. */
 export const UTILITY_TYPES = [
   { key: "electric", label: "Electric" },

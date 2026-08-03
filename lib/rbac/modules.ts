@@ -45,12 +45,17 @@ export type ModuleKey =
   | "hr"
   | "employee"
   | "employees"
+  | "advances"
   | "scheduling"
   | "users";
 
 /** Roles that may approve/reject leave — TODO(client-confirm). Owner included so
  *  the owner can act on requests surfaced in the Owner Dashboard. */
 export const LEAVE_APPROVER_ROLES: RoleKey[] = ["owner", "admin", "managing_officer", "operations_manager"];
+
+/** Roles that may approve a cash advance, and roles that may release/disburse it. */
+export const ADVANCE_APPROVER_ROLES: RoleKey[] = ["admin", "managing_officer", "operations_manager", "accounting"];
+export const ADVANCE_RELEASE_ROLES: RoleKey[] = ["accounting", "admin"];
 
 export interface ModuleDef {
   key: ModuleKey;
@@ -204,6 +209,15 @@ export const MODULES: Record<ModuleKey, ModuleDef> = {
     // Roster viewers + photo uploaders — HR / admin / consultant / ops / top users.
     read: ["admin", "managing_officer", "operations_manager", "consultant", "accounting", "warehouse_timekeeper"],
     write: ["admin", "managing_officer", "operations_manager", "consultant", "accounting", "warehouse_timekeeper"],
+  },
+  advances: {
+    key: "advances",
+    path: "/advances",
+    label: "Cash Advance",
+    blurb: "Requests, approval & liquidation.",
+    milestone: "C",
+    read: ["admin", "managing_officer", "operations_manager", "accounting", "consultant", "errand_liaison", "hotel_rental_monitoring", "hotel_cashier"],
+    write: ["admin", "managing_officer", "operations_manager", "accounting", "consultant", "errand_liaison", "hotel_rental_monitoring", "hotel_cashier"],
   },
   scheduling: {
     key: "scheduling",
