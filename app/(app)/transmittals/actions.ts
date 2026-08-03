@@ -21,8 +21,8 @@ export async function buildTransmittalForDate(
   formData: FormData,
 ): Promise<ActionResult> {
   const user = await requireAuth();
-  if (!userHasAnyRole(user, ["hotel_rental_monitoring", "accounting"]))
-    return { ok: false, error: "Only monitoring or accounting can build a transmittal." };
+  if (!userHasAnyRole(user, ["hotel_rental_monitoring", "accounting", "hotel_cashier"]))
+    return { ok: false, error: "Only the cashier, monitoring, or accounting can build a transmittal." };
 
   const supabase = await createClient();
   const date = String(formData.get("date") ?? "").trim();
@@ -38,7 +38,7 @@ export async function buildTransmittalForDate(
     return { ok: false, error: "No un-transmitted collections found for that date." };
 
   const total = cols.reduce((s, c) => s + Number(c.amount), 0);
-  const counted_by_role = firstHeld(user.roleKeys, ["hotel_rental_monitoring", "accounting"]);
+  const counted_by_role = firstHeld(user.roleKeys, ["hotel_cashier", "hotel_rental_monitoring", "accounting"]);
 
   // Optional PHP bill/coin count → the physical cash being transmitted.
   let denomination_counts: Record<string, number> | null = null;

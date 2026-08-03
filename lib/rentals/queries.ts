@@ -29,12 +29,14 @@ export async function occupancyBoard(): Promise<OccupancyRow[]> {
   const ids = units.map((u) => u.id as string);
   const guard = ids.length ? ids : ["__none__"];
 
-  const [{ data: leases }, { data: dues }] = await Promise.all([
+  const [{ data: leases }, { data: dues }, { data: hk }] = await Promise.all([
     admin.from("leases").select("id, unit_id, tenant_label, contact, end_at, rent_amount, billing_cycle").eq("status", "active").in("unit_id", guard),
     admin.from("rental_dues").select("id, unit_id, category, amount, due_date, status").eq("status", "unpaid").in("unit_id", guard).order("due_date", { ascending: true }),
+    admin.from("housekeeping_tasks").select("unit_id").in("status", ["pending", "in_progress"]).in("unit_id", guard),
   ]);
 
   type DueRow = NonNullable<typeof dues>[number];
+  const dirty = new Set((hk ?? []).map((t) => t.unit_id as string).filter(Boolean));
   const leaseByUnit = new Map((leases ?? []).map((l) => [l.unit_id as string, l]));
   const dueByUnit = new Map<string, DueRow>();
   for (const d of dues ?? []) if (!dueByUnit.has(d.unit_id as string)) dueByUnit.set(d.unit_id as string, d);
@@ -61,6 +63,7 @@ export async function occupancyBoard(): Promise<OccupancyRow[]> {
         checkoutInMins,
         checkoutSoon:
           u.business_line === "airbnb" && checkoutInMins != null && checkoutInMins <= AIRBNB_CHECKOUT_SOON_HOURS * 60,
+        needsHousekeeping: !l && dirty.has(u.id as string),
         nextDue,
       };
     })

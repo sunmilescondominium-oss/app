@@ -27,6 +27,7 @@ export interface OccupancyRow {
   /** Minutes until an active Airbnb checkout (negative = overdue). */
   checkoutInMins: number | null;
   checkoutSoon: boolean;
+  needsHousekeeping: boolean;
   nextDue: DueInfo | null;
 }
 

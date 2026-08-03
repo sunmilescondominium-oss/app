@@ -23,7 +23,7 @@ export function RoomCard({
   canWrite: boolean;
   onCheckIn: (unit: RoomBoardItem["unit"]) => void;
 }) {
-  const { unit, stay } = item;
+  const { unit, stay, needsHousekeeping } = item;
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -33,23 +33,28 @@ export function RoomCard({
   }, [stay]);
 
   if (!stay) {
+    const forHousekeeping = needsHousekeeping;
     return (
-      <div className="rounded-2xl border-2 border-slate-200 bg-white p-4">
+      <div className={`rounded-2xl border-2 p-4 ${forHousekeeping ? "border-amber-300 bg-amber-50" : "border-slate-200 bg-white"}`}>
         <div className="flex items-center justify-between">
           <p className="font-semibold text-slate-900">{unit.unit_number}</p>
-          <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">
-            Vacant
+          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${forHousekeeping ? "bg-amber-200 text-amber-900" : "bg-emerald-100 text-emerald-800"}`}>
+            {forHousekeeping ? "For Housekeeping" : "Vacant"}
           </span>
         </div>
         <p className="mt-1 text-xs text-slate-500">{unit.unit_type ?? "Room"}</p>
-        {canWrite && (
-          <button
-            type="button"
-            onClick={() => onCheckIn(unit)}
-            className="mt-3 w-full rounded-lg bg-amber-600 px-3 py-2 text-sm font-semibold text-white hover:bg-amber-700"
-          >
-            Check in
-          </button>
+        {forHousekeeping ? (
+          <p className="mt-3 text-xs text-amber-700">Not available until housekeeping marks it ready.</p>
+        ) : (
+          canWrite && (
+            <button
+              type="button"
+              onClick={() => onCheckIn(unit)}
+              className="mt-3 w-full rounded-lg bg-amber-600 px-3 py-2 text-sm font-semibold text-white hover:bg-amber-700"
+            >
+              Check in
+            </button>
+          )
         )}
       </div>
     );

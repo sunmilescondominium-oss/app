@@ -98,8 +98,8 @@ export const MODULES: Record<ModuleKey, ModuleDef> = {
     label: "Transmittals",
     blurb: "Cash transmittal & bank deposit.",
     milestone: "M2",
-    read: ["accounting", "errand_liaison", "hotel_rental_monitoring", "managing_officer"],
-    write: ["hotel_rental_monitoring", "accounting", "errand_liaison", "managing_officer"],
+    read: ["accounting", "errand_liaison", "hotel_rental_monitoring", "managing_officer", "hotel_cashier"],
+    write: ["hotel_rental_monitoring", "accounting", "errand_liaison", "managing_officer", "hotel_cashier"],
   },
   buyers: {
     key: "buyers",

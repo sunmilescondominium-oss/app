@@ -22,7 +22,10 @@ export default async function RentalsPage() {
     rentalUnitOptions(),
   ]);
   const rem = await reminders(board);
-  const vacant = units.filter((u) => !board.find((b) => b.unitId === u.id && b.lease));
+  const vacant = units.filter((u) => {
+    const b = board.find((x) => x.unitId === u.id);
+    return b && !b.lease && !b.needsHousekeeping;
+  });
 
   return (
     <>
@@ -63,7 +66,13 @@ export default async function RentalsPage() {
                 <td className="px-4 py-2.5 font-medium text-slate-800">{b.unitNumber}<span className="ml-1 text-xs text-slate-400">{b.propertyName}</span></td>
                 <td className="px-4 py-2.5 capitalize">{b.businessLine}</td>
                 <td className="px-4 py-2.5">
-                  {b.lease ? <span>{b.lease.tenantLabel}{b.lease.contact ? <span className="text-xs text-slate-400"> · {b.lease.contact}</span> : null}</span> : <span className="text-emerald-600">Vacant</span>}
+                  {b.lease ? (
+                    <span>{b.lease.tenantLabel}{b.lease.contact ? <span className="text-xs text-slate-400"> · {b.lease.contact}</span> : null}</span>
+                  ) : b.needsHousekeeping ? (
+                    <span className="rounded-full bg-amber-200 px-2 py-0.5 text-xs font-medium text-amber-900">For Housekeeping</span>
+                  ) : (
+                    <span className="text-emerald-600">Vacant</span>
+                  )}
                 </td>
                 <td className="px-4 py-2.5">
                   {b.businessLine === "airbnb" && b.lease?.endAt ? (

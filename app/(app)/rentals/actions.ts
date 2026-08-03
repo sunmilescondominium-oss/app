@@ -5,6 +5,7 @@ import { requireModuleWrite } from "@/lib/auth/dal";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit";
 import { todayManila } from "@/lib/collections/summary";
+import { CLEANING_CHECKLIST } from "@/lib/config";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -29,6 +30,10 @@ export async function startLease(_prev: ActionResult | undefined, formData: Form
 
   const { data: existing } = await admin.from("leases").select("id").eq("unit_id", unit_id).eq("status", "active").maybeSingle();
   if (existing) return { ok: false, error: "This unit already has an active lease/booking." };
+
+  // Must be cleaned (no open housekeeping task) before a new occupant.
+  const { data: hk } = await admin.from("housekeeping_tasks").select("id").eq("unit_id", unit_id).in("status", ["pending", "in_progress"]).maybeSingle();
+  if (hk) return { ok: false, error: "Unit needs housekeeping before it can be occupied." };
 
   const { data, error } = await admin
     .from("leases")
@@ -61,7 +66,14 @@ export async function endLease(id: string): Promise<ActionResult> {
   const { data: lease } = await admin.from("leases").select("unit_id").eq("id", id).maybeSingle();
   const { error } = await admin.from("leases").update({ status: "ended" }).eq("id", id);
   if (error) return { ok: false, error: error.message };
-  if (lease?.unit_id) await admin.from("units").update({ status: "available" }).eq("id", lease.unit_id);
+  if (lease?.unit_id) {
+    // Room stays "For Housekeeping" (not vacant) until cleaning is done.
+    await admin.from("units").update({ status: "under_maintenance" }).eq("id", lease.unit_id);
+    const { data: openHk } = await admin.from("housekeeping_tasks").select("id").eq("unit_id", lease.unit_id).in("status", ["pending", "in_progress"]).maybeSingle();
+    if (!openHk) {
+      await admin.from("housekeeping_tasks").insert({ unit_id: lease.unit_id, status: "pending", checklist: CLEANING_CHECKLIST.map((c) => ({ key: c.key, label: c.label, done: false })) });
+    }
+  }
   await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "update", entity: "leases", entityId: id, diff: { status: "ended" } });
   revalidatePath("/rentals");
   return { ok: true };

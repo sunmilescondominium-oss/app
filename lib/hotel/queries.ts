@@ -102,15 +102,18 @@ export async function listRoomTax(): Promise<RoomTaxRow[]> {
 
 export async function listRoomBoard(): Promise<RoomBoardItem[]> {
   const supabase = await createClient();
-  const [{ data: units }, { data: stays }] = await Promise.all([
+  const [{ data: units }, { data: stays }, { data: hk }] = await Promise.all([
     supabase.from("units").select("id, unit_number, unit_type").eq("business_line", "hotel").eq("is_active", true).order("unit_number", { ascending: true }),
     supabase.from("stays").select("*, units(unit_number)").eq("status", "active"),
+    supabase.from("housekeeping_tasks").select("unit_id").in("status", ["pending", "in_progress"]),
   ]);
   const stayByUnit = new Map<string, Stay>();
   for (const s of (stays ?? []).map(mapStay)) if (s.unit_id) stayByUnit.set(s.unit_id, s);
+  const dirty = new Set((hk ?? []).map((t) => t.unit_id as string).filter(Boolean));
   return (units ?? []).map((u: Record<string, unknown>) => ({
     unit: { id: u.id as string, unit_number: u.unit_number as string, unit_type: (u.unit_type as string) ?? null },
     stay: stayByUnit.get(u.id as string) ?? null,
+    needsHousekeeping: dirty.has(u.id as string),
   }));
 }
 
