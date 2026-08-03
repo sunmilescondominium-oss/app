@@ -2,7 +2,8 @@
 
 import { useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
-import { assignRepair, setRepairStatus } from "@/app/(app)/repairs/actions";
+import { useRef } from "react";
+import { assignRepair, setRepairStatus, uploadRepairPhoto } from "@/app/(app)/repairs/actions";
 import { REPAIR_STATUSES } from "@/lib/config";
 import type { RepairRequest } from "@/lib/repairs/types";
 
@@ -88,6 +89,7 @@ export function RepairsBoard({
                     photo
                   </a>
                 )}
+                <RepairPhotos r={r} canWrite={canWrite} />
               </td>
               <td className="px-4 py-3">{r.unit?.unit_number ?? r.requester_ref ?? "—"}</td>
               <td className="px-4 py-3">
@@ -147,6 +149,50 @@ export function RepairsBoard({
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+/** Before/after repair photos — view + (for staff) upload from the camera. */
+function RepairPhotos({ r, canWrite }: { r: RepairRequest; canWrite: boolean }) {
+  const router = useRouter();
+  const beforeRef = useRef<HTMLInputElement>(null);
+  const afterRef = useRef<HTMLInputElement>(null);
+
+  async function upload(kind: "before" | "after", e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const fd = new FormData();
+    fd.append("photo", file);
+    const res = await uploadRepairPhoto(r.id, kind, fd);
+    e.target.value = "";
+    if (!res.ok) return window.alert(res.error);
+    router.refresh();
+  }
+
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px]">
+      {(["before", "after"] as const).map((kind) => {
+        const has = kind === "before" ? r.before_photo_path : r.after_photo_path;
+        const ref = kind === "before" ? beforeRef : afterRef;
+        return (
+          <span key={kind} className="flex items-center gap-1">
+            {has ? (
+              <a href={`/api/repairs/${r.id}/photo?kind=${kind}`} target="_blank" rel="noreferrer" className="font-medium text-amber-700 hover:underline">
+                {kind} ✓
+              </a>
+            ) : (
+              <span className="text-slate-400">{kind}</span>
+            )}
+            {canWrite && (
+              <>
+                <input ref={ref} type="file" accept="image/*" capture="environment" hidden onChange={(e) => upload(kind, e)} />
+                <button type="button" onClick={() => ref.current?.click()} className="text-slate-400 hover:text-amber-700">＋</button>
+              </>
+            )}
+          </span>
+        );
+      })}
     </div>
   );
 }

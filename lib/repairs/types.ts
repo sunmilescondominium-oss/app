@@ -9,6 +9,8 @@ export interface RepairRequest {
   description: string;
   urgency: string;
   photo_path: string | null;
+  before_photo_path: string | null;
+  after_photo_path: string | null;
   status: string;
   assigned_to_role: string | null;
   created_at: string;

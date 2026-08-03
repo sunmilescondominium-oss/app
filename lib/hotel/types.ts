@@ -43,6 +43,7 @@ export interface StayPayment {
   method: string;
   amount: number;
   receipt_no: string | null;
+  ar_no: string | null;
   paid_at: string;
 }
 

@@ -38,6 +38,16 @@ export function AppShell({
 
   const nav = (
     <nav className="flex flex-col gap-1">
+      <Link
+        href="/dashboard"
+        onClick={() => setOpen(false)}
+        className={`rounded-lg px-3 py-2 transition ${
+          pathname === "/dashboard" ? "bg-amber-50 text-amber-900" : "text-slate-700 hover:bg-slate-100"
+        }`}
+      >
+        <span className="font-medium">🏠 Dashboard</span>
+        <span className="mt-0.5 block text-xs text-slate-500">Your role overview</span>
+      </Link>
       {modules.length === 0 && (
         <p className="px-3 py-2 text-sm text-slate-500">
           No modules available for your role yet.

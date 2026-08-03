@@ -100,7 +100,7 @@ export default async function StayFolioPage({
             {payments.map((p) => (
               <Line
                 key={p.id}
-                k={`${METHOD_LABEL[p.method] ?? p.method}${p.receipt_no ? ` ${p.receipt_no}` : ""}`}
+                k={`${METHOD_LABEL[p.method] ?? p.method}${p.receipt_no ? ` ${p.receipt_no}` : ""}${p.ar_no ? ` · ${p.ar_no}` : ""}`}
                 v={peso(p.amount)}
               />
             ))}

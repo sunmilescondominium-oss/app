@@ -23,6 +23,8 @@ export async function listRepairRequests(): Promise<RepairRequest[]> {
       description: r.description as string,
       urgency: r.urgency as string,
       photo_path: (r.photo_path as string) ?? null,
+      before_photo_path: (r.before_photo_path as string) ?? null,
+      after_photo_path: (r.after_photo_path as string) ?? null,
       status: r.status as string,
       assigned_to_role: (r.assigned_to_role as string) ?? null,
       created_at: r.created_at as string,

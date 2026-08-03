@@ -11,5 +11,6 @@ export default async function Home() {
   if (!user) redirect("/login");
 
   const modules = accessibleModules(user.roleKeys);
-  redirect(modules[0]?.path ?? "/no-access");
+  // Staff with any accessible module land on the role-aware dashboard.
+  redirect(modules.length > 0 ? "/dashboard" : "/no-access");
 }
