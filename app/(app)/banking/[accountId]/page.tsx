@@ -73,7 +73,12 @@ export default async function BankAccountPage({ params }: { params: Promise<{ ac
         </div>
       )}
 
-      <h2 className="mt-6 mb-2 text-sm font-semibold uppercase tracking-wide text-stone-500">Ledger</h2>
+      <div className="mt-6 mb-2 flex items-center justify-between gap-3">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-stone-500">Ledger</h2>
+        <a href={`/api/export/banking-ledger?account=${accountId}`} className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100">
+          ⬇ Export to Sheets
+        </a>
+      </div>
       <Ledger txns={txns} accountId={accountId} canWrite={canWrite} />
 
       {recons.length > 0 && (

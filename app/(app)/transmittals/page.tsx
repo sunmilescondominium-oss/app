@@ -50,6 +50,12 @@ export default async function TransmittalsPage() {
         badge={<Badge tone="green">Live</Badge>}
       />
 
+      <div className="no-print mb-4">
+        <a href="/api/export/transmittals" className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100">
+          ⬇ Export to Sheets
+        </a>
+      </div>
+
       {canBuild && <BuildTransmittalForm defaultDate={todayManila()} />}
       {canSeries && series.length > 0 && <ReceiptSeriesPanel series={series} />}
 
