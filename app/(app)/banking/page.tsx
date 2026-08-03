@@ -3,6 +3,7 @@ import { requireModule } from "@/lib/auth/dal";
 import { listAccountsWithBalances } from "@/lib/banking/queries";
 import { ACCOUNT_TYPE_LABEL } from "@/lib/banking/types";
 import { PageHeader, Badge } from "@/components/ui";
+import { HelpPanel } from "@/components/guide/help";
 import { AccountForm } from "@/components/banking/account-form";
 import { peso } from "@/components/banking/peso";
 
@@ -28,6 +29,16 @@ export default async function BankingPage() {
         title="Bank & Reconciliation"
         subtitle="Multiple accounts · deposits, check release & bank reconciliation"
         badge={<Badge tone="green">{peso(totalBook)} across {accounts.length}</Badge>}
+      />
+
+      <HelpPanel
+        title="How to use bank accounts"
+        steps={[
+          "Each card is one bank account — tap it to open its ledger.",
+          "Record deposit: money coming in (link it to a transmittal when it's a collection deposit).",
+          "Release check: money going out — the system blocks a check that's more than the available balance.",
+          "Bank reconciliation: mark items 'cleared' as they appear on the bank statement, then enter the statement balance; the difference should be zero.",
+        ]}
       />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

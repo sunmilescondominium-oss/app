@@ -5,6 +5,7 @@ import { listAdvances } from "@/lib/advances/queries";
 import { peso } from "@/lib/collections/summary";
 import { ADVANCE_STATUSES } from "@/lib/config";
 import { PageHeader } from "@/components/ui";
+import { HelpPanel } from "@/components/guide/help";
 import { RequestAdvanceForm, AdvanceRowActions } from "@/components/advances/advance-forms";
 
 export const metadata = { title: "Cash Advance" };
@@ -29,6 +30,16 @@ export default async function AdvancesPage() {
     <>
       <PageHeader
         backHref="/dashboard" title="Cash Advance" subtitle="Request, approve, release & liquidate cash advances." />
+
+      <HelpPanel
+        title="The cash-advance steps"
+        steps={[
+          "Request: fill in the amount and reason.",
+          "Approve: a supervisor or accounting approves (or rejects) it.",
+          "Release: accounting hands over the cash and marks it released.",
+          "Liquidate: after spending, submit receipts; any balance is returned to close it out.",
+        ]}
+      />
 
       <div className="mt-4 mb-6"><RequestAdvanceForm /></div>
 

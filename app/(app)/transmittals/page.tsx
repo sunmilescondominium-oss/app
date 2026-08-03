@@ -5,6 +5,7 @@ import { peso, todayManila } from "@/lib/collections/summary";
 import { PageHeader, Badge } from "@/components/ui";
 import { BuildTransmittalForm } from "@/components/transmittals/build-form";
 import { ReceiptSeriesPanel } from "@/components/transmittals/receipt-series";
+import { HelpPanel } from "@/components/guide/help";
 
 export const metadata = { title: "Transmittals" };
 
@@ -48,6 +49,18 @@ export default async function TransmittalsPage() {
         title="Transmittals"
         subtitle="Cash transmittal & bank deposit — printable for physical signatures"
         badge={<Badge tone="green">Live</Badge>}
+      />
+
+      <HelpPanel
+        title="How a transmittal moves cash to the bank"
+        steps={[
+          "Cashier counts the cash and builds a transmittal, then prints it.",
+          "Hotel/rental monitoring re-counts, records it, and transmits to the liaison.",
+          "Accounting issues the bank passbook.",
+          "The liaison counts the cash, prepares the deposit slip, and picks the bank account.",
+          "Mark it deposited — the amount is recorded against that bank account automatically.",
+          "Open any transmittal to see its chain-of-custody timeline; only the role whose turn it is sees the next step.",
+        ]}
       />
 
       <div className="no-print mb-4">

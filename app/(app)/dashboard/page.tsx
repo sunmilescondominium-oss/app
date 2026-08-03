@@ -3,7 +3,9 @@ import { requireAuth } from "@/lib/auth/dal";
 import { canReadModule } from "@/lib/rbac/modules";
 import { getDashboard } from "@/lib/dashboard/queries";
 import { peso } from "@/lib/collections/summary";
+import { guidesForRoles } from "@/lib/guides/role-guides";
 import { PageHeader } from "@/components/ui";
+import { LaunchPad } from "@/components/guide/launch-pad";
 
 export const metadata = { title: "Dashboard" };
 
@@ -94,6 +96,8 @@ export default async function DashboardPage() {
         title={`Welcome, ${user.displayLabel}`}
         subtitle="The numbers relevant to your role, at a glance."
       />
+
+      <LaunchPad guides={guidesForRoles(user.roleKeys)} />
       {cards.length === 0 ? (
         <p className="mt-4 text-sm text-stone-500">No dashboard widgets for your role yet — use the menu to open a module.</p>
       ) : (

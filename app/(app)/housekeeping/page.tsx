@@ -5,6 +5,7 @@ import { HOUSEKEEPING_STATUSES } from "@/lib/config";
 import { PageHeader, Badge } from "@/components/ui";
 import { SuppliesPanel } from "@/components/housekeeping/supplies-panel";
 import { StockMovementsPanel } from "@/components/housekeeping/stock-movements";
+import { HelpPanel } from "@/components/guide/help";
 
 export const metadata = { title: "Housekeeping" };
 
@@ -29,6 +30,16 @@ export default async function HousekeepingPage() {
         title="Housekeeping"
         subtitle="Room cleaning, turnover & supplies"
         badge={<Badge tone={toClean > 0 ? "amber" : "green"}>{toClean} to clean</Badge>}
+      />
+
+      <HelpPanel
+        title="How housekeeping & supplies work"
+        steps={[
+          "A cleaning task appears automatically when a guest checks out.",
+          "Open the room, tick the checklist, add photos, then mark it ready — only then can it be booked again.",
+          "Issue supplies as you use them so stock stays accurate (any staff can issue).",
+          "Receive deliveries and run the periodical physical count (admin/operations) — the count records any variance for audit.",
+        ]}
       />
 
       <div className="table-wrap">
