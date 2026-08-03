@@ -1,5 +1,6 @@
 import { requireModule } from "@/lib/auth/dal";
 import { dtrDetail } from "@/lib/hr/queries";
+import { staffActivityBreakdown } from "@/lib/hr/performance";
 import { todayManila, peso } from "@/lib/collections/summary";
 import { APP_BRAND_SHORT } from "@/lib/config";
 import { PageHeader, Breadcrumb } from "@/components/ui";
@@ -37,7 +38,10 @@ export default async function DtrDetailPage({
   const from = (typeof sp.from === "string" && sp.from) || monthStart();
   const to = (typeof sp.to === "string" && sp.to) || todayManila();
 
-  const { label, dailyRate, days } = await dtrDetail(userId, from, to);
+  const [{ label, dailyRate, days }, activity] = await Promise.all([
+    dtrDetail(userId, from, to),
+    staffActivityBreakdown(userId, from, to),
+  ]);
 
   const totals = days.reduce(
     (a, d) => ({
@@ -123,6 +127,21 @@ export default async function DtrDetailPage({
       {totals.deduct > 0 && (
         <p className="mt-2 text-xs text-stone-500">Total late/undertime deductions already reflected in Basic: {peso(r2(totals.deduct))}.</p>
       )}
+
+      <h2 className="mt-6 mb-2 text-sm font-semibold uppercase tracking-wide text-stone-500">Activity in this period</h2>
+      {activity.length === 0 ? (
+        <p className="text-sm text-stone-500">No logged activity in this range.</p>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          {activity.map((a) => (
+            <span key={a.entity} className="inline-flex items-center gap-1.5 rounded-full border border-stone-200 bg-white px-3 py-1.5 text-sm">
+              <span className="capitalize text-stone-600">{a.entity.replace(/_/g, " ")}</span>
+              <span className="font-semibold tabular-nums text-indigo-700">{a.count}</span>
+            </span>
+          ))}
+        </div>
+      )}
+      <p className="mt-2 text-xs text-stone-400">Counts of actions this staff logged (created/updated records) in the period, from the audit trail.</p>
     </>
   );
 }

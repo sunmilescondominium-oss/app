@@ -62,6 +62,9 @@ export default async function HrPage({
         <button type="submit" className="rounded-lg bg-stone-800 px-4 py-2 text-sm font-medium text-white hover:bg-stone-900">
           Apply
         </button>
+        <Link href={`/hr/performance?from=${from}&to=${to}`} className="ml-auto rounded-lg border border-indigo-300 bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100">
+          📊 Staff Performance
+        </Link>
       </form>
 
       {canWrite && (
