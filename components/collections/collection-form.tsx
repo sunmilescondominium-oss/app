@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useState } from "react";
 import {
   createCollection,
   type ActionResult,
@@ -35,6 +35,8 @@ export function CollectionForm({
     ActionResult | undefined,
     FormData
   >(createCollection, undefined);
+  const [paymentType, setPaymentType] = useState("cash");
+  const isCash = paymentType === "cash";
 
   useEffect(() => {
     if (state?.ok) onDone();
@@ -65,13 +67,21 @@ export function CollectionForm({
         </div>
         <div>
           <label className={labelCls}>Payment type</label>
-          <select name="payment_type" defaultValue="cash" className={inputCls}>
+          <select name="payment_type" value={paymentType} onChange={(e) => setPaymentType(e.target.value)} className={inputCls}>
             {PAYMENT_TYPES.map((p) => (
               <option key={p.key} value={p.key}>
                 {p.label}
               </option>
             ))}
           </select>
+        </div>
+        <div>
+          <label className={labelCls}>Discount (₱)</label>
+          <input name="discount_amount" type="number" step="0.01" min="0" defaultValue="0" className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>Coupon code</label>
+          <input name="coupon_code" className={inputCls} placeholder="Optional" />
         </div>
         <div>
           <label className={labelCls}>Unit / room (optional)</label>
@@ -99,6 +109,26 @@ export function CollectionForm({
           <input name="remarks" className={inputCls} />
         </div>
       </div>
+
+      {!isCash && (
+        <div className="rounded-xl border border-sky-200 bg-sky-50/40 p-3">
+          <p className="mb-2 text-xs font-semibold text-sky-800">Online / GCash payment proof</p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label className={labelCls}>Reference number *</label>
+              <input name="reference_no" className={inputCls} placeholder="GCash/bank ref #" />
+            </div>
+            <div>
+              <label className={labelCls}>Proof (screenshot)</label>
+              <input name="proof" type="file" accept="image/*" className="w-full text-sm" />
+            </div>
+          </div>
+          <label className="mt-2 flex items-center gap-2 text-sm text-slate-700">
+            <input type="checkbox" name="payment_confirmed" className="h-4 w-4" />
+            I received / verified this online payment.
+          </label>
+        </div>
+      )}
 
       {state && !state.ok && (
         <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">

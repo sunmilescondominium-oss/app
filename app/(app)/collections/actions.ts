@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireModuleWrite } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit";
 import { COLLECTION_CATEGORIES, PAYMENT_TYPES } from "@/lib/config";
 
@@ -27,12 +28,31 @@ export async function createCollection(
   const unit_id = String(formData.get("unit_id") ?? "").trim() || null;
   const collected_on = String(formData.get("collected_on") ?? "").trim();
   const remarks = String(formData.get("remarks") ?? "").trim() || null;
+  const reference_no = String(formData.get("reference_no") ?? "").trim() || null;
+  const coupon_code = String(formData.get("coupon_code") ?? "").trim() || null;
+  const discount_amount = Number(String(formData.get("discount_amount") ?? "0")) || 0;
   let collected_by_role = String(formData.get("collected_by_role") ?? "").trim() || null;
 
   if (!CATS.includes(business_line)) return { ok: false, error: "Choose a category." };
   if (!amountRaw || !Number.isFinite(amount) || amount < 0)
     return { ok: false, error: "Enter a valid amount." };
   if (!PAYS.includes(payment_type)) return { ok: false, error: "Choose a payment type." };
+  if (discount_amount < 0) return { ok: false, error: "Discount cannot be negative." };
+
+  const isCash = payment_type === "cash";
+  // Online payments should be backed by proof + a confirmation of receipt.
+  if (!isCash && !reference_no) return { ok: false, error: "Enter the payment reference number." };
+  const payment_confirmed = isCash || String(formData.get("payment_confirmed") ?? "") === "on";
+  if (!isCash && !payment_confirmed) return { ok: false, error: "Confirm you received/verified the online payment." };
+
+  let proof_path: string | null = null;
+  const proof = formData.get("proof");
+  if (!isCash && proof instanceof File && proof.size > 0) {
+    if (proof.size > 8 * 1024 * 1024) return { ok: false, error: "Proof image too large (max 8 MB)." };
+    const path = `${new Date().toISOString().slice(0, 10)}/${Date.now()}-${proof.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+    const up = await createAdminClient().storage.from("payment-proofs").upload(path, new Uint8Array(await proof.arrayBuffer()), { contentType: proof.type || "image/jpeg" });
+    if (!up.error) proof_path = path;
+  }
 
   if (!collected_by_role)
     collected_by_role =
@@ -45,6 +65,11 @@ export async function createCollection(
     or_number,
     unit_id,
     remarks,
+    reference_no,
+    proof_path,
+    payment_confirmed,
+    discount_amount,
+    coupon_code,
     collected_by_role,
     created_by: user.userId,
   };

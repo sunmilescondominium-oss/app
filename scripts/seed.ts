@@ -120,6 +120,13 @@ async function main() {
     } else {
       console.log("✔ storage bucket employee-documents ready (private)");
     }
+
+    const proofBucket = await admin.storage.createBucket("payment-proofs", { public: false });
+    if (proofBucket.error && !/exist/i.test(proofBucket.error.message)) {
+      console.warn("⚠ bucket payment-proofs:", proofBucket.error.message);
+    } else {
+      console.log("✔ storage bucket payment-proofs ready (private)");
+    }
   } finally {
     await sql.end();
   }

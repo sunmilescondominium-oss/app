@@ -6,6 +6,7 @@ import {
   buildTransmittalForDate,
   type ActionResult,
 } from "@/app/(app)/transmittals/actions";
+import { DenominationCounter } from "./denomination-counter";
 
 export function BuildTransmittalForm({ defaultDate }: { defaultDate: string }) {
   const router = useRouter();
@@ -44,6 +45,7 @@ export function BuildTransmittalForm({ defaultDate }: { defaultDate: string }) {
       <p className="w-full text-xs text-slate-500">
         Bundles all un-transmitted collections for that date into one transmittal.
       </p>
+      <DenominationCounter />
       {state && !state.ok && (
         <p className="w-full text-sm text-red-700">{state.error}</p>
       )}

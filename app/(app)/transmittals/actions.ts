@@ -40,12 +40,29 @@ export async function buildTransmittalForDate(
   const total = cols.reduce((s, c) => s + Number(c.amount), 0);
   const counted_by_role = firstHeld(user.roleKeys, ["hotel_rental_monitoring", "accounting"]);
 
+  // Optional PHP bill/coin count → the physical cash being transmitted.
+  let denomination_counts: Record<string, number> | null = null;
+  let counted_cash: number | null = null;
+  const denomRaw = String(formData.get("denomination_counts") ?? "").trim();
+  if (denomRaw) {
+    try {
+      const parsed = JSON.parse(denomRaw) as Record<string, number>;
+      denomination_counts = parsed;
+      counted_cash = Object.entries(parsed).reduce((s, [v, n]) => s + Number(v) * (Number(n) || 0), 0);
+      counted_cash = Math.round(counted_cash * 100) / 100;
+    } catch {
+      /* ignore malformed count */
+    }
+  }
+
   const { data: t, error: tErr } = await supabase
     .from("transmittals")
     .insert({
       transmittal_date: date,
       total_amount: total,
       counted_by_role,
+      denomination_counts,
+      counted_cash,
       status: "submitted",
       created_by: user.userId,
     })

@@ -93,6 +93,17 @@ export default async function TransmittalDetailPage({
           </tfoot>
         </table>
 
+        {t.counted_cash != null && (
+          <p className="mt-3 text-sm text-slate-700">
+            Cash counted (bills &amp; coins): <strong className="tabular-nums">{peso(Number(t.counted_cash))}</strong>
+            {Number(t.counted_cash) !== Number(t.total_amount) && (
+              <span className="ml-2 text-amber-700">
+                (variance vs total: {peso(Number(t.counted_cash) - Number(t.total_amount))} — total includes online payments)
+              </span>
+            )}
+          </p>
+        )}
+
         <p className="mt-4 text-sm text-slate-700">
           Bank deposit slip ref:{" "}
           <strong>{t.deposit_slip_ref ?? "________________"}</strong>

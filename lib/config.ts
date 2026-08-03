@@ -255,6 +255,21 @@ export type LeaveStatus = (typeof LEAVE_STATUSES)[number]["key"];
 /** Minimum notice (days) a leave request should give before it starts. */
 export const LEAVE_MIN_LEAD_DAYS = 3; // TODO(client-confirm)
 
+/** PHP bills & coins for the cash-count / transmittal denomination breakdown. */
+export const PHP_DENOMINATIONS = [
+  { value: 1000, kind: "bill" },
+  { value: 500, kind: "bill" },
+  { value: 200, kind: "bill" },
+  { value: 100, kind: "bill" },
+  { value: 50, kind: "bill" },
+  { value: 20, kind: "bill" },
+  { value: 20, kind: "coin" },
+  { value: 10, kind: "coin" },
+  { value: 5, kind: "coin" },
+  { value: 1, kind: "coin" },
+  { value: 0.25, kind: "coin" },
+] as const;
+
 /** Employment types for the 201 file — TODO(client-confirm). Editable here. */
 export const EMPLOYMENT_TYPES = [
   "Regular",
