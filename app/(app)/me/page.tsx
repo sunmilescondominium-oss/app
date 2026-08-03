@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { requireModule } from "@/lib/auth/dal";
 import { myPhotoPath, myLeave } from "@/lib/employee/queries";
 import { myRecentRecords } from "@/lib/attendance/queries";
@@ -60,7 +59,7 @@ export default async function MyPortalPage() {
         <section>
           <div className="mb-2 flex items-center justify-between">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">My attendance</h2>
-            <Link href="/attendance" className="text-xs font-medium text-amber-700 hover:underline">Clock in / out →</Link>
+            <span className="text-xs text-slate-400">Clock in / out at the attendance kiosk</span>
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white p-4">
             <p className="mb-3 text-sm text-slate-600">

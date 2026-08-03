@@ -43,6 +43,7 @@ export async function setPayrollSettings(input: PayrollSettings): Promise<Action
   if (!n(input.ot_multiplier, 1, 5)) return { ok: false, error: "OT multiplier must be 1–5." };
   if (!n(input.night_diff_rate, 0, 1)) return { ok: false, error: "Night diff rate must be 0–1." };
   if (!n(input.half_day_hours, 0, 24)) return { ok: false, error: "Half-day hours must be 0–24." };
+  if (!n(input.late_round_up_minutes, 0, 60)) return { ok: false, error: "Late round-up must be 0–60." };
 
   const supabase = await createClient();
   const { error } = await supabase
@@ -57,6 +58,8 @@ export async function setPayrollSettings(input: PayrollSettings): Promise<Action
       night_start: input.night_start,
       night_end: input.night_end,
       half_day_hours: input.half_day_hours,
+      late_round_up_minutes: input.late_round_up_minutes,
+      auto_checkout_time: input.auto_checkout_time,
       updated_at: new Date().toISOString(),
     })
     .eq("id", 1);

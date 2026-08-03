@@ -54,6 +54,12 @@ export function PayrollSettingsPanel({ settings }: { settings: PayrollSettings }
         <Field label="Half-day ≤ (hrs)">
           <input type="number" step="0.5" value={s.half_day_hours} onChange={(e) => set("half_day_hours", Number(e.target.value))} className={cls} />
         </Field>
+        <Field label="Late round-up (min)" hint="> this = full hour">
+          <input type="number" value={s.late_round_up_minutes} onChange={(e) => set("late_round_up_minutes", Number(e.target.value))} className={cls} />
+        </Field>
+        <Field label="Auto check-out" hint="if no overtime">
+          <input type="time" value={s.auto_checkout_time.slice(0, 5)} onChange={(e) => set("auto_checkout_time", e.target.value)} className={cls} />
+        </Field>
         <Field label="OT multiplier" hint="125% = 1.25">
           <input type="number" step="0.05" value={s.ot_multiplier} onChange={(e) => set("ot_multiplier", Number(e.target.value))} className={cls} />
         </Field>

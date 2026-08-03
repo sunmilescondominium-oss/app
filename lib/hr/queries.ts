@@ -12,8 +12,8 @@ import type { DtrRow, PayrollReport } from "@/lib/hr/types";
 type Admin = ReturnType<typeof createAdminClient>;
 
 async function labelMap(admin: Admin): Promise<Map<string, string>> {
-  const { data } = await admin.from("profiles").select("id, display_label");
-  return new Map((data ?? []).map((p) => [p.id as string, (p.display_label as string) || "Staff"]));
+  const { data } = await admin.from("profiles").select("id, display_label, full_name");
+  return new Map((data ?? []).map((p) => [p.id as string, (p.full_name as string) || (p.display_label as string) || "Staff"]));
 }
 
 async function rateMap(admin: Admin): Promise<Map<string, number>> {
@@ -25,7 +25,7 @@ export async function getPayrollSettings(): Promise<PayrollSettings> {
   const admin = createAdminClient();
   const { data } = await admin
     .from("payroll_settings")
-    .select("scheduled_time_in, standard_hours, break_hours, grace_minutes, ot_multiplier, night_diff_rate, night_start, night_end, half_day_hours")
+    .select("scheduled_time_in, standard_hours, break_hours, grace_minutes, ot_multiplier, night_diff_rate, night_start, night_end, half_day_hours, late_round_up_minutes, auto_checkout_time")
     .eq("id", 1)
     .maybeSingle();
   if (!data) return DEFAULT_PAYROLL_SETTINGS;
@@ -39,6 +39,8 @@ export async function getPayrollSettings(): Promise<PayrollSettings> {
     night_start: data.night_start as string,
     night_end: data.night_end as string,
     half_day_hours: Number(data.half_day_hours),
+    late_round_up_minutes: Number(data.late_round_up_minutes ?? 30),
+    auto_checkout_time: (data.auto_checkout_time as string) ?? "17:00",
   };
 }
 

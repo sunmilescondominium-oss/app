@@ -31,6 +31,10 @@ export async function saveEmployeeProfile(userId: string, formData: FormData): P
   const { error } = await admin.from("employee_profiles").upsert(row, { onConflict: "user_id" });
   if (error) return { ok: false, error: error.message };
 
+  // The employee's name lives on the profile (shown on the board + 201 header).
+  const fullName = String(formData.get("full_name") ?? "").trim();
+  await admin.from("profiles").update({ full_name: fullName || null }).eq("id", userId);
+
   await logAudit({
     actorUserId: user.userId,
     actorRoles: user.roleKeys,

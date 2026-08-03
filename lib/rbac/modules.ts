@@ -41,7 +41,6 @@ export type ModuleKey =
   | "housekeeping"
   | "owner"
   | "finance"
-  | "attendance"
   | "hr"
   | "employee"
   | "employees"
@@ -71,7 +70,9 @@ export const MODULES: Record<ModuleKey, ModuleDef> = {
     label: "Inventory",
     blurb: "Property & unit / room registry.",
     milestone: "M1",
-    read: STAFF_ROLE_KEYS,
+    // Only roles that actually work with inventory — errand/liaison, room
+    // attendant, guard, utility, etc. are intentionally excluded.
+    read: ["admin", "managing_officer", "operations_manager", "consultant", "accounting", "hotel_rental_monitoring", "hotel_cashier"],
     write: ["admin", "operations_manager", "managing_officer"],
   },
   collections: {
@@ -165,15 +166,6 @@ export const MODULES: Record<ModuleKey, ModuleDef> = {
     milestone: "M9",
     read: ["owner", "managing_officer", "consultant", "accounting", "admin"],
     write: ["accounting", "admin"],
-  },
-  attendance: {
-    key: "attendance",
-    path: "/attendance",
-    label: "Attendance",
-    blurb: "Clock in / out with photo.",
-    milestone: "M8",
-    read: STAFF_ROLE_KEYS,
-    write: STAFF_ROLE_KEYS,
   },
   hr: {
     key: "hr",

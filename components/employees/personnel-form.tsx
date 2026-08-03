@@ -18,7 +18,7 @@ function Field({ label, name, defaultValue, type = "text" }: { label: string; na
   );
 }
 
-export function PersonnelForm({ userId, profile }: { userId: string; profile: EmployeeProfile | null }) {
+export function PersonnelForm({ userId, profile, fullName }: { userId: string; profile: EmployeeProfile | null; fullName: string | null }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -42,6 +42,7 @@ export function PersonnelForm({ userId, profile }: { userId: string; profile: Em
       <section>
         <h3 className="mb-2 text-sm font-semibold text-slate-700">Personal & contact</h3>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <Field label="Full name" name="full_name" defaultValue={fullName} />
           <Field label="Address" name="address" defaultValue={p?.address ?? null} />
           <Field label="Birthdate" name="birthdate" type="date" defaultValue={p?.birthdate ?? null} />
           <Field label="Phone" name="phone" defaultValue={p?.phone ?? null} />

@@ -44,7 +44,7 @@ export default async function EmployeeFilePage({ params }: { params: Promise<{ i
 
       <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
         <div className="rounded-2xl border border-slate-200 bg-white p-5">
-          <PersonnelForm userId={id} profile={profile} />
+          <PersonnelForm userId={id} profile={profile} fullName={basics.fullName} />
         </div>
         <div>
           <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Documents</h2>

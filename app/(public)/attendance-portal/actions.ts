@@ -58,12 +58,12 @@ async function verify(employeeNo: string, passcode: string): Promise<Staff | nul
   const admin = createAdminClient();
   const { data } = await admin
     .from("profiles")
-    .select("id, display_label, is_active, passcode_hash")
+    .select("id, display_label, full_name, is_active, passcode_hash")
     .eq("employee_no", employeeNo.trim())
     .maybeSingle();
   if (!data || !data.is_active) return null;
   if (!data.passcode_hash || data.passcode_hash !== hashPasscode(employeeNo, passcode)) return null;
-  return data as Staff;
+  return { id: data.id, display_label: (data.full_name as string) || data.display_label } as Staff;
 }
 
 /** Verify a scanned QR token → the staff profile, or null. */
@@ -71,11 +71,11 @@ async function verifyByToken(token: string): Promise<Staff | null> {
   const admin = createAdminClient();
   const { data } = await admin
     .from("profiles")
-    .select("id, display_label, is_active")
+    .select("id, display_label, full_name, is_active")
     .eq("qr_token", token.trim())
     .maybeSingle();
   if (!data || !data.is_active) return null;
-  return data as Staff;
+  return { id: data.id, display_label: (data.full_name as string) || data.display_label } as Staff;
 }
 
 /** Resolve staff from a scanned QR token OR manual ID + passcode. */

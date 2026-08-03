@@ -24,6 +24,10 @@ export interface PayrollSettings {
   night_start: string;
   night_end: string;
   half_day_hours: number;
+  /** Tardiness past this many minutes within an hour is charged as a full hour. */
+  late_round_up_minutes: number;
+  /** Open punches are auto-closed at this time (no overtime). 'HH:MM'. */
+  auto_checkout_time: string;
 }
 
 export interface DayInput {
@@ -112,7 +116,12 @@ export function computeDay(rec: DayInput, s: PayrollSettings, dailyRate: number)
   // Scheduled span covers standard hours + the unpaid break.
   const schedOut = schedIn + (s.standard_hours + s.break_hours) * 3_600_000;
 
-  const lateMinutes = Math.max(0, (actualIn - (schedIn + s.grace_minutes * 60_000)) / 60_000);
+  const rawLate = Math.max(0, (actualIn - (schedIn + s.grace_minutes * 60_000)) / 60_000);
+  // Tardiness rounding: minutes past the threshold within an hour = a full hour
+  // (e.g. late by > 30 min is charged as 1 hour). late_round_up_minutes = 0 disables.
+  const thr = s.late_round_up_minutes ?? 0;
+  const lateMinutes =
+    thr > 0 ? Math.floor(rawLate / 60) * 60 + (rawLate % 60 > thr ? 60 : rawLate % 60) : rawLate;
   const undertimeMinutes = Math.max(0, (schedOut - actualOut) / 60_000);
 
   const renderedRegularMins = clamp(stdMins - lateMinutes - undertimeMinutes, 0, stdMins);
@@ -171,4 +180,6 @@ export const DEFAULT_PAYROLL_SETTINGS: PayrollSettings = {
   night_start: "22:00",
   night_end: "06:00",
   half_day_hours: 4,
+  late_round_up_minutes: 30,
+  auto_checkout_time: "17:00",
 };

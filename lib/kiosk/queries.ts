@@ -25,7 +25,7 @@ export async function todayBoard(): Promise<{ date: string; items: BoardItem[] }
 
   const [{ data: profiles }, { data: records }, { data: leaves }, { data: shifts }, { data: roleRows }] =
     await Promise.all([
-      admin.from("profiles").select("id, display_label, photo_path, is_active"),
+      admin.from("profiles").select("id, display_label, full_name, photo_path, is_active"),
       admin.from("time_records").select("user_id, time_in, time_out").eq("work_date", date),
       admin
         .from("leave_requests")
@@ -62,7 +62,7 @@ export async function todayBoard(): Promise<{ date: string; items: BoardItem[] }
       else status = "off";
       return {
         id,
-        label: (p.display_label as string) || "Staff",
+        label: (p.full_name as string) || (p.display_label as string) || "Staff",
         photoPath: (p.photo_path as string | null) ?? null,
         status,
         timeIn: rec?.time_in ?? null,
