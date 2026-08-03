@@ -60,6 +60,9 @@ export interface UnitDetail {
         leaseType: string | null;
         transferredFrom: string | null;
         portalPin: string | null;
+        portalToken: string | null;
+        checkoutRequested: boolean;
+        extensionRequested: string | null;
       })
     | null;
   needsHousekeeping: boolean;

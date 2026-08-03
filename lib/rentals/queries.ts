@@ -183,6 +183,9 @@ export async function rentalUnitDetail(unitId: string): Promise<UnitDetail | nul
           leaseType: (lease.lease_type as string | null) ?? null,
           transferredFrom: (lease.transferred_from as string | null) ?? null,
           portalPin: (lease.portal_pin as string | null) ?? null,
+          portalToken: (lease.portal_token as string | null) ?? null,
+          checkoutRequested: Boolean(lease.checkout_requested),
+          extensionRequested: (lease.extension_requested as string | null) ?? null,
         }
       : null,
     needsHousekeeping: !lease && Boolean(hk),

@@ -55,6 +55,7 @@ export async function startLease(_prev: ActionResult | undefined, formData: Form
       emergency_phone: String(formData.get("emergency_phone") ?? "").trim() || null,
       motor_plate: String(formData.get("motor_plate") ?? "").trim() || null,
       transferred_from: String(formData.get("transferred_from") ?? "").trim() || null,
+      portal_token: (await import("node:crypto")).randomBytes(18).toString("base64url"),
       created_by: user.userId,
     })
     .select("id")

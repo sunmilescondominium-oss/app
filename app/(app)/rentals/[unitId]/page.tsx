@@ -62,6 +62,25 @@ export default async function RentalUnitPage({ params }: { params: Promise<{ uni
         )}
       </div>
 
+      {/* Airbnb guest requests + booking QR */}
+      {unit.businessLine === "airbnb" && unit.lease && (unit.lease.checkoutRequested || unit.lease.extensionRequested) && (
+        <div className="mb-4 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+          {unit.lease.checkoutRequested && <p>🔔 <strong>Guest requested check-out</strong> — settle extra charges, check the unit, and turn over to housekeeping.</p>}
+          {unit.lease.extensionRequested && <p>⏱️ <strong>Guest requested to extend:</strong> “{unit.lease.extensionRequested}” — confirm the new checkout &amp; rate.</p>}
+        </div>
+      )}
+      {unit.businessLine === "airbnb" && unit.lease?.portalToken && (
+        <div className="mb-6 flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={`/api/airbnb/${unit.lease.portalToken}/qr`} alt="Booking QR" className="h-24 w-24" />
+          <div className="text-sm">
+            <p className="font-medium text-slate-800">Guest booking QR</p>
+            <p className="text-slate-500">Guest scans this to see their bill + timer, request an extension, or check out.</p>
+            <a href={`/airbnb/${unit.lease.portalToken}`} target="_blank" rel="noreferrer" className="text-xs text-amber-700 hover:underline">open guest view ↗</a>
+          </div>
+        </div>
+      )}
+
       {/* Renter details + document checklist */}
       {unit.lease && (
         <div className="mb-6 grid gap-4 lg:grid-cols-2">
