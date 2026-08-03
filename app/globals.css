@@ -1,33 +1,110 @@
 @import "tailwindcss";
 
-/*
- * Sun Miles PMS base theme.
- * TODO(client-confirm): replace the placeholder brand palette (amber "sun"
- * accent + slate neutrals) once official Sun Miles logo/colors are provided.
- */
+/* =============================================================================
+ * Sun Miles PMS — design system (warm professional / amber + stone).
+ * Light theme, tuned for phone, tablet, laptop & desktop across browsers.
+ * ============================================================================= */
+
 :root {
-  --brand: #d97706; /* amber-600 */
-  --brand-strong: #b45309; /* amber-700 */
+  /* Brand — sun/amber */
+  --brand: #d97706;         /* amber-600 */
+  --brand-strong: #b45309;  /* amber-700 */
+  --brand-soft: #fffbeb;    /* amber-50  */
+  --brand-ring: #fcd34d;    /* amber-300 */
   --brand-ink: #7c2d12;
+
+  /* Neutrals — warm stone */
+  --bg: #f6f5f3;            /* app canvas (warm off-white) */
+  --surface: #ffffff;
+  --surface-2: #fbfaf9;
+  --border: #e7e5e4;        /* stone-200 */
+  --border-strong: #d6d3d1; /* stone-300 */
+  --ink: #1c1917;           /* stone-900 */
+  --ink-soft: #57534e;      /* stone-600 */
+  --ink-faint: #78716c;     /* stone-500 */
+
+  /* Elevation */
+  --shadow-sm: 0 1px 2px rgba(28, 25, 23, 0.05);
+  --shadow-md: 0 4px 12px -2px rgba(28, 25, 23, 0.08), 0 2px 6px -2px rgba(28, 25, 23, 0.05);
+  --shadow-lg: 0 12px 32px -8px rgba(28, 25, 23, 0.14);
+
+  --radius: 0.9rem;
 }
 
+/* Fluid root size — a touch larger on bigger screens (fixes "fonts too small"). */
 html {
+  font-size: 16px;
   -webkit-text-size-adjust: 100%;
+  text-rendering: optimizeLegibility;
 }
+@media (min-width: 768px)  { html { font-size: 16.5px; } }
+@media (min-width: 1280px) { html { font-size: 17px; } }
 
 body {
-  background: #f8fafc; /* slate-50 */
-  color: #0f172a; /* slate-900 */
+  background: var(--bg);
+  color: var(--ink);
   font-family: var(--font-geist-sans), system-ui, -apple-system, "Segoe UI",
     Roboto, Arial, sans-serif;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Print helpers — used by the Owner Dashboard (M6) print-to-PDF. */
-@media print {
-  .no-print {
-    display: none !important;
+@layer base {
+  h1, h2, h3, h4 { letter-spacing: -0.02em; line-height: 1.2; text-wrap: balance; }
+  p { text-wrap: pretty; }
+
+  /* Smooth transitions on every interactive element (premium feel). */
+  a, button, select, input, textarea, summary,
+  [role="button"], [type="checkbox"], [type="radio"] {
+    transition:
+      color 0.16s ease, background-color 0.16s ease, border-color 0.16s ease,
+      box-shadow 0.16s ease, transform 0.16s ease, opacity 0.16s ease;
   }
-  body {
-    background: #ffffff;
+
+  /* Consistent, on-brand focus ring. */
+  :focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 2px;
+    border-radius: 0.35rem;
+  }
+
+  ::selection { background: var(--brand-ring); color: var(--brand-ink); }
+
+  /* Refined scrollbars — subtle, not distracting. */
+  * { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; border: 3px solid transparent; background-clip: padding-box; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--ink-faint); background-clip: padding-box; }
+}
+
+/* Reusable component classes ------------------------------------------------ */
+@layer components {
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+  }
+  .card-hover { transition: box-shadow 0.18s ease, transform 0.18s ease, border-color 0.18s ease; }
+  .card-hover:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); border-color: var(--border-strong); }
+
+  /* Fade/slide-in for page content */
+  .animate-rise { animation: rise 0.35s cubic-bezier(0.22, 1, 0.36, 1) both; }
+  @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+}
+
+/* Print helpers — Owner Dashboard (M6) print-to-PDF, transmittals, receipts. */
+@media print {
+  .no-print { display: none !important; }
+  body { background: #ffffff; }
+}
+
+/* Accessibility — honor reduced-motion. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
   }
 }
