@@ -255,6 +255,30 @@ export type LeaveStatus = (typeof LEAVE_STATUSES)[number]["key"];
 /** Minimum notice (days) a leave request should give before it starts. */
 export const LEAVE_MIN_LEAD_DAYS = 3; // TODO(client-confirm)
 
+/** Employment types for the 201 file — TODO(client-confirm). Editable here. */
+export const EMPLOYMENT_TYPES = [
+  "Regular",
+  "Probationary",
+  "Contractual",
+  "Project-based",
+  "Casual/Seasonal",
+  "OJT",
+  "Intern",
+  "Consultant",
+] as const;
+
+/** Document categories for the employee 201 file. */
+export const EMPLOYEE_DOC_TYPES = [
+  "Resume / CV",
+  "Employment contract",
+  "Government IDs",
+  "NBI / Police clearance",
+  "Medical / Fit-to-work",
+  "Certificate / Training",
+  "Resignation / Clearance",
+  "Other",
+] as const;
+
 /** Non-leave employee request types (share the same approval workflow). */
 export const REQUEST_TYPES = [
   { key: "overtime", label: "Overtime", needsHours: true },

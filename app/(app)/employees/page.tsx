@@ -6,6 +6,7 @@ import { getKioskSettings } from "@/lib/kiosk/settings";
 import { KioskSettingsPanel } from "@/components/employees/kiosk-settings";
 import { peso } from "@/lib/collections/summary";
 import { PageHeader } from "@/components/ui";
+import Link from "next/link";
 import { Avatar } from "@/components/employees/avatar";
 import { PhotoUpload } from "@/components/employees/photo-upload";
 import { CredentialSetter } from "@/components/employees/credential-setter";
@@ -79,7 +80,7 @@ export default async function EmployeesPage() {
                   <div className="flex items-center gap-3">
                     <Avatar id={e.id} label={e.label} photoPath={e.photoPath} />
                     <div>
-                      <p className="font-medium text-slate-800">{e.label}</p>
+                      <Link href={`/employees/${e.id}`} className="font-medium text-amber-700 hover:underline">{e.label}</Link>
                       <p className="text-xs text-slate-400">{e.email ?? "—"}</p>
                     </div>
                   </div>
