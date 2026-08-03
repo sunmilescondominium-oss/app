@@ -26,22 +26,25 @@ export function DenominationCounter() {
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Cash count (bills & coins)</p>
         <p className="text-sm font-semibold tabular-nums text-slate-800">Counted: {peso(total)}</p>
       </div>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
         {PHP_DENOMINATIONS.map((d) => {
           const key = `${d.kind}-${d.value}`;
           const qty = counts[String(d.value)] ?? 0;
           return (
-            <label key={key} className="flex items-center gap-1.5 rounded-lg bg-white px-2 py-1.5 text-sm">
-              <span className="w-12 shrink-0 text-right text-slate-600">{d.value < 1 ? `¢${d.value * 100}` : `₱${d.value}`}</span>
-              <span className="text-slate-300">×</span>
+            <label key={key} className="rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-semibold text-slate-700">{d.value < 1 ? `¢${d.value * 100}` : `₱${d.value}`}</span>
+                <span className="text-[11px] tabular-nums text-slate-400">{peso(d.value * qty)}</span>
+              </div>
               <input
                 type="number"
                 min="0"
+                inputMode="numeric"
+                placeholder="0"
                 value={qty || ""}
                 onChange={(e) => set(d.value, Number(e.target.value))}
-                className="w-full rounded border border-slate-300 px-1.5 py-1 text-sm outline-none focus:border-amber-500"
+                className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-center text-sm tabular-nums outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
               />
-              <span className="w-16 shrink-0 text-right text-[11px] tabular-nums text-slate-400">{peso(d.value * qty)}</span>
             </label>
           );
         })}
