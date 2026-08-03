@@ -41,6 +41,16 @@ export interface MeterRow {
   consumption: number | null;
 }
 
+export interface UnitDetail {
+  unitId: string;
+  unitNumber: string;
+  propertyName: string;
+  businessLine: string;
+  unitStatus: string;
+  lease: (LeaseInfo & { startDate: string; deposit: number; notes: string | null }) | null;
+  needsHousekeeping: boolean;
+}
+
 export interface Reminder {
   kind: "checkout" | "due";
   label: string;

@@ -2,7 +2,7 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { todayManila } from "@/lib/collections/summary";
 import { AIRBNB_CHECKOUT_SOON_HOURS, DUE_SOON_DAYS } from "@/lib/config";
-import type { DueInfo, MeterRow, OccupancyRow, Reminder } from "./types";
+import type { DueInfo, MeterRow, OccupancyRow, Reminder, UnitDetail } from "./types";
 
 /** SERVICE ROLE — gated by requireModule("rentals") at the page. */
 
@@ -142,6 +142,88 @@ export async function reminders(board: OccupancyRow[]): Promise<Reminder[]> {
     }
   }
   return out;
+}
+
+export async function rentalUnitDetail(unitId: string): Promise<UnitDetail | null> {
+  const admin = createAdminClient();
+  const { data: u } = await admin
+    .from("units")
+    .select("id, unit_number, business_line, status, is_active, properties(name)")
+    .eq("id", unitId)
+    .maybeSingle();
+  if (!u || !["rental", "airbnb"].includes(u.business_line as string)) return null;
+
+  const [{ data: lease }, { data: hk }] = await Promise.all([
+    admin.from("leases").select("*").eq("unit_id", unitId).eq("status", "active").maybeSingle(),
+    admin.from("housekeeping_tasks").select("id").eq("unit_id", unitId).in("status", ["pending", "in_progress"]).maybeSingle(),
+  ]);
+
+  return {
+    unitId,
+    unitNumber: u.unit_number as string,
+    propertyName: ((u.properties as { name?: string } | null)?.name as string) ?? "—",
+    businessLine: u.business_line as string,
+    unitStatus: u.status as string,
+    lease: lease
+      ? {
+          id: lease.id as string,
+          tenantLabel: lease.tenant_label as string,
+          contact: (lease.contact as string | null) ?? null,
+          endAt: (lease.end_at as string | null) ?? null,
+          rentAmount: Number(lease.rent_amount),
+          billingCycle: lease.billing_cycle as string,
+          startDate: lease.start_date as string,
+          deposit: Number(lease.deposit),
+          notes: (lease.notes as string | null) ?? null,
+        }
+      : null,
+    needsHousekeeping: !lease && Boolean(hk),
+  };
+}
+
+export async function duesForUnit(unitId: string): Promise<(DueInfo & { paidOn: string | null })[]> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("rental_dues")
+    .select("id, category, amount, due_date, status, paid_on")
+    .eq("unit_id", unitId)
+    .order("due_date", { ascending: false });
+  return (data ?? []).map((d) => ({
+    id: d.id as string,
+    category: d.category as string,
+    amount: Number(d.amount),
+    dueDate: d.due_date as string,
+    status: d.status as string,
+    paidOn: (d.paid_on as string | null) ?? null,
+    ...dueFlags(d.due_date as string),
+  }));
+}
+
+export async function metersForUnit(unitId: string): Promise<MeterRow[]> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("meter_readings")
+    .select("id, unit_id, utility, reading, read_on, units(unit_number)")
+    .eq("unit_id", unitId)
+    .order("read_on", { ascending: false });
+  const rows = data ?? [];
+  const asc = [...rows].sort((a, b) => (a.read_on as string).localeCompare(b.read_on as string));
+  const prev = new Map<string, number>();
+  const cons = new Map<string, number>();
+  for (const r of asc) {
+    const last = prev.get(r.utility as string);
+    if (last != null) cons.set(r.id as string, Math.round((Number(r.reading) - last) * 100) / 100);
+    prev.set(r.utility as string, Number(r.reading));
+  }
+  return rows.map((r) => ({
+    id: r.id as string,
+    unitId: r.unit_id as string,
+    unitNumber: ((r.units as { unit_number?: string } | null)?.unit_number as string) ?? "—",
+    utility: r.utility as string,
+    reading: Number(r.reading),
+    readOn: r.read_on as string,
+    consumption: cons.get(r.id as string) ?? null,
+  }));
 }
 
 export async function rentalUnitOptions(): Promise<{ id: string; label: string; businessLine: string }[]> {
