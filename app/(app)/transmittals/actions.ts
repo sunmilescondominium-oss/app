@@ -7,6 +7,7 @@ import {
   userHasAnyRole,
 } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
@@ -24,7 +25,9 @@ export async function buildTransmittalForDate(
   if (!userHasAnyRole(user, ["hotel_rental_monitoring", "accounting", "hotel_cashier"]))
     return { ok: false, error: "Only the cashier, monitoring, or accounting can build a transmittal." };
 
-  const supabase = await createClient();
+  // Service role: the action is already role-gated above; this lets the hotel
+  // cashier bundle collections they can't read under the collections RLS.
+  const supabase = createAdminClient();
   const date = String(formData.get("date") ?? "").trim();
   if (!date) return { ok: false, error: "Choose a date." };
 

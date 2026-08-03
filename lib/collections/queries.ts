@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type {
   Collection,
   Transmittal,
@@ -56,7 +57,9 @@ export async function listUnitOptions(): Promise<UnitOption[]> {
 }
 
 export async function listTransmittals(limit = 60): Promise<Transmittal[]> {
-  const supabase = await createClient();
+  // Service role: gated at the page by requireModule("transmittals"). Lets the
+  // hotel cashier and other transmittal roles see rows regardless of table RLS.
+  const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("transmittals")
     .select("*")
@@ -71,7 +74,9 @@ export async function listTransmittals(limit = 60): Promise<Transmittal[]> {
 }
 
 export async function getTransmittal(id: string): Promise<TransmittalDetail | null> {
-  const supabase = await createClient();
+  // Service role (gated by requireModule("transmittals")) so the bundled
+  // collection line items are visible to every transmittal role.
+  const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("transmittals")
     .select("*")
