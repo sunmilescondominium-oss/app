@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireModule } from "@/lib/auth/dal";
 import { canWriteModule } from "@/lib/rbac/modules";
@@ -9,6 +8,7 @@ import { listAccountOptions } from "@/lib/banking/queries";
 import { APP_BRAND, APP_BRAND_SHORT, PHP_DENOMINATIONS } from "@/lib/config";
 import { TransmittalActions } from "@/components/transmittals/transmittal-actions";
 import { CustodyPanel } from "@/components/transmittals/custody-panel";
+import { Breadcrumb } from "@/components/ui";
 
 export const metadata = { title: "Transmittal" };
 
@@ -56,11 +56,7 @@ export default async function TransmittalDetailPage({
 
   return (
     <>
-      <div className="no-print mb-4">
-        <Link href="/transmittals" className="text-sm font-medium text-amber-700 hover:underline">
-          ← All transmittals
-        </Link>
-      </div>
+      <Breadcrumb items={[{ label: "Transmittals", href: "/transmittals" }, { label: `Ref ${t.id.slice(0, 8).toUpperCase()}` }]} />
 
       {/* Printable document */}
       <div className="rounded-2xl border border-stone-200 bg-white p-6 print:rounded-none print:border-0 print:p-0">

@@ -1,10 +1,9 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireModule } from "@/lib/auth/dal";
 import { getAdvance } from "@/lib/advances/queries";
 import { peso } from "@/lib/collections/summary";
 import { ADVANCE_STATUSES } from "@/lib/config";
-import { PageHeader } from "@/components/ui";
+import { PageHeader, Breadcrumb } from "@/components/ui";
 import { LiquidationForm, CloseLiquidation } from "@/components/advances/advance-forms";
 
 export const metadata = { title: "Cash Advance" };
@@ -23,7 +22,7 @@ export default async function AdvanceDetailPage({ params }: { params: Promise<{ 
   return (
     <>
       <div className="mb-4">
-        <Link href="/advances" className="text-xs text-amber-700 hover:underline">← Back to Cash Advance</Link>
+        <Breadcrumb items={[{ label: "Cash Advance", href: "/advances" }, { label: "Request" }]} />
         <PageHeader title={`Advance — ${peso(advance.amount)}`} subtitle={`${who} · ${advance.purpose}`} />
       </div>
 

@@ -4,7 +4,7 @@ import { requireModule } from "@/lib/auth/dal";
 import { condoUnitDetail } from "@/lib/condo/queries";
 import { duesForUnit, metersForUnit } from "@/lib/rentals/queries";
 import { peso } from "@/lib/collections/summary";
-import { PageHeader } from "@/components/ui";
+import { PageHeader, Breadcrumb } from "@/components/ui";
 import { MeterForm, DueForm, MarkPaid } from "@/components/rentals/rental-forms";
 
 export const metadata = { title: "Condo Unit" };
@@ -20,7 +20,7 @@ export default async function CondoUnitPage({ params }: { params: Promise<{ unit
     <>
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <Link href="/condo" className="text-xs text-amber-700 hover:underline">← Back to Condo Dues</Link>
+          <Breadcrumb items={[{ label: "Condo Dues", href: "/condo" }, { label: "Unit detail" }]} />
           <PageHeader title={`Unit ${unit.unitNumber}`} subtitle={`${unit.propertyName} · ${unit.areaSqm} sqm × ₱${unit.effectiveRate}/sqm`} />
         </div>
         <Link href={`/condo/${unitId}/bill`} className="rounded-lg border border-stone-300 px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50">Statement →</Link>

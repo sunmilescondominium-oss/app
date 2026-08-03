@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { APP_BRAND, APP_BRAND_SHORT } from "@/lib/config";
 import { signOut, setActAsRole } from "@/lib/auth/actions";
+import { SunMilesMark } from "@/components/brand-logo";
 
 export interface NavModule {
   key: string;
@@ -73,9 +74,9 @@ export function AppShell({
     <div className="flex items-center gap-2.5">
       <span
         aria-hidden
-        className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 text-lg shadow-sm"
+        className="flex h-9 w-9 items-center justify-center rounded-xl bg-white ring-1 ring-stone-200"
       >
-        ☀️
+        <SunMilesMark className="h-7 w-7" />
       </span>
       <span className="font-bold tracking-tight text-stone-900">
         {APP_BRAND_SHORT}

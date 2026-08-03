@@ -48,6 +48,28 @@ export function Badge({
   );
 }
 
+/** Breadcrumb trail — always starts at the Dashboard so any report can return. */
+export function Breadcrumb({ items }: { items: { label: string; href?: string }[] }) {
+  const trail = [{ label: "Dashboard", href: "/dashboard" }, ...items];
+  return (
+    <nav className="no-print mb-3 flex flex-wrap items-center gap-1.5 text-sm text-stone-500">
+      {trail.map((it, i) => {
+        const last = i === trail.length - 1;
+        return (
+          <span key={i} className="inline-flex items-center gap-1.5">
+            {it.href && !last ? (
+              <Link href={it.href} className="font-medium transition hover:text-amber-700">{it.label}</Link>
+            ) : (
+              <span className={last ? "font-semibold text-stone-700" : ""}>{it.label}</span>
+            )}
+            {!last && <span className="text-stone-300">/</span>}
+          </span>
+        );
+      })}
+    </nav>
+  );
+}
+
 /** Back navigation link — used to return to a dashboard or parent list. */
 export function BackLink({ href, children }: { href: string; children: ReactNode }) {
   return (

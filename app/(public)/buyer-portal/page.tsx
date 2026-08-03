@@ -6,7 +6,7 @@ export const metadata = { title: "Buyer Portal" };
 /** Public buyer self-service portal (no Supabase Auth — unit# + PIN). Read-only. */
 export default function BuyerPortalPage() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-stone-50 px-4 py-12">
+    <main className="flex min-h-screen items-center justify-center bg-transparent px-4 py-12">
       <div className="w-full max-w-md">
         <div className="rounded-2xl border border-stone-200 bg-white p-8 shadow-sm">
           <div className="text-center">

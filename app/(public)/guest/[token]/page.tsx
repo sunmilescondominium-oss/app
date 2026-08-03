@@ -12,7 +12,7 @@ export default async function GuestPortalPage({ params }: { params: Promise<{ to
   if (!stay) notFound();
 
   return (
-    <main className="flex min-h-screen items-start justify-center bg-stone-50 px-4 py-10">
+    <main className="flex min-h-screen items-start justify-center bg-transparent px-4 py-10">
       <div className="w-full max-w-md">
         <div className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm">
           <div className="text-center">

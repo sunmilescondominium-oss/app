@@ -6,7 +6,7 @@ export const metadata = { title: "Repair Request" };
 /** Public repair-request portal (no login) for tenants and hotel guests. */
 export default function RepairRequestPage() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-stone-50 px-4 py-12">
+    <main className="flex min-h-screen items-center justify-center bg-transparent px-4 py-12">
       <div className="w-full max-w-lg">
         <div className="rounded-2xl border border-stone-200 bg-white p-8 shadow-sm">
           <div className="text-center">

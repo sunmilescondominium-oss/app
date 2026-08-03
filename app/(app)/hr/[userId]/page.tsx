@@ -1,9 +1,8 @@
-import Link from "next/link";
 import { requireModule } from "@/lib/auth/dal";
 import { dtrDetail } from "@/lib/hr/queries";
 import { todayManila, peso } from "@/lib/collections/summary";
 import { APP_BRAND_SHORT } from "@/lib/config";
-import { PageHeader } from "@/components/ui";
+import { PageHeader, Breadcrumb } from "@/components/ui";
 import { PrintButton } from "@/components/print-button";
 
 export const metadata = { title: "DTR detail" };
@@ -56,9 +55,7 @@ export default async function DtrDetailPage({
     <>
       <div className="no-print mb-4 flex items-center justify-between gap-3">
         <div>
-          <Link href={`/hr?from=${from}&to=${to}`} className="text-xs text-amber-700 hover:underline">
-            ← Back to payroll
-          </Link>
+          <Breadcrumb items={[{ label: "HR / Payroll", href: `/hr?from=${from}&to=${to}` }, { label: "DTR" }]} />
           <PageHeader title={`DTR — ${label}`} subtitle={`${peso(dailyRate)}/day · ${from} to ${to}`} />
         </div>
         <PrintButton label="Print DTR" />

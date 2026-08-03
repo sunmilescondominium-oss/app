@@ -1,10 +1,9 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireModule } from "@/lib/auth/dal";
 import { getAccount, listTransactions, foldBalances, listReconciliations } from "@/lib/banking/queries";
 import { listTransmittals } from "@/lib/collections/queries";
 import { ACCOUNT_TYPE_LABEL } from "@/lib/banking/types";
-import { PageHeader } from "@/components/ui";
+import { PageHeader, Breadcrumb } from "@/components/ui";
 import { peso } from "@/components/banking/peso";
 import { Ledger } from "@/components/banking/ledger";
 import { AccountForm } from "@/components/banking/account-form";
@@ -40,7 +39,7 @@ export default async function BankAccountPage({ params }: { params: Promise<{ ac
 
   return (
     <>
-      <div className="mb-2"><Link href="/banking" className="text-sm text-indigo-700 hover:underline">← All accounts</Link></div>
+      <Breadcrumb items={[{ label: "Bank & Reconciliation", href: "/banking" }, { label: account.label }]} />
       <PageHeader
         title={account.label}
         subtitle={`${ACCOUNT_TYPE_LABEL[account.account_type]} · ${account.bank_name ?? "—"} ${account.account_no_masked ?? ""}`}

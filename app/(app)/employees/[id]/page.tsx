@@ -1,8 +1,7 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireModule } from "@/lib/auth/dal";
 import { getEmployeeBasics, getEmployeeProfile, listEmployeeDocuments } from "@/lib/employees/personnel";
-import { PageHeader } from "@/components/ui";
+import { PageHeader, Breadcrumb } from "@/components/ui";
 import { Avatar } from "@/components/employees/avatar";
 import { PersonnelForm } from "@/components/employees/personnel-form";
 import { EmployeeDocs } from "@/components/employees/employee-docs";
@@ -25,7 +24,7 @@ export default async function EmployeeFilePage({ params }: { params: Promise<{ i
   return (
     <>
       <div className="mb-4">
-        <Link href="/employees" className="text-xs text-amber-700 hover:underline">← Back to Employees</Link>
+        <Breadcrumb items={[{ label: "Employees", href: "/employees" }, { label: "201 file" }]} />
         <PageHeader title="201 File" subtitle="Personnel record & documents." />
       </div>
 
