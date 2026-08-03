@@ -1,6 +1,8 @@
 import { requireModule } from "@/lib/auth/dal";
-import { myPhotoPath, myLeave } from "@/lib/employee/queries";
+import Link from "next/link";
+import { myPhotoPath, myLeave, myPayslip } from "@/lib/employee/queries";
 import { myRecentRecords } from "@/lib/attendance/queries";
+import { todayManila, peso } from "@/lib/collections/summary";
 import { LEAVE_STATUSES } from "@/lib/config";
 import { PageHeader } from "@/components/ui";
 import { Avatar } from "@/components/employees/avatar";
@@ -34,6 +36,8 @@ export default async function MyPortalPage() {
     .filter((r) => r.work_date.startsWith(thisMonth) && r.hours != null)
     .reduce((s, r) => s + (r.hours ?? 0), 0);
 
+  const payslip = await myPayslip(user.userId, `${thisMonth}-01`, todayManila());
+
   return (
     <>
       <PageHeader title="My Portal" subtitle="Your attendance, leave, and staff details." />
@@ -52,6 +56,18 @@ export default async function MyPortalPage() {
           </div>
           <p className="mt-1 text-xs text-slate-400">A photo can be added by HR/admin from the Employees page.</p>
         </div>
+      </div>
+
+      {/* Payslip (this month) */}
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-5">
+        <div>
+          <p className="text-sm text-slate-500">My pay this month (est.)</p>
+          <p className="mt-1 text-2xl font-bold tabular-nums text-emerald-700">{peso(payslip.net)}</p>
+          <p className="mt-0.5 text-xs text-slate-400">Basic {peso(payslip.basic)} · OT {peso(payslip.ot)} · Deductions ({peso(payslip.deductions)})</p>
+        </div>
+        <Link href="/me/payslip" className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          View / print payslip →
+        </Link>
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">

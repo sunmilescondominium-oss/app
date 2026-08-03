@@ -143,7 +143,9 @@ export const MODULES: Record<ModuleKey, ModuleDef> = {
     label: "Hotel Ops",
     blurb: "Room board, stays & receipts.",
     milestone: "Hotel",
-    read: ["hotel_cashier", "hotel_rental_monitoring", "room_attendant", "operations_manager", "managing_officer", "admin"],
+    // room_attendant intentionally excluded — they use Housekeeping only and must
+    // not see folio payments / the cashier's remittance report.
+    read: ["hotel_cashier", "hotel_rental_monitoring", "operations_manager", "managing_officer", "admin"],
     write: ["hotel_cashier", "hotel_rental_monitoring", "admin"],
   },
   rentals: {
