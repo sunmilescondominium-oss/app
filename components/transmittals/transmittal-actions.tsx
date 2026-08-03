@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   depositTransmittal,
   reconcileTransmittal,
+  returnPassbook,
   markTransmittalPrinted,
   type ActionResult,
 } from "@/app/(app)/transmittals/actions";
@@ -14,11 +15,13 @@ export function TransmittalActions({
   status,
   canWrite,
   canReconcile,
+  passbookReturned,
 }: {
   id: string;
   status: string;
   canWrite: boolean;
   canReconcile: boolean;
+  passbookReturned: boolean;
 }) {
   const router = useRouter();
   const [depState, depAction, depPending] = useActionState<
@@ -34,6 +37,17 @@ export function TransmittalActions({
   async function reconcile() {
     setBusy(true);
     const res = await reconcileTransmittal(id);
+    setBusy(false);
+    if (!res.ok) {
+      window.alert(res.error);
+      return;
+    }
+    router.refresh();
+  }
+
+  async function passbook() {
+    setBusy(true);
+    const res = await returnPassbook(id);
     setBusy(false);
     if (!res.ok) {
       window.alert(res.error);
@@ -68,6 +82,16 @@ export function TransmittalActions({
               className="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
             />
           </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-600">Amount deposited (₱)</label>
+            <input
+              name="deposited_amount"
+              type="number"
+              step="0.01"
+              min="0"
+              className="w-32 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
+            />
+          </div>
           <button
             type="submit"
             disabled={depPending}
@@ -76,6 +100,17 @@ export function TransmittalActions({
             {depPending ? "Saving…" : "Confirm bank deposit"}
           </button>
         </form>
+      )}
+
+      {canReconcile && (status === "deposited" || status === "reconciled") && !passbookReturned && (
+        <button
+          type="button"
+          onClick={passbook}
+          disabled={busy}
+          className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-60"
+        >
+          {busy ? "Saving…" : "Record passbook returned"}
+        </button>
       )}
 
       {canReconcile && status === "deposited" && (

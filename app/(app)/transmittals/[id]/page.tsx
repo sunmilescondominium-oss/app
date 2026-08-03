@@ -4,7 +4,7 @@ import { requireModule } from "@/lib/auth/dal";
 import { canWriteModule } from "@/lib/rbac/modules";
 import { getTransmittal } from "@/lib/collections/queries";
 import { summarizeCollections, peso } from "@/lib/collections/summary";
-import { APP_BRAND, APP_BRAND_SHORT } from "@/lib/config";
+import { APP_BRAND, APP_BRAND_SHORT, PHP_DENOMINATIONS } from "@/lib/config";
 import { TransmittalActions } from "@/components/transmittals/transmittal-actions";
 
 export const metadata = { title: "Transmittal" };
@@ -93,20 +93,58 @@ export default async function TransmittalDetailPage({
           </tfoot>
         </table>
 
-        {t.counted_cash != null && (
-          <p className="mt-3 text-sm text-slate-700">
-            Cash counted (bills &amp; coins): <strong className="tabular-nums">{peso(Number(t.counted_cash))}</strong>
-            {Number(t.counted_cash) !== Number(t.total_amount) && (
-              <span className="ml-2 text-amber-700">
-                (variance vs total: {peso(Number(t.counted_cash) - Number(t.total_amount))} — total includes online payments)
-              </span>
-            )}
-          </p>
+        {/* Reconciliation figures */}
+        {(() => {
+          const compareTo = t.deposited_amount ?? t.counted_cash;
+          const variance = compareTo == null ? null : Math.round((Number(compareTo) - Number(t.total_amount)) * 100) / 100;
+          return (
+            <div className="mt-4 rounded-xl border border-slate-200 p-3">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Reconciliation</p>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-4">
+                <div><span className="text-slate-400">Collected (reported)</span><br /><span className="font-medium tabular-nums">{peso(t.total_amount)}</span></div>
+                <div><span className="text-slate-400">Cash counted</span><br /><span className="tabular-nums">{t.counted_cash != null ? peso(Number(t.counted_cash)) : "—"}</span></div>
+                <div><span className="text-slate-400">Deposited</span><br /><span className="tabular-nums">{t.deposited_amount != null ? peso(Number(t.deposited_amount)) : "—"}</span></div>
+                <div>
+                  <span className="text-slate-400">Variance</span><br />
+                  <span className={`tabular-nums ${variance ? "text-amber-700" : "text-emerald-700"}`}>{variance == null ? "—" : peso(variance)}</span>
+                </div>
+              </div>
+              {t.total_amount !== (t.counted_cash ?? t.total_amount) && (
+                <p className="mt-1 text-[11px] text-slate-400">Total includes online payments; counted cash is physical bills &amp; coins only.</p>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* Denomination breakdown — for the errand carrying the cash */}
+        {t.denomination_counts && Object.values(t.denomination_counts).some((n) => Number(n) > 0) && (
+          <div className="mt-3 rounded-xl border border-slate-200 p-3">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Cash count (bills &amp; coins)</p>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-0.5 text-sm sm:grid-cols-3">
+              {PHP_DENOMINATIONS.filter((d) => Number(t.denomination_counts![String(d.value)] ?? 0) > 0).map((d) => {
+                const qty = Number(t.denomination_counts![String(d.value)]);
+                return (
+                  <div key={`${d.kind}-${d.value}`} className="flex justify-between tabular-nums">
+                    <span className="text-slate-500">{d.value < 1 ? `¢${d.value * 100}` : `₱${d.value}`} × {qty}</span>
+                    <span>{peso(d.value * qty)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         )}
 
         <p className="mt-4 text-sm text-slate-700">
           Bank deposit slip ref:{" "}
           <strong>{t.deposit_slip_ref ?? "________________"}</strong>
+        </p>
+        <p className="mt-1 text-sm text-slate-700">
+          Passbook:{" "}
+          {t.passbook_returned_on ? (
+            <strong className="text-emerald-700">returned to accounting {t.passbook_returned_on} ({roleLabel(t.passbook_returned_by_role)})</strong>
+          ) : (
+            <span className="text-amber-700">pending return to accounting</span>
+          )}
         </p>
 
         {/* Role-based signature lines (never person names) */}
@@ -137,6 +175,7 @@ export default async function TransmittalDetailPage({
           status={t.status}
           canWrite={canWrite}
           canReconcile={canReconcile}
+          passbookReturned={Boolean(t.passbook_returned_on)}
         />
       </div>
     </>

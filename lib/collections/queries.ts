@@ -97,6 +97,7 @@ export async function getTransmittal(id: string): Promise<TransmittalDetail | nu
     total_amount: Number(d.total_amount),
     counted_cash: d.counted_cash == null ? null : Number(d.counted_cash),
     denomination_counts: (d.denomination_counts as Record<string, number> | null) ?? null,
+    deposited_amount: d.deposited_amount == null ? null : Number(d.deposited_amount),
     collections: (cols ?? []).map(mapCollection),
   };
 }

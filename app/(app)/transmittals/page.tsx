@@ -22,9 +22,22 @@ function roleLabel(rk: string | null): string {
 export default async function TransmittalsPage() {
   const user = await requireModule("transmittals");
   const canBuild = user.roleKeys.some((r) =>
-    ["hotel_rental_monitoring", "accounting"].includes(r),
+    ["hotel_rental_monitoring", "accounting", "hotel_cashier"].includes(r),
   );
   const transmittals = await listTransmittals();
+
+  // Daily reconciliation tally (accounting) — collected vs deposited per day.
+  const byDate = new Map<string, { collected: number; deposited: number; reconciled: number; passbook: number; count: number }>();
+  for (const t of transmittals) {
+    const d = byDate.get(t.transmittal_date) ?? { collected: 0, deposited: 0, reconciled: 0, passbook: 0, count: 0 };
+    d.collected += Number(t.total_amount);
+    d.deposited += Number(t.deposited_amount ?? 0);
+    if (t.status === "reconciled") d.reconciled += 1;
+    if (t.passbook_returned_on) d.passbook += 1;
+    d.count += 1;
+    byDate.set(t.transmittal_date, d);
+  }
+  const tally = [...byDate.entries()].sort((a, b) => b[0].localeCompare(a[0])).slice(0, 10);
 
   return (
     <>
@@ -36,6 +49,43 @@ export default async function TransmittalsPage() {
 
       {canBuild && <BuildTransmittalForm defaultDate={todayManila()} />}
 
+      {/* Daily reconciliation tally — accounting, before the final owner report */}
+      <h2 className="mb-2 mt-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Daily reconciliation</h2>
+      <div className="mb-6 overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+        <table className="w-full min-w-[640px] text-left text-sm">
+          <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+            <tr>
+              <th className="px-4 py-3">Date</th>
+              <th className="px-4 py-3 text-right">Transmittals</th>
+              <th className="px-4 py-3 text-right">Collected</th>
+              <th className="px-4 py-3 text-right">Deposited</th>
+              <th className="px-4 py-3 text-right">Variance</th>
+              <th className="px-4 py-3 text-right">Reconciled</th>
+              <th className="px-4 py-3 text-right">Passbook</th>
+            </tr>
+          </thead>
+          <tbody>
+            {tally.length === 0 && <tr><td colSpan={7} className="px-4 py-6 text-center text-slate-500">No data.</td></tr>}
+            {tally.map(([date, d]) => {
+              const variance = Math.round((d.deposited - d.collected) * 100) / 100;
+              return (
+                <tr key={date} className="border-b border-slate-100 last:border-0">
+                  <td className="px-4 py-2.5 font-medium">{date}</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums">{d.count}</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums">{peso(d.collected)}</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums">{d.deposited ? peso(d.deposited) : "—"}</td>
+                  <td className={`px-4 py-2.5 text-right tabular-nums ${d.deposited && variance ? "text-amber-700" : "text-slate-400"}`}>{d.deposited ? peso(variance) : "—"}</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums">{d.reconciled}/{d.count}</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums">{d.passbook}/{d.count}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <p className="mb-4 text-xs text-slate-400">Accounting tallies collected vs deposited and passbook returns here before the final report to the owner.</p>
+
+      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">All transmittals</h2>
       <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
         <table className="w-full min-w-[720px] text-left text-sm">
           <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
@@ -45,13 +95,14 @@ export default async function TransmittalsPage() {
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3">Counted by</th>
               <th className="px-4 py-3">Deposit slip</th>
+              <th className="px-4 py-3">Passbook</th>
               <th className="px-4 py-3">Printed</th>
             </tr>
           </thead>
           <tbody>
             {transmittals.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-10 text-center text-slate-500">
+                <td colSpan={7} className="px-4 py-10 text-center text-slate-500">
                   No transmittals yet.
                 </td>
               </tr>
@@ -73,6 +124,7 @@ export default async function TransmittalsPage() {
                   </td>
                   <td className="px-4 py-3">{roleLabel(t.counted_by_role)}</td>
                   <td className="px-4 py-3">{t.deposit_slip_ref ?? "—"}</td>
+                  <td className="px-4 py-3 text-slate-500">{t.passbook_returned_on ? `✓ ${t.passbook_returned_on}` : "—"}</td>
                   <td className="px-4 py-3 text-slate-500">
                     {t.printed_at ? "✓" : "—"}
                   </td>

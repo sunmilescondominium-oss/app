@@ -9,6 +9,7 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit";
+import { todayManila } from "@/lib/collections/summary";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -101,6 +102,10 @@ export async function depositTransmittal(
   const supabase = await createClient();
   const deposit_slip_ref = String(formData.get("deposit_slip_ref") ?? "").trim();
   if (!deposit_slip_ref) return { ok: false, error: "Enter the deposit slip reference." };
+  const depositedRaw = String(formData.get("deposited_amount") ?? "").trim();
+  const deposited_amount = depositedRaw ? Number(depositedRaw) : null;
+  if (deposited_amount != null && (!Number.isFinite(deposited_amount) || deposited_amount < 0))
+    return { ok: false, error: "Enter a valid deposited amount." };
 
   const confirmed_by_role = firstHeld(user.roleKeys, [
     "errand_liaison",
@@ -109,7 +114,7 @@ export async function depositTransmittal(
   ]);
   const { error } = await supabase
     .from("transmittals")
-    .update({ status: "deposited", deposit_slip_ref, confirmed_by_role })
+    .update({ status: "deposited", deposit_slip_ref, deposited_amount, confirmed_by_role })
     .eq("id", id)
     .eq("status", "submitted");
   if (error) return { ok: false, error: error.message };
@@ -121,6 +126,34 @@ export async function depositTransmittal(
     entity: "transmittals",
     entityId: id,
     diff: { status: "deposited", deposit_slip_ref },
+  });
+  revalidatePath("/transmittals");
+  revalidatePath(`/transmittals/${id}`);
+  return { ok: true };
+}
+
+/** accounting records that the bank passbook was returned to them. */
+export async function returnPassbook(id: string): Promise<ActionResult> {
+  const user = await requireModuleWrite("transmittals");
+  if (!userHasAnyRole(user, ["accounting", "managing_officer"]))
+    return { ok: false, error: "Only accounting records the passbook return." };
+
+  const supabase = await createClient();
+  const passbook_returned_by_role = firstHeld(user.roleKeys, ["accounting", "managing_officer"]);
+  const { error } = await supabase
+    .from("transmittals")
+    .update({ passbook_returned_on: todayManila(), passbook_returned_by_role })
+    .eq("id", id)
+    .in("status", ["deposited", "reconciled"]);
+  if (error) return { ok: false, error: error.message };
+
+  await logAudit({
+    actorUserId: user.userId,
+    actorRoles: user.roleKeys,
+    action: "update",
+    entity: "transmittals",
+    entityId: id,
+    diff: { passbook_returned: true },
   });
   revalidatePath("/transmittals");
   revalidatePath(`/transmittals/${id}`);

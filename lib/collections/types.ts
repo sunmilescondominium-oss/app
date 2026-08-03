@@ -38,6 +38,9 @@ export interface Transmittal {
   confirmed_by_role: string | null;
   reconciled_by_role: string | null;
   deposit_slip_ref: string | null;
+  deposited_amount: number | null;
+  passbook_returned_on: string | null;
+  passbook_returned_by_role: string | null;
   status: string;
   notes: string | null;
   printed_at: string | null;
