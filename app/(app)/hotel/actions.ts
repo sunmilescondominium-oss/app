@@ -95,6 +95,7 @@ export async function checkIn(
       discount_amount,
       tax_mode,
       tax_rate,
+      portal_token: (await import("node:crypto")).randomBytes(18).toString("base64url"),
       created_by: user.userId,
     })
     .select("id")

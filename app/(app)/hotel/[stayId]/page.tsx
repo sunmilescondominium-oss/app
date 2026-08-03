@@ -45,6 +45,27 @@ export default async function StayFolioPage({
         </Link>
       </div>
 
+      {/* Guest requests from the QR bill portal */}
+      {stay.status === "active" && (stay.checkout_requested || stay.extension_requested_hours != null) && (
+        <div className="no-print mb-4 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+          {stay.checkout_requested && <p>🔔 <strong>Guest requested check-out</strong> — prepare the final bill, check the unit, and issue the gate pass.</p>}
+          {stay.extension_requested_hours != null && <p>⏱️ <strong>Guest requested +{stay.extension_requested_hours}h</strong> — confirm the extension below.</p>}
+        </div>
+      )}
+
+      {/* Guest bill QR — print/show to the guest */}
+      {stay.portal_token && (
+        <div className="no-print mb-4 flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={`/api/guest/${stay.portal_token}/qr`} alt="Guest bill QR" className="h-24 w-24" />
+          <div className="text-sm">
+            <p className="font-medium text-slate-800">Guest bill QR</p>
+            <p className="text-slate-500">The guest scans this to see their bill + timer, request an extension, or check out.</p>
+            <a href={`/guest/${stay.portal_token}`} target="_blank" rel="noreferrer" className="text-xs text-amber-700 hover:underline">open guest view ↗</a>
+          </div>
+        </div>
+      )}
+
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="space-y-4">
           {stay.status === "active" && (

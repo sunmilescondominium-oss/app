@@ -35,6 +35,9 @@ function mapStay(r: Record<string, unknown>): Stay {
     check_in_at: r.check_in_at as string,
     check_out_at: (r.check_out_at as string) ?? null,
     status: r.status as string,
+    portal_token: (r.portal_token as string | null) ?? null,
+    checkout_requested: Boolean(r.checkout_requested),
+    extension_requested_hours: r.extension_requested_hours == null ? null : Number(r.extension_requested_hours),
     unit: u ? { unit_number: u.unit_number } : null,
     rate_plan_name: rp?.name ?? null,
   };

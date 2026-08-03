@@ -33,6 +33,9 @@ export interface Stay {
   check_in_at: string;
   check_out_at: string | null;
   status: string;
+  portal_token: string | null;
+  checkout_requested: boolean;
+  extension_requested_hours: number | null;
   unit?: { unit_number: string } | null;
   rate_plan_name?: string | null;
 }
