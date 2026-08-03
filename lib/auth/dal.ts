@@ -10,6 +10,7 @@ import {
   ALL_ROLE_KEYS,
   type ModuleKey,
 } from "@/lib/rbac/modules";
+import { isModuleEnabled } from "@/lib/settings/flags";
 
 /** Roles that may preview/"act as" ANY role (top-level; never an escalation). */
 const ACT_AS_ANY_ROLES = ["admin"];
@@ -89,6 +90,7 @@ export async function requireAuth(): Promise<SessionUser> {
 export async function requireModule(key: ModuleKey): Promise<SessionUser> {
   const user = await requireAuth();
   if (!canReadModule(user.roleKeys, key)) redirect("/no-access");
+  if (!(await isModuleEnabled(key))) redirect("/no-access");
   return user;
 }
 
@@ -96,6 +98,7 @@ export async function requireModule(key: ModuleKey): Promise<SessionUser> {
 export async function requireModuleWrite(key: ModuleKey): Promise<SessionUser> {
   const user = await requireAuth();
   if (!canWriteModule(user.roleKeys, key)) redirect("/no-access");
+  if (!(await isModuleEnabled(key))) redirect("/no-access");
   return user;
 }
 

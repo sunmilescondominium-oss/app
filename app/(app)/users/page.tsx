@@ -1,8 +1,10 @@
 import { requireModule } from "@/lib/auth/dal";
 import { canWriteModule } from "@/lib/rbac/modules";
 import { listUsersWithRoles, listRoles } from "@/lib/users/queries";
+import { listFeatureFlags } from "@/lib/settings/flags";
 import { PageHeader, Badge } from "@/components/ui";
 import { UsersTable } from "@/components/users/users-table";
+import { FeatureFlags } from "@/components/users/feature-flags";
 
 export const metadata = { title: "Users & Roles" };
 
@@ -10,7 +12,7 @@ export default async function UsersPage() {
   const user = await requireModule("users");
   const canWrite = canWriteModule(user.roleKeys, "users");
 
-  const [users, roles] = await Promise.all([listUsersWithRoles(), listRoles()]);
+  const [users, roles, flags] = await Promise.all([listUsersWithRoles(), listRoles(), listFeatureFlags()]);
 
   return (
     <>
@@ -25,6 +27,13 @@ export default async function UsersPage() {
           <a href="/users/access" className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-300 bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100">
             ⚙ Access Control — grant modules per role
           </a>
+        </div>
+      )}
+
+      {canWrite && flags.length > 0 && (
+        <div className="mb-6">
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-stone-500">Optional modules</h2>
+          <FeatureFlags flags={flags} />
         </div>
       )}
       <UsersTable

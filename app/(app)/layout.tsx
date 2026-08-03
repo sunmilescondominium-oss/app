@@ -1,6 +1,7 @@
 import { requireAuth } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
 import { accessibleModules } from "@/lib/rbac/modules";
+import { getFeatureFlags, MODULE_FLAG } from "@/lib/settings/flags";
 import { AppShell, type NavModule, type RoleOption } from "@/components/app-shell";
 
 /**
@@ -14,13 +15,19 @@ export default async function AppLayout({
 }) {
   const user = await requireAuth();
 
-  const modules: NavModule[] = accessibleModules(user.roleKeys).map((m) => ({
-    key: m.key,
-    path: m.path,
-    label: m.label,
-    blurb: m.blurb,
-    milestone: m.milestone,
-  }));
+  const flags = await getFeatureFlags();
+  const modules: NavModule[] = accessibleModules(user.roleKeys)
+    .filter((m) => {
+      const flag = MODULE_FLAG[m.key];
+      return !flag || (flags.get(flag) ?? false);
+    })
+    .map((m) => ({
+      key: m.key,
+      path: m.path,
+      label: m.label,
+      blurb: m.blurb,
+      milestone: m.milestone,
+    }));
 
   // Resolve human role labels from the DB (roles are data, not constants).
   // Admins may preview ANY active role; everyone else only the roles they hold.
