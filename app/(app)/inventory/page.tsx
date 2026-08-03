@@ -65,11 +65,12 @@ export default async function InventoryPage({
   ];
 
   const selectCls =
-    "rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
+    "rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
 
   return (
     <>
       <PageHeader
+        backHref="/dashboard"
         title="Inventory"
         subtitle={
           scopeLabel
@@ -84,17 +85,17 @@ export default async function InventoryPage({
         {stats.map((s) => (
           <div
             key={s.label}
-            className="rounded-xl border border-slate-200 bg-white px-4 py-3"
+            className="rounded-xl border border-stone-200 bg-white px-4 py-3"
           >
-            <p className="text-2xl font-bold tabular-nums text-slate-900">
+            <p className="text-2xl font-bold tabular-nums text-stone-900">
               {s.value}
             </p>
-            <p className="text-xs text-slate-500">{s.label}</p>
+            <p className="text-xs text-stone-500">{s.label}</p>
           </div>
         ))}
       </div>
       {summary.inactive > 0 && (
-        <p className="mb-4 text-xs text-slate-400">
+        <p className="mb-4 text-xs text-stone-400">
           {summary.inactive} deactivated unit(s) hidden unless “include inactive”
           is on.
         </p>
@@ -103,10 +104,10 @@ export default async function InventoryPage({
       {/* Filters (native GET form — works without JS) */}
       <form
         method="get"
-        className="mb-4 flex flex-wrap items-end gap-3 rounded-2xl border border-slate-200 bg-white p-4"
+        className="mb-4 flex flex-wrap items-end gap-3 rounded-2xl border border-stone-200 bg-white p-4"
       >
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-600">
+          <label className="mb-1 block text-xs font-medium text-stone-600">
             Business line
           </label>
           <select name="bl" defaultValue={filters.businessLine ?? ""} className={selectCls}>
@@ -119,7 +120,7 @@ export default async function InventoryPage({
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-600">
+          <label className="mb-1 block text-xs font-medium text-stone-600">
             Status
           </label>
           <select name="status" defaultValue={filters.status ?? ""} className={selectCls}>
@@ -132,7 +133,7 @@ export default async function InventoryPage({
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-600">
+          <label className="mb-1 block text-xs font-medium text-stone-600">
             Property
           </label>
           <select
@@ -148,26 +149,26 @@ export default async function InventoryPage({
             ))}
           </select>
         </div>
-        <label className="flex items-center gap-2 text-sm text-slate-600">
+        <label className="flex items-center gap-2 text-sm text-stone-600">
           <input
             type="checkbox"
             name="inactive"
             value="1"
             defaultChecked={filters.includeInactive}
-            className="h-4 w-4 rounded border-slate-300"
+            className="h-4 w-4 rounded border-stone-300"
           />
           Include inactive
         </label>
         <div className="flex gap-2">
           <button
             type="submit"
-            className="rounded-lg bg-slate-800 px-4 py-2 text-sm font-medium text-white hover:bg-slate-900"
+            className="rounded-lg bg-stone-800 px-4 py-2 text-sm font-medium text-white hover:bg-stone-900"
           >
             Apply
           </button>
           <a
             href="/inventory"
-            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+            className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100"
           >
             Reset
           </a>
@@ -183,7 +184,7 @@ export default async function InventoryPage({
       />
 
       {!canWrite && (
-        <p className="mt-4 text-xs text-slate-400">
+        <p className="mt-4 text-xs text-stone-400">
           You have view-only access to inventory.
         </p>
       )}

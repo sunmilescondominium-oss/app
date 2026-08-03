@@ -10,9 +10,9 @@ export default async function LoginPage() {
   if (user) redirect("/");
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12">
+    <main className="flex min-h-screen items-center justify-center bg-stone-50 px-4 py-12">
       <div className="w-full max-w-md">
-        <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+        <div className="rounded-2xl border border-stone-200 bg-white p-8 shadow-sm">
           <div className="flex items-center gap-3">
             <span
               aria-hidden
@@ -21,24 +21,24 @@ export default async function LoginPage() {
               ☀️
             </span>
             <div>
-              <p className="text-lg font-bold tracking-tight text-slate-900">
+              <p className="text-lg font-bold tracking-tight text-stone-900">
                 {APP_BRAND_SHORT}
               </p>
-              <p className="text-xs text-slate-500">Staff sign in</p>
+              <p className="text-xs text-stone-500">Staff sign in</p>
             </div>
           </div>
 
-          <h1 className="mt-6 text-xl font-semibold text-slate-900">
+          <h1 className="mt-6 text-xl font-semibold text-stone-900">
             Welcome back
           </h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-stone-500">
             Sign in with your staff account to continue.
           </p>
 
           <LoginForm />
         </div>
 
-        <p className="mt-6 text-center text-xs leading-relaxed text-slate-500">
+        <p className="mt-6 text-center text-xs leading-relaxed text-stone-500">
           {APP_BRAND}
         </p>
       </div>

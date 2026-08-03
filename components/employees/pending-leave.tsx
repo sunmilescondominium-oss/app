@@ -10,17 +10,17 @@ export function PendingLeave({
   items: { req: LeaveRequest; conflict: LeaveConflict | null }[];
   canDecide: boolean;
 }) {
-  if (items.length === 0) return <p className="text-sm text-slate-500">No pending requests.</p>;
+  if (items.length === 0) return <p className="text-sm text-stone-500">No pending requests.</p>;
   return (
     <div className="space-y-3">
       {items.map(({ req, conflict }) => (
-        <div key={req.id} className="rounded-2xl border border-slate-200 bg-white p-4">
+        <div key={req.id} className="rounded-2xl border border-stone-200 bg-white p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p className="font-medium text-slate-800">
-                {req.label} · <span className="text-slate-500">{req.leave_type}</span>
+              <p className="font-medium text-stone-800">
+                {req.label} · <span className="text-stone-500">{req.leave_type}</span>
               </p>
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-stone-500">
                 {req.hours != null ? `${req.start_date} · ${req.hours}h` : `${req.start_date} → ${req.end_date} (${req.days}d)`}
                 {req.reason ? ` · ${req.reason}` : ""}
               </p>

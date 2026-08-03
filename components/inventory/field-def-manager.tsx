@@ -11,8 +11,8 @@ import { BUSINESS_LINES } from "@/lib/config";
 import type { FieldDefinition } from "@/lib/inventory/types";
 
 const inputCls =
-  "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
-const labelCls = "mb-1 block text-xs font-medium text-slate-600";
+  "w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
+const labelCls = "mb-1 block text-xs font-medium text-stone-600";
 
 export function FieldDefManager({
   fieldDefs,
@@ -49,21 +49,21 @@ export function FieldDefManager({
   return (
     <div className="space-y-5">
       <div>
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">
           Current fields
         </p>
         {fieldDefs.length === 0 ? (
-          <p className="text-sm text-slate-500">No custom fields yet.</p>
+          <p className="text-sm text-stone-500">No custom fields yet.</p>
         ) : (
           <ul className="space-y-1.5">
             {fieldDefs.map((d) => (
               <li
                 key={d.id}
-                className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                className="flex items-center justify-between rounded-lg border border-stone-200 px-3 py-2 text-sm"
               >
                 <span>
-                  <span className="font-medium text-slate-800">{d.label}</span>
-                  <span className="ml-2 text-xs text-slate-500">
+                  <span className="font-medium text-stone-800">{d.label}</span>
+                  <span className="ml-2 text-xs text-stone-500">
                     {d.business_line ?? "all lines"} · {d.data_type}
                     {d.is_required ? " · required" : ""}
                   </span>
@@ -82,8 +82,8 @@ export function FieldDefManager({
         )}
       </div>
 
-      <form action={formAction} className="space-y-3 rounded-lg border border-slate-200 p-3">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+      <form action={formAction} className="space-y-3 rounded-lg border border-stone-200 p-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">
           Add a field
         </p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -131,8 +131,8 @@ export function FieldDefManager({
               />
             </div>
           )}
-          <label className="flex items-center gap-2 text-sm text-slate-700 sm:col-span-2">
-            <input type="checkbox" name="is_required" className="h-4 w-4 rounded border-slate-300" />
+          <label className="flex items-center gap-2 text-sm text-stone-700 sm:col-span-2">
+            <input type="checkbox" name="is_required" className="h-4 w-4 rounded border-stone-300" />
             Required
           </label>
         </div>
@@ -147,7 +147,7 @@ export function FieldDefManager({
           <button
             type="button"
             onClick={onDone}
-            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+            className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100"
           >
             Close
           </button>
@@ -161,7 +161,7 @@ export function FieldDefManager({
         </div>
       </form>
 
-      <p className="text-xs text-slate-400">
+      <p className="text-xs text-stone-400">
         New fields appear on the unit form immediately — no deploy needed.
       </p>
     </div>

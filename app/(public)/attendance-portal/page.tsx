@@ -10,11 +10,11 @@ export const dynamic = "force-dynamic";
 
 const STATUS: Record<BoardStatus, { label: string; badge: string; dot: string }> = {
   checked_in: { label: "In", badge: "bg-emerald-100 text-emerald-700", dot: "bg-emerald-500" },
-  checked_out: { label: "Out", badge: "bg-slate-200 text-slate-600", dot: "bg-slate-400" },
+  checked_out: { label: "Out", badge: "bg-stone-200 text-stone-600", dot: "bg-stone-400" },
   on_ob: { label: "OB", badge: "bg-sky-100 text-sky-700", dot: "bg-sky-500" },
   on_leave: { label: "Leave", badge: "bg-amber-100 text-amber-800", dot: "bg-amber-500" },
   absent: { label: "Absent", badge: "bg-rose-100 text-rose-700", dot: "bg-rose-500" },
-  off: { label: "Off", badge: "bg-slate-100 text-slate-400", dot: "bg-slate-300" },
+  off: { label: "Off", badge: "bg-stone-100 text-stone-400", dot: "bg-stone-300" },
 };
 
 function t(iso: string | null): string {
@@ -35,8 +35,8 @@ export default async function AttendanceKioskPage() {
     return (
       <div className="mx-auto max-w-5xl px-4 py-8">
         <header className="mb-2 text-center">
-          <h1 className="text-2xl font-bold text-slate-900">{APP_BRAND_SHORT}</h1>
-          <p className="text-slate-600">Attendance Kiosk</p>
+          <h1 className="text-2xl font-bold text-stone-900">{APP_BRAND_SHORT}</h1>
+          <p className="text-stone-600">Attendance Kiosk</p>
         </header>
         <KioskGate />
       </div>
@@ -58,14 +58,14 @@ export default async function AttendanceKioskPage() {
   return (
     <div className="mx-auto max-w-5xl px-4 py-8">
       <header className="mb-6 text-center">
-        <h1 className="text-2xl font-bold text-slate-900">{APP_BRAND_SHORT}</h1>
-        <p className="text-slate-600">Attendance Kiosk — {dateLabel}</p>
+        <h1 className="text-2xl font-bold text-stone-900">{APP_BRAND_SHORT}</h1>
+        <p className="text-stone-600">Attendance Kiosk — {dateLabel}</p>
       </header>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,22rem)_1fr]">
         <div>
           <KioskClock />
-          <p className="mt-2 text-center text-[11px] text-slate-400">
+          <p className="mt-2 text-center text-[11px] text-stone-400">
             Your photo and device IP are recorded with each punch for verification.
           </p>
         </div>
@@ -82,20 +82,20 @@ export default async function AttendanceKioskPage() {
 
           {/* Board */}
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {items.length === 0 && <p className="text-sm text-slate-500">No staff to display yet.</p>}
+            {items.length === 0 && <p className="text-sm text-stone-500">No staff to display yet.</p>}
             {items.map((i) => (
-              <div key={i.id} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3">
+              <div key={i.id} className="flex items-center gap-3 rounded-xl border border-stone-200 bg-white p-3">
                 {settings.showPhotos && i.photoPath ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={`/api/kiosk/${i.id}/photo`} alt={i.label} className="h-11 w-11 shrink-0 rounded-full object-cover ring-1 ring-slate-200" />
+                  <img src={`/api/kiosk/${i.id}/photo`} alt={i.label} className="h-11 w-11 shrink-0 rounded-full object-cover ring-1 ring-stone-200" />
                 ) : (
                   <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-amber-100 text-sm font-semibold text-amber-800 ring-1 ring-amber-200">
                     {initials(i.label)}
                   </span>
                 )}
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium text-slate-800">{i.label}</p>
-                  <p className="text-xs text-slate-500">
+                  <p className="truncate font-medium text-stone-800">{i.label}</p>
+                  <p className="text-xs text-stone-500">
                     {i.status === "checked_in" && `In ${t(i.timeIn)}`}
                     {i.status === "checked_out" && `In ${t(i.timeIn)} · Out ${t(i.timeOut)}`}
                     {i.status === "on_ob" && `Official Business${i.duration === "half_day" ? " (half day)" : ""}`}
@@ -114,7 +114,7 @@ export default async function AttendanceKioskPage() {
         </div>
       </div>
 
-      <p className="mt-8 text-center text-xs text-slate-400">{APP_BRAND}</p>
+      <p className="mt-8 text-center text-xs text-stone-400">{APP_BRAND}</p>
     </div>
   );
 }

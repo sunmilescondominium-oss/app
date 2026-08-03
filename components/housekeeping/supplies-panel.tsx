@@ -6,7 +6,7 @@ import { adjustStock, createSupply, type ActionResult } from "@/app/(app)/housek
 import type { RoomSupply } from "@/lib/housekeeping/types";
 
 const inputCls =
-  "rounded-lg border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
+  "rounded-lg border border-stone-300 px-2 py-1.5 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
 
 export function SuppliesPanel({ supplies, canManage }: { supplies: RoomSupply[]; canManage: boolean }) {
   const router = useRouter();
@@ -34,10 +34,10 @@ export function SuppliesPanel({ supplies, canManage }: { supplies: RoomSupply[];
 
   return (
     <div className="mt-8">
-      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Room supplies</h2>
-      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-stone-500">Room supplies</h2>
+      <div className="overflow-x-auto rounded-2xl border border-stone-200 bg-white">
         <table className="w-full min-w-[520px] text-left text-sm">
-          <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+          <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
             <tr>
               <th className="px-4 py-3">Item</th>
               <th className="px-4 py-3 text-right">Stock</th>
@@ -48,7 +48,7 @@ export function SuppliesPanel({ supplies, canManage }: { supplies: RoomSupply[];
             {supplies.map((s) => {
               const low = s.stock_qty <= s.reorder_level;
               return (
-                <tr key={s.id} className="border-b border-slate-100 last:border-0">
+                <tr key={s.id} className="border-b border-stone-100 last:border-0">
                   <td className="px-4 py-3">{s.name}</td>
                   <td className="px-4 py-3 text-right tabular-nums">
                     {s.stock_qty} {s.unit_label}
@@ -65,10 +65,10 @@ export function SuppliesPanel({ supplies, canManage }: { supplies: RoomSupply[];
                           placeholder="qty"
                           className={`${inputCls} w-16`}
                         />
-                        <button type="button" onClick={() => restock(s.id, 1)} disabled={busy === s.id} className="rounded-lg border border-slate-300 px-2 py-1 text-xs hover:bg-slate-100 disabled:opacity-50">
+                        <button type="button" onClick={() => restock(s.id, 1)} disabled={busy === s.id} className="rounded-lg border border-stone-300 px-2 py-1 text-xs hover:bg-stone-100 disabled:opacity-50">
                           + add
                         </button>
-                        <button type="button" onClick={() => restock(s.id, -1)} disabled={busy === s.id} className="rounded-lg border border-slate-300 px-2 py-1 text-xs hover:bg-slate-100 disabled:opacity-50">
+                        <button type="button" onClick={() => restock(s.id, -1)} disabled={busy === s.id} className="rounded-lg border border-stone-300 px-2 py-1 text-xs hover:bg-stone-100 disabled:opacity-50">
                           − use
                         </button>
                       </div>

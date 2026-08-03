@@ -35,14 +35,14 @@ export function RoomCard({
   if (!stay) {
     const forHousekeeping = needsHousekeeping;
     return (
-      <div className={`rounded-2xl border-2 p-4 ${forHousekeeping ? "border-amber-300 bg-amber-50" : "border-slate-200 bg-white"}`}>
+      <div className={`rounded-2xl border-2 p-4 ${forHousekeeping ? "border-amber-300 bg-amber-50" : "border-stone-200 bg-white"}`}>
         <div className="flex items-center justify-between">
-          <p className="font-semibold text-slate-900">{unit.unit_number}</p>
+          <p className="font-semibold text-stone-900">{unit.unit_number}</p>
           <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${forHousekeeping ? "bg-amber-200 text-amber-900" : "bg-emerald-100 text-emerald-800"}`}>
             {forHousekeeping ? "For Housekeeping" : "Vacant"}
           </span>
         </div>
-        <p className="mt-1 text-xs text-slate-500">{unit.unit_type ?? "Room"}</p>
+        <p className="mt-1 text-xs text-stone-500">{unit.unit_type ?? "Room"}</p>
         {forHousekeeping ? (
           <p className="mt-3 text-xs text-amber-700">Not available until housekeeping marks it ready.</p>
         ) : (
@@ -71,21 +71,21 @@ export function RoomCard({
       }`}
     >
       <div className="flex items-center justify-between">
-        <p className="font-semibold text-slate-900">{unit.unit_number}</p>
+        <p className="font-semibold text-stone-900">{unit.unit_number}</p>
         <span className="rounded-full bg-amber-200 px-2 py-0.5 text-xs font-medium text-amber-900">
           Occupied
         </span>
       </div>
-      <p className="mt-1 truncate text-sm text-slate-700">{stay.guest_label}</p>
-      <p className={`mt-2 text-lg font-bold tabular-nums ${rem < 0 ? "text-red-700" : "text-slate-900"}`}>
+      <p className="mt-1 truncate text-sm text-stone-700">{stay.guest_label}</p>
+      <p className={`mt-2 text-lg font-bold tabular-nums ${rem < 0 ? "text-red-700" : "text-stone-900"}`}>
         {rem >= 0 ? `${fmt(rem)} left` : `OVER +${fmt(rem)}`}
       </p>
-      <p className="text-xs text-slate-500">
+      <p className="text-xs text-stone-500">
         {stay.planned_hours}h · {peso(total)}
       </p>
       <Link
         href={`/hotel/${stay.id}`}
-        className="mt-3 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-100"
+        className="mt-3 block w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-center text-sm font-medium text-stone-700 hover:bg-stone-100"
       >
         Open folio
       </Link>

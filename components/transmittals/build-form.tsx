@@ -22,17 +22,17 @@ export function BuildTransmittalForm({ defaultDate }: { defaultDate: string }) {
   return (
     <form
       action={action}
-      className="no-print mb-4 flex flex-wrap items-end gap-3 rounded-2xl border border-slate-200 bg-white p-4"
+      className="no-print mb-4 flex flex-wrap items-end gap-3 rounded-2xl border border-stone-200 bg-white p-4"
     >
       <div>
-        <label className="mb-1 block text-xs font-medium text-slate-600">
+        <label className="mb-1 block text-xs font-medium text-stone-600">
           Build transmittal for date
         </label>
         <input
           type="date"
           name="date"
           defaultValue={defaultDate}
-          className="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
+          className="rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
         />
       </div>
       <button
@@ -42,7 +42,7 @@ export function BuildTransmittalForm({ defaultDate }: { defaultDate: string }) {
       >
         {pending ? "Building…" : "Build transmittal"}
       </button>
-      <p className="w-full text-xs text-slate-500">
+      <p className="w-full text-xs text-stone-500">
         Bundles all un-transmitted collections for that date into one transmittal.
       </p>
       <DenominationCounter />

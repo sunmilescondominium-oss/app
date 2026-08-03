@@ -79,13 +79,13 @@ export function CsvImport({ onDone }: { onDone: () => void }) {
                 ` ${result.errors.length} row(s) skipped.`}
             </p>
             {result.errors.length > 0 && (
-              <div className="max-h-48 overflow-y-auto rounded-lg border border-slate-200 text-sm">
+              <div className="max-h-48 overflow-y-auto rounded-lg border border-stone-200 text-sm">
                 {result.errors.map((e) => (
                   <div
                     key={e.row}
-                    className="flex justify-between border-b border-slate-100 px-3 py-1.5 last:border-0"
+                    className="flex justify-between border-b border-stone-100 px-3 py-1.5 last:border-0"
                   >
-                    <span className="text-slate-500">Row {e.row}</span>
+                    <span className="text-stone-500">Row {e.row}</span>
                     <span className="text-red-600">{e.error}</span>
                   </div>
                 ))}
@@ -113,7 +113,7 @@ export function CsvImport({ onDone }: { onDone: () => void }) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <label className="cursor-pointer rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">
+        <label className="cursor-pointer rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100">
           Choose CSV…
           <input type="file" accept=".csv,text/csv" onChange={onFile} className="hidden" />
         </label>
@@ -124,10 +124,10 @@ export function CsvImport({ onDone }: { onDone: () => void }) {
         >
           Download template
         </button>
-        {fileName && <span className="text-sm text-slate-500">{fileName}</span>}
+        {fileName && <span className="text-sm text-stone-500">{fileName}</span>}
       </div>
 
-      <p className="text-xs text-slate-500">
+      <p className="text-xs text-stone-500">
         Expected columns: property, unit_number, unit_type, floor, area_sqm,
         business_line, tcp, status. Existing properties are matched by name; new
         ones are created. Re-importing updates a unit with the same number.
@@ -152,9 +152,9 @@ export function CsvImport({ onDone }: { onDone: () => void }) {
             )}
           </div>
 
-          <div className="max-h-64 overflow-auto rounded-lg border border-slate-200">
+          <div className="max-h-64 overflow-auto rounded-lg border border-stone-200">
             <table className="w-full text-left text-sm">
-              <thead className="sticky top-0 bg-slate-50 text-xs uppercase text-slate-500">
+              <thead className="sticky top-0 bg-stone-50 text-xs uppercase text-stone-500">
                 <tr>
                   <th className="px-3 py-2">Property</th>
                   <th className="px-3 py-2">Unit #</th>
@@ -167,7 +167,7 @@ export function CsvImport({ onDone }: { onDone: () => void }) {
                 {rows.slice(0, 200).map((r, i) => {
                   const issue = rowIssue(r);
                   return (
-                    <tr key={i} className="border-t border-slate-100">
+                    <tr key={i} className="border-t border-stone-100">
                       <td className="px-3 py-1.5">{r.property}</td>
                       <td className="px-3 py-1.5">{r.unit_number}</td>
                       <td className="px-3 py-1.5">{r.business_line}</td>
@@ -180,7 +180,7 @@ export function CsvImport({ onDone }: { onDone: () => void }) {
             </table>
           </div>
           {rows.length > 200 && (
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-stone-400">
               Showing first 200 of {rows.length} rows. All will be imported.
             </p>
           )}
@@ -191,7 +191,7 @@ export function CsvImport({ onDone }: { onDone: () => void }) {
         <button
           type="button"
           onClick={onDone}
-          className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+          className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100"
         >
           Cancel
         </button>

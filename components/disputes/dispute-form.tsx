@@ -11,8 +11,8 @@ import type { Dispute } from "@/lib/disputes/types";
 import type { UnitOption } from "@/lib/collections/types";
 
 const inputCls =
-  "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
-const labelCls = "mb-1 block text-xs font-medium text-slate-600";
+  "w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
+const labelCls = "mb-1 block text-xs font-medium text-stone-600";
 
 export function DisputeForm({
   mode,
@@ -97,7 +97,7 @@ export function DisputeForm({
       )}
 
       <div className="flex justify-end gap-2">
-        <button type="button" onClick={onDone} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">
+        <button type="button" onClick={onDone} className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100">
           Cancel
         </button>
         <button type="submit" disabled={pending} className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-60">

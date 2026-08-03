@@ -63,23 +63,23 @@ export default async function TransmittalDetailPage({
       </div>
 
       {/* Printable document */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 print:rounded-none print:border-0 print:p-0">
-        <div className="flex items-start justify-between border-b border-slate-200 pb-4">
+      <div className="rounded-2xl border border-stone-200 bg-white p-6 print:rounded-none print:border-0 print:p-0">
+        <div className="flex items-start justify-between border-b border-stone-200 pb-4">
           <div>
-            <p className="text-lg font-bold text-slate-900">{APP_BRAND_SHORT}</p>
-            <p className="text-sm text-slate-500">Cash Transmittal</p>
+            <p className="text-lg font-bold text-stone-900">{APP_BRAND_SHORT}</p>
+            <p className="text-sm text-stone-500">Cash Transmittal</p>
           </div>
-          <div className="text-right text-sm text-slate-700">
+          <div className="text-right text-sm text-stone-700">
             <p>
               Date: <strong>{t.transmittal_date}</strong>
             </p>
-            <p className="text-slate-500">Ref: {t.id.slice(0, 8).toUpperCase()}</p>
+            <p className="text-stone-500">Ref: {t.id.slice(0, 8).toUpperCase()}</p>
             <p>Status: {STATUS_LABEL[t.status] ?? t.status}</p>
           </div>
         </div>
 
         <table className="mt-5 w-full text-sm">
-          <thead className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
+          <thead className="border-b border-stone-200 text-xs uppercase tracking-wide text-stone-500">
             <tr>
               <th className="py-2 text-left">Category</th>
               <th className="py-2 text-right">Entries</th>
@@ -88,7 +88,7 @@ export default async function TransmittalDetailPage({
           </thead>
           <tbody>
             {summary.rows.map((r) => (
-              <tr key={r.category} className="border-b border-slate-100">
+              <tr key={r.category} className="border-b border-stone-100">
                 <td className="py-2">{r.label}</td>
                 <td className="py-2 text-right tabular-nums">{r.count}</td>
                 <td className="py-2 text-right tabular-nums">{peso(r.total)}</td>
@@ -109,19 +109,19 @@ export default async function TransmittalDetailPage({
           const compareTo = t.deposited_amount ?? t.counted_cash;
           const variance = compareTo == null ? null : Math.round((Number(compareTo) - Number(t.total_amount)) * 100) / 100;
           return (
-            <div className="mt-4 rounded-xl border border-slate-200 p-3">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Reconciliation</p>
+            <div className="mt-4 rounded-xl border border-stone-200 p-3">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">Reconciliation</p>
               <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-4">
-                <div><span className="text-slate-400">Collected (reported)</span><br /><span className="font-medium tabular-nums">{peso(t.total_amount)}</span></div>
-                <div><span className="text-slate-400">Cash counted</span><br /><span className="tabular-nums">{t.counted_cash != null ? peso(Number(t.counted_cash)) : "—"}</span></div>
-                <div><span className="text-slate-400">Deposited</span><br /><span className="tabular-nums">{t.deposited_amount != null ? peso(Number(t.deposited_amount)) : "—"}</span></div>
+                <div><span className="text-stone-400">Collected (reported)</span><br /><span className="font-medium tabular-nums">{peso(t.total_amount)}</span></div>
+                <div><span className="text-stone-400">Cash counted</span><br /><span className="tabular-nums">{t.counted_cash != null ? peso(Number(t.counted_cash)) : "—"}</span></div>
+                <div><span className="text-stone-400">Deposited</span><br /><span className="tabular-nums">{t.deposited_amount != null ? peso(Number(t.deposited_amount)) : "—"}</span></div>
                 <div>
-                  <span className="text-slate-400">Variance</span><br />
+                  <span className="text-stone-400">Variance</span><br />
                   <span className={`tabular-nums ${variance ? "text-amber-700" : "text-emerald-700"}`}>{variance == null ? "—" : peso(variance)}</span>
                 </div>
               </div>
               {t.total_amount !== (t.counted_cash ?? t.total_amount) && (
-                <p className="mt-1 text-[11px] text-slate-400">Total includes online payments; counted cash is physical bills &amp; coins only.</p>
+                <p className="mt-1 text-[11px] text-stone-400">Total includes online payments; counted cash is physical bills &amp; coins only.</p>
               )}
             </div>
           );
@@ -129,14 +129,14 @@ export default async function TransmittalDetailPage({
 
         {/* Denomination breakdown — for the errand carrying the cash */}
         {t.denomination_counts && Object.values(t.denomination_counts).some((n) => Number(n) > 0) && (
-          <div className="mt-3 rounded-xl border border-slate-200 p-3">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Cash count (bills &amp; coins)</p>
+          <div className="mt-3 rounded-xl border border-stone-200 p-3">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">Cash count (bills &amp; coins)</p>
             <div className="grid grid-cols-2 gap-x-6 gap-y-0.5 text-sm sm:grid-cols-3">
               {PHP_DENOMINATIONS.filter((d) => Number(t.denomination_counts![String(d.value)] ?? 0) > 0).map((d) => {
                 const qty = Number(t.denomination_counts![String(d.value)]);
                 return (
                   <div key={`${d.kind}-${d.value}`} className="flex justify-between tabular-nums">
-                    <span className="text-slate-500">{d.value < 1 ? `¢${d.value * 100}` : `₱${d.value}`} × {qty}</span>
+                    <span className="text-stone-500">{d.value < 1 ? `¢${d.value * 100}` : `₱${d.value}`} × {qty}</span>
                     <span>{peso(d.value * qty)}</span>
                   </div>
                 );
@@ -145,11 +145,11 @@ export default async function TransmittalDetailPage({
           </div>
         )}
 
-        <p className="mt-4 text-sm text-slate-700">
+        <p className="mt-4 text-sm text-stone-700">
           Bank deposit slip ref:{" "}
           <strong>{t.deposit_slip_ref ?? "________________"}</strong>
         </p>
-        <p className="mt-1 text-sm text-slate-700">
+        <p className="mt-1 text-sm text-stone-700">
           Passbook:{" "}
           {t.passbook_returned_on ? (
             <strong className="text-emerald-700">returned to accounting {t.passbook_returned_on} ({roleLabel(t.passbook_returned_by_role)})</strong>
@@ -162,19 +162,19 @@ export default async function TransmittalDetailPage({
         <div className="mt-10 grid grid-cols-1 gap-8 sm:grid-cols-3">
           {signatures.map((s) => (
             <div key={s.title}>
-              <div className="h-10 border-b border-slate-400" />
-              <p className="mt-1 text-xs font-semibold text-slate-700">{s.title}</p>
-              <p className="text-xs text-slate-500">Role: {roleLabel(s.role)}</p>
-              <p className="mt-1 text-[10px] text-slate-400">
+              <div className="h-10 border-b border-stone-400" />
+              <p className="mt-1 text-xs font-semibold text-stone-700">{s.title}</p>
+              <p className="text-xs text-stone-500">Role: {roleLabel(s.role)}</p>
+              <p className="mt-1 text-[10px] text-stone-400">
                 Signature over printed name / date
               </p>
             </div>
           ))}
         </div>
 
-        <p className="mt-8 text-[10px] text-slate-400">{APP_BRAND}</p>
+        <p className="mt-8 text-[10px] text-stone-400">{APP_BRAND}</p>
         {t.printed_at && (
-          <p className="text-[10px] text-slate-400">
+          <p className="text-[10px] text-stone-400">
             Printed {new Date(t.printed_at).toLocaleString()}
           </p>
         )}

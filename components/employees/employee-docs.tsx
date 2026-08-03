@@ -33,7 +33,7 @@ export function EmployeeDocs({ userId, docs }: { userId: string; docs: EmployeeD
     router.refresh();
   }
 
-  const cls = "rounded-lg border border-slate-300 px-2.5 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
+  const cls = "rounded-lg border border-stone-300 px-2.5 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
 
   return (
     <div>
@@ -50,13 +50,13 @@ export function EmployeeDocs({ userId, docs }: { userId: string; docs: EmployeeD
         </button>
       </form>
 
-      <div className="divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-white">
-        {docs.length === 0 && <p className="px-4 py-6 text-center text-sm text-slate-500">No documents yet.</p>}
+      <div className="divide-y divide-stone-100 rounded-2xl border border-stone-200 bg-white">
+        {docs.length === 0 && <p className="px-4 py-6 text-center text-sm text-stone-500">No documents yet.</p>}
         {docs.map((d) => (
           <div key={d.id} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
             <div className="min-w-0">
-              <p className="font-medium text-slate-800">{d.doc_type}</p>
-              <p className="text-xs text-slate-400">{d.created_at.slice(0, 10)}{d.note ? ` · ${d.note}` : ""}</p>
+              <p className="font-medium text-stone-800">{d.doc_type}</p>
+              <p className="text-xs text-stone-400">{d.created_at.slice(0, 10)}{d.note ? ` · ${d.note}` : ""}</p>
             </div>
             <div className="flex shrink-0 gap-3">
               <a href={`/api/employee-docs/${d.id}`} target="_blank" rel="noreferrer" className="text-xs font-medium text-amber-700 hover:underline">view</a>

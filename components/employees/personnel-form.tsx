@@ -7,12 +7,12 @@ import { EMPLOYMENT_TYPES } from "@/lib/config";
 import type { EmployeeProfile } from "@/lib/employees/personnel";
 
 const cls =
-  "w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
+  "w-full rounded-lg border border-stone-300 px-2.5 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
 
 function Field({ label, name, defaultValue, type = "text" }: { label: string; name: string; defaultValue: string | null; type?: string }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-xs font-medium text-slate-600">{label}</span>
+      <span className="mb-1 block text-xs font-medium text-stone-600">{label}</span>
       <input name={name} type={type} defaultValue={defaultValue ?? ""} className={cls} />
     </label>
   );
@@ -40,7 +40,7 @@ export function PersonnelForm({ userId, profile, fullName }: { userId: string; p
   return (
     <form action={onSubmit} className="space-y-5">
       <section>
-        <h3 className="mb-2 text-sm font-semibold text-slate-700">Personal & contact</h3>
+        <h3 className="mb-2 text-sm font-semibold text-stone-700">Personal & contact</h3>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <Field label="Full name" name="full_name" defaultValue={fullName} />
           <Field label="Address" name="address" defaultValue={p?.address ?? null} />
@@ -53,7 +53,7 @@ export function PersonnelForm({ userId, profile, fullName }: { userId: string; p
       </section>
 
       <section>
-        <h3 className="mb-2 text-sm font-semibold text-slate-700">Government IDs <span className="font-normal text-slate-400">· private (RA 10173)</span></h3>
+        <h3 className="mb-2 text-sm font-semibold text-stone-700">Government IDs <span className="font-normal text-stone-400">· private (RA 10173)</span></h3>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Field label="SSS" name="sss_no" defaultValue={p?.sss_no ?? null} />
           <Field label="PhilHealth" name="philhealth_no" defaultValue={p?.philhealth_no ?? null} />
@@ -63,12 +63,12 @@ export function PersonnelForm({ userId, profile, fullName }: { userId: string; p
       </section>
 
       <section>
-        <h3 className="mb-2 text-sm font-semibold text-slate-700">Employment</h3>
+        <h3 className="mb-2 text-sm font-semibold text-stone-700">Employment</h3>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <Field label="Position / designation" name="position" defaultValue={p?.position ?? null} />
           <Field label="Department" name="department" defaultValue={p?.department ?? null} />
           <label className="block">
-            <span className="mb-1 block text-xs font-medium text-slate-600">Employment type</span>
+            <span className="mb-1 block text-xs font-medium text-stone-600">Employment type</span>
             <select name="employment_type" defaultValue={p?.employment_type ?? ""} className={cls}>
               <option value="">—</option>
               {EMPLOYMENT_TYPES.map((t) => (
@@ -83,7 +83,7 @@ export function PersonnelForm({ userId, profile, fullName }: { userId: string; p
 
       <section>
         <label className="block">
-          <span className="mb-1 block text-xs font-medium text-slate-600">Notes</span>
+          <span className="mb-1 block text-xs font-medium text-stone-600">Notes</span>
           <textarea name="notes" defaultValue={p?.notes ?? ""} rows={2} className={cls} />
         </label>
       </section>

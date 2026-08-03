@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { portalCheckIn, portalCheckOut, validateQrToken, type KioskState } from "@/app/(public)/attendance-portal/actions";
 
 const inputCls =
-  "w-full rounded-lg border border-slate-300 px-3 py-2.5 text-slate-900 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
+  "w-full rounded-lg border border-stone-300 px-3 py-2.5 text-stone-900 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
 
 export function KioskClock() {
   const router = useRouter();
@@ -158,7 +158,7 @@ export function KioskClock() {
   const canSubmit = (Boolean(scannedToken) || (employeeNo.trim() && passcode.trim())) && !busy && camReady;
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
       <div className="mb-4 grid grid-cols-2 gap-2">
         {(["in", "out"] as const).map((m) => (
           <button
@@ -166,7 +166,7 @@ export function KioskClock() {
             type="button"
             onClick={() => { setMode(m); setMsg(null); setObConfirm(null); }}
             className={`rounded-lg px-3 py-2 text-sm font-semibold ${
-              mode === m ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+              mode === m ? "bg-stone-800 text-white" : "bg-stone-100 text-stone-600 hover:bg-stone-200"
             }`}
           >
             {m === "in" ? "Clock In" : "Clock Out"}
@@ -174,7 +174,7 @@ export function KioskClock() {
         ))}
       </div>
 
-      <div className="relative mb-1 aspect-[4/3] w-full overflow-hidden rounded-xl bg-slate-900">
+      <div className="relative mb-1 aspect-[4/3] w-full overflow-hidden rounded-xl bg-stone-900">
         <video ref={videoRef} playsInline muted className="h-full w-full object-cover" />
         {scanning && (
           <div className="absolute inset-0 grid place-items-center bg-black/30 text-sm font-medium text-white">
@@ -182,11 +182,11 @@ export function KioskClock() {
           </div>
         )}
         {camError && (
-          <div className="absolute inset-0 grid place-items-center p-4 text-center text-xs text-slate-300">{camError}</div>
+          <div className="absolute inset-0 grid place-items-center p-4 text-center text-xs text-stone-300">{camError}</div>
         )}
       </div>
       <canvas ref={canvasRef} className="hidden" />
-      <p className="mb-3 text-center text-[11px] text-slate-400">Your photo is captured automatically when you clock {mode}.</p>
+      <p className="mb-3 text-center text-[11px] text-stone-400">Your photo is captured automatically when you clock {mode}.</p>
 
       <button
         type="button"
@@ -206,7 +206,7 @@ export function KioskClock() {
         </div>
       ) : (
         <>
-          <div className="mb-1 text-center text-xs text-slate-400">or enter manually</div>
+          <div className="mb-1 text-center text-xs text-stone-400">or enter manually</div>
           <div className="space-y-2">
             <input value={employeeNo} onChange={(e) => setEmployeeNo(e.target.value)} placeholder="ID number" className={inputCls} autoComplete="off" />
             <input value={passcode} onChange={(e) => setPasscode(e.target.value)} type="password" inputMode="numeric" placeholder="Passcode" className={inputCls} autoComplete="off" />
@@ -221,7 +221,7 @@ export function KioskClock() {
             <button type="button" onClick={() => run(true, pendingQr.current)} disabled={busy} className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700">
               Agree & check in
             </button>
-            <button type="button" onClick={() => setObConfirm(null)} className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700">
+            <button type="button" onClick={() => setObConfirm(null)} className="rounded-lg border border-stone-300 px-3 py-1.5 text-xs font-medium text-stone-700">
               Keep my OB
             </button>
           </div>

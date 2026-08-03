@@ -9,8 +9,8 @@ import { COLLECTION_CATEGORIES, PAYMENT_TYPES } from "@/lib/config";
 import type { UnitOption } from "@/lib/collections/types";
 
 const inputCls =
-  "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
-const labelCls = "mb-1 block text-xs font-medium text-slate-600";
+  "w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
+const labelCls = "mb-1 block text-xs font-medium text-stone-600";
 
 // TODO(client-confirm): which roles are attributable as "collected by".
 const COLLECTED_BY = [
@@ -123,7 +123,7 @@ export function CollectionForm({
               <input name="proof" type="file" accept="image/*" className="w-full text-sm" />
             </div>
           </div>
-          <label className="mt-2 flex items-center gap-2 text-sm text-slate-700">
+          <label className="mt-2 flex items-center gap-2 text-sm text-stone-700">
             <input type="checkbox" name="payment_confirmed" className="h-4 w-4" />
             I received / verified this online payment.
           </label>
@@ -140,7 +140,7 @@ export function CollectionForm({
         <button
           type="button"
           onClick={onDone}
-          className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+          className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100"
         >
           Cancel
         </button>

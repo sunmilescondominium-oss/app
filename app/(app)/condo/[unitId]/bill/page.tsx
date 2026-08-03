@@ -22,29 +22,29 @@ export default async function CondoBillPage({ params }: { params: Promise<{ unit
         <PrintButton label="Print statement" />
       </div>
 
-      <div className="mx-auto max-w-2xl rounded-2xl border border-slate-200 bg-white p-6 print:border-0 print:p-0">
-        <div className="flex items-start justify-between border-b border-slate-300 pb-4">
+      <div className="mx-auto max-w-2xl rounded-2xl border border-stone-200 bg-white p-6 print:border-0 print:p-0">
+        <div className="flex items-start justify-between border-b border-stone-300 pb-4">
           <div>
-            <p className="text-lg font-bold text-slate-900">{APP_BRAND_SHORT}</p>
-            <p className="text-sm text-slate-500">Condo Statement of Account</p>
+            <p className="text-lg font-bold text-stone-900">{APP_BRAND_SHORT}</p>
+            <p className="text-sm text-stone-500">Condo Statement of Account</p>
           </div>
-          <div className="text-right text-sm text-slate-600">
+          <div className="text-right text-sm text-stone-600">
             <p>Date: <strong>{todayManila()}</strong></p>
-            <p className="text-slate-400">Unit {unit.unitNumber} · {unit.propertyName}</p>
+            <p className="text-stone-400">Unit {unit.unitNumber} · {unit.propertyName}</p>
           </div>
         </div>
 
-        <p className="mt-3 text-sm text-slate-600">Association dues basis: {unit.areaSqm} sqm × ₱{unit.effectiveRate}/sqm</p>
+        <p className="mt-3 text-sm text-stone-600">Association dues basis: {unit.areaSqm} sqm × ₱{unit.effectiveRate}/sqm</p>
 
         <table className="mt-4 w-full text-sm">
-          <thead className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
+          <thead className="border-b border-stone-200 text-xs uppercase tracking-wide text-stone-500">
             <tr><th className="py-2 text-left">Item</th><th className="py-2 text-right">Amount</th></tr>
           </thead>
           <tbody>
-            {lines.length === 0 && <tr><td colSpan={2} className="py-4 text-center text-slate-500">Nothing outstanding.</td></tr>}
+            {lines.length === 0 && <tr><td colSpan={2} className="py-4 text-center text-stone-500">Nothing outstanding.</td></tr>}
             {lines.map((l, i) => (
-              <tr key={i} className="border-b border-slate-100">
-                <td className="py-2">{l.label}{l.detail && <span className="ml-1 text-xs text-slate-400">({l.detail})</span>}</td>
+              <tr key={i} className="border-b border-stone-100">
+                <td className="py-2">{l.label}{l.detail && <span className="ml-1 text-xs text-stone-400">({l.detail})</span>}</td>
                 <td className="py-2 text-right tabular-nums">{peso(l.amount)}</td>
               </tr>
             ))}
@@ -52,8 +52,8 @@ export default async function CondoBillPage({ params }: { params: Promise<{ unit
           <tfoot><tr className="text-base font-bold"><td className="py-3">Total due</td><td className="py-3 text-right tabular-nums">{peso(total)}</td></tr></tfoot>
         </table>
 
-        {bankAccount && <p className="mt-6 text-xs text-slate-500">Please deposit to the common-area fund account: <strong>{bankAccount}</strong>.</p>}
-        <p className="mt-6 text-center text-[10px] text-slate-400">{APP_BRAND}</p>
+        {bankAccount && <p className="mt-6 text-xs text-stone-500">Please deposit to the common-area fund account: <strong>{bankAccount}</strong>.</p>}
+        <p className="mt-6 text-center text-[10px] text-stone-400">{APP_BRAND}</p>
       </div>
     </>
   );

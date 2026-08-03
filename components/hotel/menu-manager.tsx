@@ -8,7 +8,7 @@ import { peso } from "@/lib/collections/summary";
 import type { MenuItem } from "@/lib/hotel/types";
 
 const inputCls =
-  "rounded-lg border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
+  "rounded-lg border border-stone-300 px-2 py-1.5 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
 
 export function MenuManager({ menu, onDone }: { menu: MenuItem[]; onDone: () => void }) {
   const router = useRouter();
@@ -19,14 +19,14 @@ export function MenuManager({ menu, onDone }: { menu: MenuItem[]; onDone: () => 
 
   return (
     <div className="space-y-3">
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Menu items</p>
+      <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">Menu items</p>
       <ul className="max-h-40 space-y-1 overflow-y-auto text-sm">
         {menu.map((m) => (
-          <li key={m.id} className="flex justify-between rounded-lg border border-slate-200 px-3 py-1.5">
+          <li key={m.id} className="flex justify-between rounded-lg border border-stone-200 px-3 py-1.5">
             <span>
-              <span className="text-slate-400">{m.category}</span> · {m.name}
+              <span className="text-stone-400">{m.category}</span> · {m.name}
             </span>
-            <span className="tabular-nums text-slate-500">{peso(m.price)}</span>
+            <span className="tabular-nums text-stone-500">{peso(m.price)}</span>
           </li>
         ))}
       </ul>

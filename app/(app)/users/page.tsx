@@ -15,6 +15,7 @@ export default async function UsersPage() {
   return (
     <>
       <PageHeader
+        backHref="/dashboard"
         title="Users & Roles"
         subtitle="Give each person the roles their task needs — access to every module follows from the role."
         badge={<Badge tone="green">Live</Badge>}

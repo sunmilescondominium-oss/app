@@ -12,8 +12,8 @@ import { HOTEL_PAYMENT_METHODS } from "@/lib/config";
 import { peso } from "@/lib/collections/summary";
 
 const inputCls =
-  "rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
-const labelCls = "mb-1 block text-xs font-medium text-slate-600";
+  "rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
+const labelCls = "mb-1 block text-xs font-medium text-stone-600";
 
 export function FolioActions({
   stayId,
@@ -65,7 +65,7 @@ export function FolioActions({
   }
 
   return (
-    <div className="no-print space-y-4 rounded-2xl border border-slate-200 bg-white p-4">
+    <div className="no-print space-y-4 rounded-2xl border border-stone-200 bg-white p-4">
       <div className="flex flex-wrap items-end gap-2">
         <div>
           <label className={labelCls}>Extend by (hours)</label>
@@ -81,13 +81,13 @@ export function FolioActions({
           type="button"
           onClick={extend}
           disabled={busy}
-          className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50"
+          className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100 disabled:opacity-50"
         >
           Extend
         </button>
       </div>
 
-      <form action={payAction} className="flex flex-wrap items-end gap-2 border-t border-slate-100 pt-4">
+      <form action={payAction} className="flex flex-wrap items-end gap-2 border-t border-stone-100 pt-4">
         <div>
           <label className={labelCls}>Method</label>
           <select name="method" defaultValue="cash" className={inputCls}>

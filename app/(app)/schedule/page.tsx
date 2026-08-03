@@ -37,15 +37,16 @@ export default async function SchedulePage({
 
   return (
     <>
-      <PageHeader title="Shift Schedule" subtitle="Assign who works each day — drives absence detection & leave coverage." />
+      <PageHeader
+        backHref="/dashboard" title="Shift Schedule" subtitle="Assign who works each day — drives absence detection & leave coverage." />
 
       <div className="mb-4 mt-4 flex items-center gap-3">
-        <Link href={`/schedule?date=${shiftDay(date, -1)}`} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-50">← Prev</Link>
+        <Link href={`/schedule?date=${shiftDay(date, -1)}`} className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm hover:bg-stone-50">← Prev</Link>
         <form method="get" className="flex items-center gap-2">
-          <input type="date" name="date" defaultValue={date} className="rounded-lg border border-slate-300 px-3 py-2 text-sm" />
-          <button type="submit" className="rounded-lg bg-slate-800 px-3 py-2 text-sm font-medium text-white hover:bg-slate-900">Go</button>
+          <input type="date" name="date" defaultValue={date} className="rounded-lg border border-stone-300 px-3 py-2 text-sm" />
+          <button type="submit" className="rounded-lg bg-stone-800 px-3 py-2 text-sm font-medium text-white hover:bg-stone-900">Go</button>
         </form>
-        <Link href={`/schedule?date=${shiftDay(date, 1)}`} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-50">Next →</Link>
+        <Link href={`/schedule?date=${shiftDay(date, 1)}`} className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm hover:bg-stone-50">Next →</Link>
       </div>
 
       <div className="mb-4">
@@ -55,20 +56,20 @@ export default async function SchedulePage({
       {/* Weekly overview */}
       <div className="mb-6">
         <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Week of {weekStart}</h2>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-stone-500">Week of {weekStart}</h2>
           <div className="flex items-center gap-2 text-sm">
-            <span className="text-xs text-slate-400">click a cell to assign / remove</span>
-            <Link href={`/schedule?date=${shiftDay(weekStart, -7)}`} className="rounded-lg border border-slate-300 px-2.5 py-1 hover:bg-slate-50">← Week</Link>
-            <Link href={`/schedule?date=${shiftDay(weekStart, 7)}`} className="rounded-lg border border-slate-300 px-2.5 py-1 hover:bg-slate-50">Week →</Link>
+            <span className="text-xs text-stone-400">click a cell to assign / remove</span>
+            <Link href={`/schedule?date=${shiftDay(weekStart, -7)}`} className="rounded-lg border border-stone-300 px-2.5 py-1 hover:bg-stone-50">← Week</Link>
+            <Link href={`/schedule?date=${shiftDay(weekStart, 7)}`} className="rounded-lg border border-stone-300 px-2.5 py-1 hover:bg-stone-50">Week →</Link>
           </div>
         </div>
         <WeekGrid staff={staff} days={week.days} cells={week.cells} today={date} />
       </div>
 
-      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Shifts on {date}</h2>
-      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-stone-500">Shifts on {date}</h2>
+      <div className="overflow-x-auto rounded-2xl border border-stone-200 bg-white">
         <table className="w-full min-w-[520px] text-left text-sm">
-          <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+          <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
             <tr>
               <th className="px-4 py-3">Staff</th>
               <th className="px-4 py-3">Shift</th>
@@ -78,15 +79,15 @@ export default async function SchedulePage({
           </thead>
           <tbody>
             {shifts.length === 0 && (
-              <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-500">No shifts assigned for this day.</td></tr>
+              <tr><td colSpan={4} className="px-4 py-8 text-center text-stone-500">No shifts assigned for this day.</td></tr>
             )}
             {shifts.map((s) => (
-              <tr key={s.id} className="border-b border-slate-100 last:border-0">
-                <td className="px-4 py-2.5 font-medium text-slate-800">{s.label}</td>
-                <td className="px-4 py-2.5 tabular-nums text-slate-600">
+              <tr key={s.id} className="border-b border-stone-100 last:border-0">
+                <td className="px-4 py-2.5 font-medium text-stone-800">{s.label}</td>
+                <td className="px-4 py-2.5 tabular-nums text-stone-600">
                   {s.startTime ? `${s.startTime.slice(0, 5)}–${s.endTime?.slice(0, 5) ?? "?"}` : "—"}
                 </td>
-                <td className="px-4 py-2.5 text-slate-500">{s.note ?? "—"}</td>
+                <td className="px-4 py-2.5 text-stone-500">{s.note ?? "—"}</td>
                 <td className="px-4 py-2.5 text-right"><RemoveShift id={s.id} /></td>
               </tr>
             ))}

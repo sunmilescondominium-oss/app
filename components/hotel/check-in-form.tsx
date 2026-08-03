@@ -7,8 +7,8 @@ import { peso } from "@/lib/collections/summary";
 import type { RatePlan, Promo } from "@/lib/hotel/types";
 
 const inputCls =
-  "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
-const labelCls = "mb-1 block text-xs font-medium text-slate-600";
+  "w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
+const labelCls = "mb-1 block text-xs font-medium text-stone-600";
 
 export function CheckInForm({
   unitId,
@@ -94,9 +94,9 @@ export function CheckInForm({
         </div>
       </div>
 
-      <div className="rounded-lg bg-slate-50 px-4 py-3 text-sm">
+      <div className="rounded-lg bg-stone-50 px-4 py-3 text-sm">
         <div className="flex justify-between">
-          <span className="text-slate-500">Room charge</span>
+          <span className="text-stone-500">Room charge</span>
           <span className="tabular-nums">{peso(rc)}</span>
         </div>
         {disc > 0 && (
@@ -105,7 +105,7 @@ export function CheckInForm({
             <span className="tabular-nums">− {peso(disc)}</span>
           </div>
         )}
-        <div className="mt-1 flex justify-between border-t border-slate-200 pt-1 font-semibold">
+        <div className="mt-1 flex justify-between border-t border-stone-200 pt-1 font-semibold">
           <span>Total</span>
           <span className="tabular-nums">{peso(Math.max(0, rc - disc))}</span>
         </div>
@@ -118,7 +118,7 @@ export function CheckInForm({
       )}
 
       <div className="flex justify-end gap-2">
-        <button type="button" onClick={onDone} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">
+        <button type="button" onClick={onDone} className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100">
           Cancel
         </button>
         <button type="submit" disabled={pending} className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-60">

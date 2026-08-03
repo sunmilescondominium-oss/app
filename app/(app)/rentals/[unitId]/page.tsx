@@ -30,25 +30,25 @@ export default async function RentalUnitPage({ params }: { params: Promise<{ uni
           <Link href="/rentals" className="text-xs text-amber-700 hover:underline">← Back to Rentals &amp; Airbnb</Link>
           <PageHeader title={`Unit ${unit.unitNumber}`} subtitle={`${unit.propertyName} · ${unit.businessLine}`} />
         </div>
-        <Link href={`/rentals/${unitId}/bill`} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+        <Link href={`/rentals/${unitId}/bill`} className="rounded-lg border border-stone-300 px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50">
           Monthly bill →
         </Link>
       </div>
 
       {/* Occupancy */}
-      <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5">
+      <div className="mb-6 rounded-2xl border border-stone-200 bg-white p-5">
         {unit.lease ? (
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p className="text-lg font-semibold text-slate-800">{unit.lease.tenantLabel}</p>
-              <p className="text-sm text-slate-500">{unit.lease.contact ?? "no contact"}</p>
+              <p className="text-lg font-semibold text-stone-800">{unit.lease.tenantLabel}</p>
+              <p className="text-sm text-stone-500">{unit.lease.contact ?? "no contact"}</p>
               <div className="mt-2 grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-4">
-                <div><span className="text-slate-400">Rent</span><br />{peso(unit.lease.rentAmount)}/{unit.lease.billingCycle === "nightly" ? "night" : "mo"}</div>
-                <div><span className="text-slate-400">Start</span><br />{unit.lease.startDate}</div>
-                <div><span className="text-slate-400">Checkout / end</span><br />{fmt(unit.lease.endAt)}</div>
-                <div><span className="text-slate-400">Deposit</span><br />{peso(unit.lease.deposit)}</div>
+                <div><span className="text-stone-400">Rent</span><br />{peso(unit.lease.rentAmount)}/{unit.lease.billingCycle === "nightly" ? "night" : "mo"}</div>
+                <div><span className="text-stone-400">Start</span><br />{unit.lease.startDate}</div>
+                <div><span className="text-stone-400">Checkout / end</span><br />{fmt(unit.lease.endAt)}</div>
+                <div><span className="text-stone-400">Deposit</span><br />{peso(unit.lease.deposit)}</div>
               </div>
-              {unit.lease.notes && <p className="mt-2 text-xs text-slate-400">{unit.lease.notes}</p>}
+              {unit.lease.notes && <p className="mt-2 text-xs text-stone-400">{unit.lease.notes}</p>}
             </div>
             <LeaseActions leaseId={unit.lease.id} canExtend={unit.businessLine === "airbnb"} />
           </div>
@@ -70,12 +70,12 @@ export default async function RentalUnitPage({ params }: { params: Promise<{ uni
         </div>
       )}
       {unit.businessLine === "airbnb" && unit.lease?.portalToken && (
-        <div className="mb-6 flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4">
+        <div className="mb-6 flex items-center gap-4 rounded-2xl border border-stone-200 bg-white p-4">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={`/api/airbnb/${unit.lease.portalToken}/qr`} alt="Booking QR" className="h-24 w-24" />
           <div className="text-sm">
-            <p className="font-medium text-slate-800">Guest booking QR</p>
-            <p className="text-slate-500">Guest scans this to see their bill + timer, request an extension, or check out.</p>
+            <p className="font-medium text-stone-800">Guest booking QR</p>
+            <p className="text-stone-500">Guest scans this to see their bill + timer, request an extension, or check out.</p>
             <a href={`/airbnb/${unit.lease.portalToken}`} target="_blank" rel="noreferrer" className="text-xs text-amber-700 hover:underline">open guest view ↗</a>
           </div>
         </div>
@@ -90,11 +90,11 @@ export default async function RentalUnitPage({ params }: { params: Promise<{ uni
       )}
 
       {/* Dues */}
-      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Dues</h2>
+      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-stone-500">Dues</h2>
       <div className="mb-2"><DueForm units={one} /></div>
-      <div className="mb-6 overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+      <div className="mb-6 overflow-x-auto rounded-2xl border border-stone-200 bg-white">
         <table className="w-full min-w-[480px] text-left text-sm">
-          <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+          <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
             <tr>
               <th className="px-4 py-3">Category</th>
               <th className="px-4 py-3">Due</th>
@@ -104,13 +104,13 @@ export default async function RentalUnitPage({ params }: { params: Promise<{ uni
             </tr>
           </thead>
           <tbody>
-            {dues.length === 0 && <tr><td colSpan={5} className="px-4 py-6 text-center text-slate-500">No dues.</td></tr>}
+            {dues.length === 0 && <tr><td colSpan={5} className="px-4 py-6 text-center text-stone-500">No dues.</td></tr>}
             {dues.map((d) => (
-              <tr key={d.id} className="border-b border-slate-100 last:border-0">
+              <tr key={d.id} className="border-b border-stone-100 last:border-0">
                 <td className="px-4 py-2.5 capitalize">{d.category.replace("_", " ")}</td>
-                <td className={`px-4 py-2.5 ${d.status === "unpaid" && d.overdue ? "text-rose-700" : d.status === "unpaid" && d.dueSoon ? "text-amber-700" : "text-slate-600"}`}>{d.dueDate}</td>
+                <td className={`px-4 py-2.5 ${d.status === "unpaid" && d.overdue ? "text-rose-700" : d.status === "unpaid" && d.dueSoon ? "text-amber-700" : "text-stone-600"}`}>{d.dueDate}</td>
                 <td className="px-4 py-2.5 text-right tabular-nums">{peso(d.amount)}</td>
-                <td className="px-4 py-2.5 capitalize">{d.status}{d.paidOn ? <span className="text-xs text-slate-400"> · {d.paidOn}</span> : null}</td>
+                <td className="px-4 py-2.5 capitalize">{d.status}{d.paidOn ? <span className="text-xs text-stone-400"> · {d.paidOn}</span> : null}</td>
                 <td className="px-4 py-2.5 text-right">{d.status === "unpaid" && <MarkPaid id={d.id} />}</td>
               </tr>
             ))}
@@ -119,11 +119,11 @@ export default async function RentalUnitPage({ params }: { params: Promise<{ uni
       </div>
 
       {/* Meter readings */}
-      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Meter readings</h2>
+      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-stone-500">Meter readings</h2>
       <div className="mb-2"><MeterForm units={one} /></div>
-      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+      <div className="overflow-x-auto rounded-2xl border border-stone-200 bg-white">
         <table className="w-full min-w-[420px] text-left text-sm">
-          <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+          <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
             <tr>
               <th className="px-4 py-3">Utility</th>
               <th className="px-4 py-3">Date</th>
@@ -132,9 +132,9 @@ export default async function RentalUnitPage({ params }: { params: Promise<{ uni
             </tr>
           </thead>
           <tbody>
-            {meters.length === 0 && <tr><td colSpan={4} className="px-4 py-6 text-center text-slate-500">No readings.</td></tr>}
+            {meters.length === 0 && <tr><td colSpan={4} className="px-4 py-6 text-center text-stone-500">No readings.</td></tr>}
             {meters.map((m) => (
-              <tr key={m.id} className="border-b border-slate-100 last:border-0">
+              <tr key={m.id} className="border-b border-stone-100 last:border-0">
                 <td className="px-4 py-2.5 capitalize">{m.utility}</td>
                 <td className="px-4 py-2.5">{m.readOn}</td>
                 <td className="px-4 py-2.5 text-right tabular-nums">{m.reading}</td>

@@ -36,12 +36,13 @@ export default async function EmployeesPage() {
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <PageHeader title="Employees" subtitle="Staff roster, photos & leave approvals." />
+        <PageHeader
+        backHref="/dashboard" title="Employees" subtitle="Staff roster, photos & leave approvals." />
         <a
           href="/attendance-portal"
           target="_blank"
           rel="noreferrer"
-          className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          className="rounded-lg border border-stone-300 px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50"
         >
           Open attendance kiosk ↗
         </a>
@@ -53,17 +54,17 @@ export default async function EmployeesPage() {
         </div>
       )}
 
-      <h2 className="mb-2 mt-4 text-sm font-semibold uppercase tracking-wide text-slate-500">
+      <h2 className="mb-2 mt-4 text-sm font-semibold uppercase tracking-wide text-stone-500">
         Pending leave {items.length > 0 && <span className="ml-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">{items.length}</span>}
       </h2>
       <div className="mb-6">
         <PendingLeave items={items} canDecide={canDecide} />
       </div>
 
-      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Roster</h2>
-      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-stone-500">Roster</h2>
+      <div className="overflow-x-auto rounded-2xl border border-stone-200 bg-white">
         <table className="w-full min-w-[720px] text-left text-sm">
-          <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+          <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
             <tr>
               <th className="px-4 py-3">Employee</th>
               <th className="px-4 py-3">Roles</th>
@@ -75,21 +76,21 @@ export default async function EmployeesPage() {
           </thead>
           <tbody>
             {employees.map((e) => (
-              <tr key={e.id} className="border-b border-slate-100 last:border-0">
+              <tr key={e.id} className="border-b border-stone-100 last:border-0">
                 <td className="px-4 py-2.5">
                   <div className="flex items-center gap-3">
                     <Avatar id={e.id} label={e.label} photoPath={e.photoPath} />
                     <div>
                       <Link href={`/employees/${e.id}`} className="font-medium text-amber-700 hover:underline">{e.label}</Link>
-                      <p className="text-xs text-slate-400">{e.email ?? "—"}</p>
+                      <p className="text-xs text-stone-400">{e.email ?? "—"}</p>
                     </div>
                   </div>
                 </td>
                 <td className="px-4 py-2.5">
                   <div className="flex flex-wrap gap-1">
-                    {e.roleKeys.length === 0 && <span className="text-xs text-slate-400">—</span>}
+                    {e.roleKeys.length === 0 && <span className="text-xs text-stone-400">—</span>}
                     {e.roleKeys.map((r) => (
-                      <span key={r} className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] capitalize text-slate-600">
+                      <span key={r} className="rounded-full bg-stone-100 px-2 py-0.5 text-[11px] capitalize text-stone-600">
                         {roleLabel(r)}
                       </span>
                     ))}
@@ -100,7 +101,7 @@ export default async function EmployeesPage() {
                   {e.active ? (
                     <span className="text-emerald-600">Active</span>
                   ) : (
-                    <span className="text-slate-400">Inactive</span>
+                    <span className="text-stone-400">Inactive</span>
                   )}
                 </td>
                 {canWrite && (

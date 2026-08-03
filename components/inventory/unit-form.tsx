@@ -10,8 +10,8 @@ import { BUSINESS_LINES, UNIT_STATUSES } from "@/lib/config";
 import type { Unit, FieldDefinition } from "@/lib/inventory/types";
 
 const inputCls =
-  "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
-const labelCls = "mb-1 block text-xs font-medium text-slate-600";
+  "w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
+const labelCls = "mb-1 block text-xs font-medium text-stone-600";
 
 function statusLabel(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1).replace(/_/g, " ");
@@ -23,12 +23,12 @@ function CustomField({ def, value }: { def: FieldDefinition; value: unknown }) {
 
   if (def.data_type === "boolean") {
     return (
-      <label className="flex items-center gap-2 text-sm text-slate-700">
+      <label className="flex items-center gap-2 text-sm text-stone-700">
         <input
           type="checkbox"
           name={name}
           defaultChecked={value === true || v === "true"}
-          className="h-4 w-4 rounded border-slate-300"
+          className="h-4 w-4 rounded border-stone-300"
         />
         {def.label}
       </label>
@@ -138,7 +138,7 @@ export function UnitForm({
       ) : (
         <div>
           <label className={labelCls}>Property</label>
-          <p className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700">
+          <p className="rounded-lg bg-stone-50 px-3 py-2 text-sm text-stone-700">
             {unit?.property?.name ?? "—"}
           </p>
         </div>
@@ -227,8 +227,8 @@ export function UnitForm({
 
       {/* Admin-defined custom fields for the selected business line */}
       {applicable.length > 0 && (
-        <div className="rounded-lg border border-slate-200 p-3">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+        <div className="rounded-lg border border-stone-200 p-3">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">
             {BUSINESS_LINES.find((b) => b.key === businessLine)?.label} details
           </p>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -249,7 +249,7 @@ export function UnitForm({
         <button
           type="button"
           onClick={onDone}
-          className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+          className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100"
         >
           Cancel
         </button>

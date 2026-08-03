@@ -6,7 +6,7 @@ export function GateBadges({ gates }: { gates: GateStatus[] }) {
       {gates.map((g) => {
         const cls =
           g.total === 0
-            ? "bg-slate-100 text-slate-400"
+            ? "bg-stone-100 text-stone-400"
             : g.complete
               ? "bg-emerald-100 text-emerald-800"
               : "bg-amber-100 text-amber-800";

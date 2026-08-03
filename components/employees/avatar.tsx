@@ -25,7 +25,7 @@ export function Avatar({
       <img
         src={`/api/staff/${id}/photo`}
         alt={label}
-        className="shrink-0 rounded-full object-cover ring-1 ring-slate-200"
+        className="shrink-0 rounded-full object-cover ring-1 ring-stone-200"
         style={{ width: size, height: size }}
       />
     );

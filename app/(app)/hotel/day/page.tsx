@@ -21,7 +21,7 @@ export default async function HotelDayPage({
   const s = await getHotelDaySummary(date);
 
   const inputCls =
-    "rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
+    "rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
 
   return (
     <>
@@ -38,12 +38,12 @@ export default async function HotelDayPage({
         <p className="text-sm">Hotel Day-end / Remittance Report — {date}</p>
       </div>
 
-      <form method="get" className="no-print mb-4 flex flex-wrap items-end gap-3 rounded-2xl border border-slate-200 bg-white p-4">
+      <form method="get" className="no-print mb-4 flex flex-wrap items-end gap-3 rounded-2xl border border-stone-200 bg-white p-4">
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-600">Date</label>
+          <label className="mb-1 block text-xs font-medium text-stone-600">Date</label>
           <input type="date" name="date" defaultValue={date} className={inputCls} />
         </div>
-        <button type="submit" className="rounded-lg bg-slate-800 px-4 py-2 text-sm font-medium text-white hover:bg-slate-900">
+        <button type="submit" className="rounded-lg bg-stone-800 px-4 py-2 text-sm font-medium text-white hover:bg-stone-900">
           View
         </button>
         <PrintButton label="Print report" />
@@ -56,16 +56,16 @@ export default async function HotelDayPage({
           ["Total hours", `${s.totalOccupiedHours}h`],
           ["Collections", peso(s.collectionsTotal)],
         ].map(([k, v]) => (
-          <div key={k} className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-            <p className="text-2xl font-bold tabular-nums text-slate-900">{v}</p>
-            <p className="text-xs text-slate-500">{k}</p>
+          <div key={k} className="rounded-xl border border-stone-200 bg-white px-4 py-3">
+            <p className="text-2xl font-bold tabular-nums text-stone-900">{v}</p>
+            <p className="text-xs text-stone-500">{k}</p>
           </div>
         ))}
       </div>
 
-      <div className="mb-6 overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+      <div className="mb-6 overflow-x-auto rounded-2xl border border-stone-200 bg-white">
         <table className="w-full text-left text-sm">
-          <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+          <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
             <tr>
               <th className="px-4 py-3">Remittance by method</th>
               <th className="px-4 py-3 text-right">Amount</th>
@@ -74,20 +74,20 @@ export default async function HotelDayPage({
           <tbody>
             {s.byMethod.length === 0 && (
               <tr>
-                <td colSpan={2} className="px-4 py-6 text-center text-slate-500">
+                <td colSpan={2} className="px-4 py-6 text-center text-stone-500">
                   No collections for this date.
                 </td>
               </tr>
             )}
             {s.byMethod.map((m) => (
-              <tr key={m.method} className="border-b border-slate-100 last:border-0">
+              <tr key={m.method} className="border-b border-stone-100 last:border-0">
                 <td className="px-4 py-2.5">{METHOD_LABEL[m.method] ?? m.method}</td>
                 <td className="px-4 py-2.5 text-right tabular-nums">{peso(m.total)}</td>
               </tr>
             ))}
           </tbody>
           <tfoot>
-            <tr className="border-t border-slate-200 font-semibold">
+            <tr className="border-t border-stone-200 font-semibold">
               <td className="px-4 py-3">Total remittance ({s.paymentCount} payments)</td>
               <td className="px-4 py-3 text-right tabular-nums">{peso(s.collectionsTotal)}</td>
             </tr>
@@ -103,7 +103,7 @@ export default async function HotelDayPage({
         />
       </div>
 
-      <p className="mt-6 text-xs text-slate-400">
+      <p className="mt-6 text-xs text-stone-400">
         Hotel payments post to Collections automatically, so this remittance is included in the daily transmittal.
       </p>
     </>
@@ -112,16 +112,16 @@ export default async function HotelDayPage({
 
 function DayList({ title, rows }: { title: string; rows: { a: string; b: string }[] }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4">
-      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</p>
+    <div className="rounded-2xl border border-stone-200 bg-white p-4">
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">{title}</p>
       {rows.length === 0 ? (
-        <p className="text-sm text-slate-400">None.</p>
+        <p className="text-sm text-stone-400">None.</p>
       ) : (
         <ul className="space-y-1 text-sm">
           {rows.map((r, i) => (
             <li key={i} className="flex justify-between">
-              <span className="text-slate-700">{r.a}</span>
-              <span className="text-slate-500">{r.b}</span>
+              <span className="text-stone-700">{r.a}</span>
+              <span className="text-stone-500">{r.b}</span>
             </li>
           ))}
         </ul>

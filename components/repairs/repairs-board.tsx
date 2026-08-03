@@ -15,8 +15,8 @@ const STATUS_CLS: Record<string, string> = {
 };
 const STATUS_LABEL = Object.fromEntries(REPAIR_STATUSES.map((s) => [s.key, s.label]));
 const URGENCY_CLS: Record<string, string> = {
-  low: "bg-slate-100 text-slate-500",
-  normal: "bg-slate-200 text-slate-700",
+  low: "bg-stone-100 text-stone-500",
+  normal: "bg-stone-200 text-stone-700",
   urgent: "bg-red-100 text-red-700",
 };
 
@@ -53,9 +53,9 @@ export function RepairsBoard({
   }
 
   return (
-    <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+    <div className="overflow-x-auto rounded-2xl border border-stone-200 bg-white">
       <table className="w-full min-w-[900px] text-left text-sm">
-        <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+        <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
           <tr>
             <th className="px-4 py-3">Ticket</th>
             <th className="px-4 py-3">Unit</th>
@@ -70,14 +70,14 @@ export function RepairsBoard({
         <tbody>
           {requests.length === 0 && (
             <tr>
-              <td colSpan={canWrite ? 8 : 7} className="px-4 py-10 text-center text-slate-500">
+              <td colSpan={canWrite ? 8 : 7} className="px-4 py-10 text-center text-stone-500">
                 No repair requests yet.
               </td>
             </tr>
           )}
           {requests.map((r) => (
-            <tr key={r.id} className="border-b border-slate-100 last:border-0 align-top">
-              <td className="px-4 py-3 font-medium text-slate-900">
+            <tr key={r.id} className="border-b border-stone-100 last:border-0 align-top">
+              <td className="px-4 py-3 font-medium text-stone-900">
                 {r.ticket_ref}
                 {r.photo_path && (
                   <a
@@ -94,7 +94,7 @@ export function RepairsBoard({
               <td className="px-4 py-3">{r.unit?.unit_number ?? r.requester_ref ?? "—"}</td>
               <td className="px-4 py-3">
                 <p>{r.issue_type}</p>
-                <p className="mt-0.5 max-w-xs text-xs text-slate-500">{r.description}</p>
+                <p className="mt-0.5 max-w-xs text-xs text-stone-500">{r.description}</p>
               </td>
               <td className="px-4 py-3">
                 <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${URGENCY_CLS[r.urgency] ?? ""}`}>
@@ -115,7 +115,7 @@ export function RepairsBoard({
                       defaultValue=""
                       onChange={(e) => onAssign(e, r.id)}
                       disabled={busy === r.id}
-                      className="rounded-lg border border-slate-300 px-2 py-1 text-xs"
+                      className="rounded-lg border border-stone-300 px-2 py-1 text-xs"
                     >
                       <option value="">Assign to…</option>
                       <option value="electrician">Electrician</option>
@@ -127,7 +127,7 @@ export function RepairsBoard({
                       type="button"
                       onClick={() => run(r.id, () => setRepairStatus(r.id, "in_progress"))}
                       disabled={busy === r.id}
-                      className="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50"
+                      className="rounded-md border border-stone-300 px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100 disabled:opacity-50"
                     >
                       Start work
                     </button>
@@ -142,7 +142,7 @@ export function RepairsBoard({
                       Complete
                     </button>
                   )}
-                  {r.status === "completed" && <span className="text-xs text-slate-400">done</span>}
+                  {r.status === "completed" && <span className="text-xs text-stone-400">done</span>}
                 </td>
               )}
             </tr>
@@ -182,12 +182,12 @@ function RepairPhotos({ r, canWrite }: { r: RepairRequest; canWrite: boolean }) 
                 {kind} ✓
               </a>
             ) : (
-              <span className="text-slate-400">{kind}</span>
+              <span className="text-stone-400">{kind}</span>
             )}
             {canWrite && (
               <>
                 <input ref={ref} type="file" accept="image/*" capture="environment" hidden onChange={(e) => upload(kind, e)} />
-                <button type="button" onClick={() => ref.current?.click()} className="text-slate-400 hover:text-amber-700">＋</button>
+                <button type="button" onClick={() => ref.current?.click()} className="text-stone-400 hover:text-amber-700">＋</button>
               </>
             )}
           </span>

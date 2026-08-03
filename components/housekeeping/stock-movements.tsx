@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { issueStock, receiveStock, physicalCount, type ActionResult } from "@/app/(app)/housekeeping/actions";
 import type { RoomSupply, StockMovement } from "@/lib/housekeeping/types";
 
-const cls = "rounded-lg border border-slate-300 px-2.5 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
+const cls = "rounded-lg border border-stone-300 px-2.5 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
 
 const REASON_LABEL: Record<string, string> = {
   issue: "Issued", receive: "Received", adjust: "Adjusted", count: "Physical count", replacement: "Room replacement",
@@ -35,30 +35,30 @@ function MovementForm({ label, supplies, qtyName, action, canManage }: { label: 
 export function StockMovementsPanel({ supplies, movements, canManage }: { supplies: RoomSupply[]; movements: StockMovement[]; canManage: boolean }) {
   return (
     <div>
-      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Dispensing & stock movements</h2>
+      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-stone-500">Dispensing & stock movements</h2>
 
-      <div className="mb-3 space-y-2 rounded-2xl border border-slate-200 bg-white p-4">
+      <div className="mb-3 space-y-2 rounded-2xl border border-stone-200 bg-white p-4">
         <div>
-          <p className="mb-1 text-xs font-medium text-slate-500">Dispense / issue (any staff)</p>
+          <p className="mb-1 text-xs font-medium text-stone-500">Dispense / issue (any staff)</p>
           <MovementForm label="Issue" supplies={supplies} qtyName="qty" action={issueStock} canManage />
         </div>
         {canManage && (
           <>
             <div>
-              <p className="mb-1 text-xs font-medium text-slate-500">Receive delivery</p>
+              <p className="mb-1 text-xs font-medium text-stone-500">Receive delivery</p>
               <MovementForm label="Receive" supplies={supplies} qtyName="qty" action={receiveStock} canManage />
             </div>
             <div>
-              <p className="mb-1 text-xs font-medium text-slate-500">Physical count (periodical)</p>
+              <p className="mb-1 text-xs font-medium text-stone-500">Physical count (periodical)</p>
               <MovementForm label="Record count" supplies={supplies} qtyName="counted" action={physicalCount} canManage />
             </div>
           </>
         )}
       </div>
 
-      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+      <div className="overflow-x-auto rounded-2xl border border-stone-200 bg-white">
         <table className="w-full min-w-[640px] text-left text-sm">
-          <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+          <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
             <tr>
               <th className="px-4 py-3">When</th>
               <th className="px-4 py-3">Supply</th>
@@ -70,16 +70,16 @@ export function StockMovementsPanel({ supplies, movements, canManage }: { suppli
             </tr>
           </thead>
           <tbody>
-            {movements.length === 0 && <tr><td colSpan={7} className="px-4 py-6 text-center text-slate-500">No movements yet.</td></tr>}
+            {movements.length === 0 && <tr><td colSpan={7} className="px-4 py-6 text-center text-stone-500">No movements yet.</td></tr>}
             {movements.map((m) => (
-              <tr key={m.id} className="border-b border-slate-100 last:border-0">
-                <td className="px-4 py-2.5 text-slate-500">{new Date(m.createdAt).toLocaleString("en-PH", { timeZone: "Asia/Manila", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</td>
-                <td className="px-4 py-2.5 font-medium text-slate-800">{m.supplyName}</td>
+              <tr key={m.id} className="border-b border-stone-100 last:border-0">
+                <td className="px-4 py-2.5 text-stone-500">{new Date(m.createdAt).toLocaleString("en-PH", { timeZone: "Asia/Manila", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</td>
+                <td className="px-4 py-2.5 font-medium text-stone-800">{m.supplyName}</td>
                 <td className="px-4 py-2.5">{REASON_LABEL[m.reason] ?? m.reason}</td>
                 <td className={`px-4 py-2.5 text-right tabular-nums ${m.delta < 0 ? "text-rose-700" : "text-emerald-700"}`}>{m.delta >= 0 ? "+" : ""}{m.delta}</td>
                 <td className="px-4 py-2.5 text-right tabular-nums">{m.balanceAfter}</td>
                 <td className="px-4 py-2.5 capitalize">{m.actor}</td>
-                <td className="px-4 py-2.5 text-slate-500">{m.note ?? "—"}</td>
+                <td className="px-4 py-2.5 text-stone-500">{m.note ?? "—"}</td>
               </tr>
             ))}
           </tbody>

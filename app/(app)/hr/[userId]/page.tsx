@@ -22,7 +22,7 @@ const STATUS: Record<string, string> = {
   present: "text-emerald-700",
   half_day: "text-amber-700",
   absent: "text-red-700",
-  open: "text-slate-400",
+  open: "text-stone-400",
 };
 
 export default async function DtrDetailPage({
@@ -64,14 +64,14 @@ export default async function DtrDetailPage({
         <PrintButton label="Print DTR" />
       </div>
 
-      <div className="mb-4 hidden border-b border-slate-300 pb-3 print:block">
+      <div className="mb-4 hidden border-b border-stone-300 pb-3 print:block">
         <p className="text-lg font-bold">{APP_BRAND_SHORT}</p>
         <p className="text-sm">Daily Time Record — {label} · {peso(dailyRate)}/day · {from} to {to}</p>
       </div>
 
-      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+      <div className="overflow-x-auto rounded-2xl border border-stone-200 bg-white">
         <table className="w-full min-w-[840px] text-left text-sm">
-          <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+          <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
             <tr>
               <th className="px-3 py-3">Date</th>
               <th className="px-3 py-3">In</th>
@@ -91,11 +91,11 @@ export default async function DtrDetailPage({
           <tbody>
             {days.length === 0 && (
               <tr>
-                <td colSpan={13} className="px-4 py-8 text-center text-slate-500">No records in this range.</td>
+                <td colSpan={13} className="px-4 py-8 text-center text-stone-500">No records in this range.</td>
               </tr>
             )}
             {days.map((d, i) => (
-              <tr key={`${d.date}-${i}`} className="border-b border-slate-100 last:border-0">
+              <tr key={`${d.date}-${i}`} className="border-b border-stone-100 last:border-0">
                 <td className="px-3 py-2.5">{d.date}</td>
                 <td className="px-3 py-2.5">{t(d.timeIn)}</td>
                 <td className="px-3 py-2.5">{d.timeOut ? t(d.timeOut) : <span className="text-emerald-600">open</span>}</td>
@@ -113,7 +113,7 @@ export default async function DtrDetailPage({
             ))}
           </tbody>
           <tfoot>
-            <tr className="border-t border-slate-200 font-semibold">
+            <tr className="border-t border-stone-200 font-semibold">
               <td className="px-3 py-3" colSpan={9}>Total</td>
               <td className="px-3 py-3 text-right tabular-nums">{peso(r2(totals.basic))}</td>
               <td className="px-3 py-3 text-right tabular-nums">{peso(r2(totals.ot))}</td>
@@ -124,7 +124,7 @@ export default async function DtrDetailPage({
         </table>
       </div>
       {totals.deduct > 0 && (
-        <p className="mt-2 text-xs text-slate-500">Total late/undertime deductions already reflected in Basic: {peso(r2(totals.deduct))}.</p>
+        <p className="mt-2 text-xs text-stone-500">Total late/undertime deductions already reflected in Basic: {peso(r2(totals.deduct))}.</p>
       )}
     </>
   );

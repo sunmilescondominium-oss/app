@@ -34,9 +34,9 @@ export function WeekGrid({
   }
 
   return (
-    <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+    <div className="overflow-x-auto rounded-2xl border border-stone-200 bg-white">
       <table className="w-full min-w-[760px] text-left text-sm">
-        <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+        <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
           <tr>
             <th className="px-3 py-2.5">Staff</th>
             {days.map((d, i) => (
@@ -49,11 +49,11 @@ export function WeekGrid({
         </thead>
         <tbody>
           {staff.length === 0 && (
-            <tr><td colSpan={8} className="px-4 py-6 text-center text-slate-500">No staff to schedule.</td></tr>
+            <tr><td colSpan={8} className="px-4 py-6 text-center text-stone-500">No staff to schedule.</td></tr>
           )}
           {staff.map((s) => (
-            <tr key={s.id} className="border-b border-slate-100 last:border-0">
-              <td className="px-3 py-2 font-medium text-slate-800">{s.label}</td>
+            <tr key={s.id} className="border-b border-stone-100 last:border-0">
+              <td className="px-3 py-2 font-medium text-stone-800">{s.label}</td>
               {days.map((d) => {
                 const key = `${s.id}|${d}`;
                 const cell = cells[key];
@@ -68,7 +68,7 @@ export function WeekGrid({
                       className={`w-full rounded px-1.5 py-1 text-xs tabular-nums transition disabled:opacity-50 ${
                         cell
                           ? "bg-emerald-100 text-emerald-800 hover:bg-rose-100 hover:text-rose-700"
-                          : "text-slate-300 hover:bg-slate-100 hover:text-slate-500"
+                          : "text-stone-300 hover:bg-stone-100 hover:text-stone-500"
                       }`}
                     >
                       {isBusy ? "…" : cell ? (cell.start ? `${cell.start.slice(0, 5)}–${cell.end?.slice(0, 5) ?? "?"}` : "✓") : "+"}

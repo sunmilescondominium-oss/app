@@ -50,11 +50,11 @@ export function OrdersPanel({
   }
 
   return (
-    <div className="no-print rounded-2xl border border-slate-200 bg-white p-4">
-      <p className="mb-2 text-sm font-semibold text-slate-700">Room orders</p>
+    <div className="no-print rounded-2xl border border-stone-200 bg-white p-4">
+      <p className="mb-2 text-sm font-semibold text-stone-700">Room orders</p>
 
       {orders.length === 0 ? (
-        <p className="text-sm text-slate-400">No orders yet.</p>
+        <p className="text-sm text-stone-400">No orders yet.</p>
       ) : (
         <ul className="mb-3 space-y-1 text-sm">
           {orders.map((o) => (
@@ -81,11 +81,11 @@ export function OrdersPanel({
       )}
 
       {canWrite && menu.length > 0 && (
-        <div className="flex flex-wrap items-end gap-2 border-t border-slate-100 pt-3">
+        <div className="flex flex-wrap items-end gap-2 border-t border-stone-100 pt-3">
           <select
             value={itemId}
             onChange={(e) => setItemId(e.target.value)}
-            className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+            className="rounded-lg border border-stone-300 px-2 py-1.5 text-sm"
           >
             {menu.map((m) => (
               <option key={m.id} value={m.id}>
@@ -98,7 +98,7 @@ export function OrdersPanel({
             min={1}
             value={qty}
             onChange={(e) => setQty(parseInt(e.target.value, 10) || 1)}
-            className="w-16 rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+            className="w-16 rounded-lg border border-stone-300 px-2 py-1.5 text-sm"
           />
           <button
             type="button"

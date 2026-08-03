@@ -7,7 +7,7 @@ import { peso } from "@/lib/collections/summary";
 import type { RatePlan, Promo } from "@/lib/hotel/types";
 
 const inputCls =
-  "w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
+  "w-full rounded-lg border border-stone-300 px-2 py-1.5 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
 
 export function RatePromoManager({
   ratePlans,
@@ -29,12 +29,12 @@ export function RatePromoManager({
   return (
     <div className="space-y-6">
       <div>
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Rate plans</p>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">Rate plans</p>
         <ul className="mb-3 space-y-1 text-sm">
           {ratePlans.map((p) => (
-            <li key={p.id} className="flex justify-between rounded-lg border border-slate-200 px-3 py-1.5">
+            <li key={p.id} className="flex justify-between rounded-lg border border-stone-200 px-3 py-1.5">
               <span>{p.name}</span>
-              <span className="text-slate-500">
+              <span className="text-stone-500">
                 {peso(p.base_rate)} / {p.base_hours}h · +{peso(p.extra_hour_rate)}/h
               </span>
             </li>
@@ -53,15 +53,15 @@ export function RatePromoManager({
       </div>
 
       <div>
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Promos</p>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">Promos</p>
         <ul className="mb-3 space-y-1 text-sm">
           {promos.map((p) => (
-            <li key={p.id} className="flex justify-between rounded-lg border border-slate-200 px-3 py-1.5">
+            <li key={p.id} className="flex justify-between rounded-lg border border-stone-200 px-3 py-1.5">
               <span>{p.name}</span>
-              <span className="text-slate-500">{p.disc_type === "percent" ? `${p.disc_value}%` : peso(p.disc_value)}</span>
+              <span className="text-stone-500">{p.disc_type === "percent" ? `${p.disc_value}%` : peso(p.disc_value)}</span>
             </li>
           ))}
-          {promos.length === 0 && <li className="text-slate-400">No promos yet.</li>}
+          {promos.length === 0 && <li className="text-stone-400">No promos yet.</li>}
         </ul>
         <form action={promoAction} className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <input name="name" placeholder="Name" className={`${inputCls} col-span-2`} />
@@ -78,7 +78,7 @@ export function RatePromoManager({
       </div>
 
       <div className="flex justify-end">
-        <button type="button" onClick={onDone} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">
+        <button type="button" onClick={onDone} className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100">
           Close
         </button>
       </div>

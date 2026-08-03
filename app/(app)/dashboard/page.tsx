@@ -7,12 +7,36 @@ import { PageHeader } from "@/components/ui";
 
 export const metadata = { title: "Dashboard" };
 
-function Card({ href, label, value, sub, tone = "text-slate-900" }: { href: string; label: string; value: string; sub?: string; tone?: string }) {
+type Tone = "slate" | "green" | "amber" | "rose" | "indigo";
+
+const TONE_TEXT: Record<Tone, string> = {
+  slate: "text-stone-900",
+  green: "text-emerald-700",
+  amber: "text-amber-700",
+  rose: "text-rose-700",
+  indigo: "text-indigo-700",
+};
+const TONE_BAR: Record<Tone, string> = {
+  slate: "bg-stone-300",
+  green: "bg-emerald-400",
+  amber: "bg-amber-400",
+  rose: "bg-rose-400",
+  indigo: "bg-indigo-400",
+};
+
+function StatLink({ href, icon, label, value, sub, tone = "slate" }: { href: string; icon: string; label: string; value: string; sub?: string; tone?: Tone }) {
   return (
-    <Link href={href} className="rounded-2xl border border-slate-200 bg-white p-5 transition hover:shadow-sm">
-      <p className="text-sm text-slate-500">{label}</p>
-      <p className={`mt-1 text-2xl font-bold tabular-nums ${tone}`}>{value}</p>
-      {sub && <p className="mt-1 text-xs text-slate-400">{sub}</p>}
+    <Link href={href} className="card card-hover group relative overflow-hidden p-5">
+      <span className={`absolute inset-y-0 left-0 w-1 ${TONE_BAR[tone]}`} />
+      <div className="flex items-start justify-between">
+        <p className="text-sm font-medium text-stone-500">{label}</p>
+        <span aria-hidden className="text-lg opacity-70">{icon}</span>
+      </div>
+      <p className={`mt-1.5 text-2xl font-bold tabular-nums ${TONE_TEXT[tone]}`}>{value}</p>
+      {sub && <p className="mt-1 text-xs text-stone-400">{sub}</p>}
+      <span className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-amber-700 opacity-0 transition group-hover:opacity-100">
+        Open <span className="transition-transform group-hover:translate-x-0.5">→</span>
+      </span>
     </Link>
   );
 }
@@ -25,45 +49,55 @@ export default async function DashboardPage() {
 
   const cards: React.ReactNode[] = [];
 
-  if (has("owner")) cards.push(<Card key="owner" href="/owner" label="Owner overview" value="Open →" sub="Weekly summary & decisions" />);
+  if (has("owner")) cards.push(<StatLink key="owner" href="/owner" icon="📊" label="Owner overview" value="Open" sub="Weekly summary & decisions" tone="indigo" />);
 
   if (can("collections") || has("hotel_cashier"))
-    cards.push(<Card key="col" href="/collections" label="Collected today" value={peso(d.collectionsToday)} sub="All business lines" tone="text-emerald-700" />);
+    cards.push(<StatLink key="col" href="/collections" icon="💵" label="Collected today" value={peso(d.collectionsToday)} sub="All business lines" tone="green" />);
 
   if (can("transmittals"))
-    cards.push(<Card key="tx" href="/transmittals" label="Transmittals to process" value={String(d.txPending)} sub="submitted / deposited" tone={d.txPending > 0 ? "text-amber-700" : "text-slate-900"} />);
+    cards.push(<StatLink key="tx" href="/transmittals" icon="🧾" label="Transmittals to process" value={String(d.txPending)} sub="submitted / deposited" tone={d.txPending > 0 ? "amber" : "slate"} />);
+
+  if (can("banking"))
+    cards.push(<StatLink key="bank" href="/banking" icon="🏦" label="Bank & reconciliation" value="Open" sub="Accounts, deposits & checks" tone="indigo" />);
 
   if (can("hotel"))
-    cards.push(<Card key="hotel" href="/hotel" label="Hotel rooms" value={`${d.hotel.occupied} in`} sub={`${d.hotel.vacant} vacant · ${d.hotel.forHousekeeping} for housekeeping`} />);
+    cards.push(<StatLink key="hotel" href="/hotel" icon="🏨" label="Hotel rooms" value={`${d.hotel.occupied} in`} sub={`${d.hotel.vacant} vacant · ${d.hotel.forHousekeeping} for housekeeping`} />);
 
   if (can("rentals"))
-    cards.push(<Card key="rent" href="/rentals" label="Rentals & Airbnb" value={`${d.rentals.occupied} occupied`} sub={`${d.rentals.vacant} vacant · ${d.rentals.duesFlagged} dues due/overdue`} tone={d.rentals.duesFlagged > 0 ? "text-amber-700" : "text-slate-900"} />);
+    cards.push(<StatLink key="rent" href="/rentals" icon="🏘️" label="Rentals & Airbnb" value={`${d.rentals.occupied} occupied`} sub={`${d.rentals.vacant} vacant · ${d.rentals.duesFlagged} dues due/overdue`} tone={d.rentals.duesFlagged > 0 ? "amber" : "slate"} />);
+
+  if (can("condo"))
+    cards.push(<StatLink key="condo" href="/condo" icon="🏢" label="Condo dues" value="Open" sub="Association dues per unit" />);
 
   if (can("housekeeping"))
-    cards.push(<Card key="hk" href="/housekeeping" label="Housekeeping tasks" value={String(d.housekeepingOpen)} sub="pending / in progress" tone={d.housekeepingOpen > 0 ? "text-amber-700" : "text-slate-900"} />);
+    cards.push(<StatLink key="hk" href="/housekeeping" icon="🧹" label="Housekeeping tasks" value={String(d.housekeepingOpen)} sub="pending / in progress" tone={d.housekeepingOpen > 0 ? "amber" : "slate"} />);
 
   if (can("hr") || can("scheduling"))
-    cards.push(<Card key="att" href={can("hr") ? "/hr" : "/schedule"} label="Attendance today" value={`${d.attendance.checkedIn} in`} sub={`${d.attendance.checkedOut} clocked out`} />);
+    cards.push(<StatLink key="att" href={can("hr") ? "/hr" : "/schedule"} icon="🕒" label="Attendance today" value={`${d.attendance.checkedIn} in`} sub={`${d.attendance.checkedOut} clocked out`} />);
 
   if (can("employees") || has("owner"))
-    cards.push(<Card key="req" href={can("employees") ? "/employees" : "/owner"} label="Pending requests" value={String(d.pendingRequests)} sub="leave / OB to approve" tone={d.pendingRequests > 0 ? "text-amber-700" : "text-slate-900"} />);
+    cards.push(<StatLink key="req" href={can("employees") ? "/employees" : "/owner"} icon="📝" label="Pending requests" value={String(d.pendingRequests)} sub="leave / OB to approve" tone={d.pendingRequests > 0 ? "amber" : "slate"} />);
 
   if (can("repair"))
-    cards.push(<Card key="rep" href="/repairs" label="Open repairs" value={String(d.repairsOpen)} sub="not yet completed" tone={d.repairsOpen > 0 ? "text-amber-700" : "text-slate-900"} />);
+    cards.push(<StatLink key="rep" href="/repairs" icon="🔧" label="Open repairs" value={String(d.repairsOpen)} sub="not yet completed" tone={d.repairsOpen > 0 ? "amber" : "slate"} />);
 
   if (can("employees"))
-    cards.push(<Card key="emp" href="/employees" label="Employees / 201 files" value="Open →" sub="Roster, 201 records & documents" />);
+    cards.push(<StatLink key="emp" href="/employees" icon="👥" label="Employees / 201 files" value="Open" sub="Roster, 201 records & documents" />);
 
   if (can("finance"))
-    cards.push(<Card key="fin" href="/finance" label="P&L / Reports" value="Open →" sub="Sales, expenses & profit" />);
+    cards.push(<StatLink key="fin" href="/finance" icon="📈" label="P&L / Reports" value="Open" sub="Sales, expenses & profit" tone="green" />);
 
   return (
     <>
-      <PageHeader title={`Welcome, ${user.displayLabel}`} subtitle="Your dashboard — the numbers relevant to your role." />
+      <PageHeader
+        eyebrow="Dashboard"
+        title={`Welcome, ${user.displayLabel}`}
+        subtitle="The numbers relevant to your role, at a glance."
+      />
       {cards.length === 0 ? (
-        <p className="mt-4 text-sm text-slate-500">No dashboard widgets for your role yet — use the menu to open a module.</p>
+        <p className="mt-4 text-sm text-stone-500">No dashboard widgets for your role yet — use the menu to open a module.</p>
       ) : (
-        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">{cards}</div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">{cards}</div>
       )}
     </>
   );

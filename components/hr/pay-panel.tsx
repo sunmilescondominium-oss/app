@@ -24,10 +24,10 @@ function RateRow({ row }: { row: Row }) {
   }
 
   return (
-    <tr className="border-b border-slate-100 last:border-0">
+    <tr className="border-b border-stone-100 last:border-0">
       <td className="px-4 py-2.5">{row.label}</td>
       <td className="px-4 py-2.5 text-right tabular-nums">{peso(row.dailyRate)}/day</td>
-      <td className="px-4 py-2.5 text-right text-slate-400 tabular-nums">{peso(row.dailyRate / 8)}/hr</td>
+      <td className="px-4 py-2.5 text-right text-stone-400 tabular-nums">{peso(row.dailyRate / 8)}/hr</td>
       <td className="px-4 py-2.5 text-right">
         <div className="flex items-center justify-end gap-2">
           <input
@@ -36,7 +36,7 @@ function RateRow({ row }: { row: Row }) {
             min="0"
             value={rate}
             onChange={(e) => setRate(Number(e.target.value))}
-            className="w-28 rounded-lg border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
+            className="w-28 rounded-lg border border-stone-300 px-2 py-1.5 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
           />
           <button
             type="button"
@@ -54,9 +54,9 @@ function RateRow({ row }: { row: Row }) {
 
 export function PayPanel({ rows }: { rows: Row[] }) {
   return (
-    <div className="no-print overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+    <div className="no-print overflow-x-auto rounded-2xl border border-stone-200 bg-white">
       <table className="w-full min-w-[560px] text-left text-sm">
-        <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+        <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
           <tr>
             <th className="px-4 py-3">Staff</th>
             <th className="px-4 py-3 text-right">Daily rate</th>

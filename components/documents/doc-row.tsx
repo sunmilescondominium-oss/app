@@ -7,8 +7,8 @@ import { DOCUMENT_STATUSES } from "@/lib/config";
 import type { DocumentType, BuyerDocument } from "@/lib/documents/types";
 
 const STATUS_CLS: Record<string, string> = {
-  not_required: "bg-slate-100 text-slate-500",
-  pending: "bg-slate-100 text-slate-600",
+  not_required: "bg-stone-100 text-stone-500",
+  pending: "bg-stone-100 text-stone-600",
   received: "bg-blue-100 text-blue-800",
   signed: "bg-indigo-100 text-indigo-800",
   filed: "bg-emerald-100 text-emerald-800",
@@ -16,7 +16,7 @@ const STATUS_CLS: Record<string, string> = {
   disputed: "bg-orange-100 text-orange-800",
 };
 const smallInput =
-  "rounded-lg border border-slate-300 px-2 py-1 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
+  "rounded-lg border border-stone-300 px-2 py-1 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
 
 export function DocRow({
   buyerId,
@@ -81,9 +81,9 @@ export function DocRow({
   }
 
   return (
-    <div className="border-b border-slate-100 py-3 last:border-0">
+    <div className="border-b border-stone-100 py-3 last:border-0">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm font-medium text-slate-800">
+        <p className="text-sm font-medium text-stone-800">
           {type.name}
           {type.is_sensitive_id && (
             <span className="ml-2 rounded bg-red-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-red-600">
@@ -119,18 +119,18 @@ export function DocRow({
             type="button"
             onClick={save}
             disabled={busy}
-            className="rounded-lg border border-slate-300 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50"
+            className="rounded-lg border border-stone-300 px-3 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100 disabled:opacity-50"
           >
             Save
           </button>
-          <label className="cursor-pointer rounded-lg border border-slate-300 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100">
+          <label className="cursor-pointer rounded-lg border border-stone-300 px-3 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100">
             Upload
             <input type="file" onChange={upload} className="hidden" />
           </label>
-          {msg && <span className="text-xs text-slate-400">{msg}</span>}
+          {msg && <span className="text-xs text-stone-400">{msg}</span>}
         </div>
       ) : (
-        <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-slate-500">
+        <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-stone-500">
           <span className={`inline-flex rounded-full px-2 py-0.5 font-medium ${STATUS_CLS[status] ?? ""}`}>
             {status}
           </span>

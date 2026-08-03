@@ -39,7 +39,7 @@ export function ParamsEditor({
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-slate-500">
+      <p className="text-xs text-stone-500">
         Current version: <strong>v{version}</strong>. Saving a value bumps the
         version. Existing SOAs keep their snapshot — regenerate a buyer&apos;s SOA
         to apply new values.
@@ -48,21 +48,21 @@ export function ParamsEditor({
         {editable.map((p) => (
           <div key={p.key} className="flex items-center gap-2">
             <div className="flex-1">
-              <p className="text-sm font-medium text-slate-800">{p.label ?? p.key}</p>
-              <p className="text-[11px] text-slate-400">{p.key}</p>
+              <p className="text-sm font-medium text-stone-800">{p.label ?? p.key}</p>
+              <p className="text-[11px] text-stone-400">{p.key}</p>
             </div>
             <input
               value={values[p.key]}
               onChange={(e) =>
                 setValues((v) => ({ ...v, [p.key]: e.target.value }))
               }
-              className="w-28 rounded-lg border border-slate-300 px-2 py-1 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
+              className="w-28 rounded-lg border border-stone-300 px-2 py-1 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
             />
             <button
               type="button"
               onClick={() => save(p)}
               disabled={busy === p.key}
-              className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50"
+              className="rounded-lg border border-stone-300 px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-100 disabled:opacity-50"
             >
               Save
             </button>
@@ -73,7 +73,7 @@ export function ParamsEditor({
         <button
           type="button"
           onClick={onDone}
-          className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+          className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100"
         >
           Close
         </button>

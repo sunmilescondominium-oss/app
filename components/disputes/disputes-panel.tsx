@@ -18,7 +18,7 @@ const STATUS_LABEL = Object.fromEntries(DISPUTE_STATUSES.map((s) => [s.key, s.la
 
 function StatusPill({ status }: { status: string }) {
   return (
-    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_CLS[status] ?? "bg-slate-100 text-slate-600"}`}>
+    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_CLS[status] ?? "bg-stone-100 text-stone-600"}`}>
       {STATUS_LABEL[status] ?? status}
     </span>
   );
@@ -60,12 +60,12 @@ export function DisputesPanel({
         </div>
       )}
 
-      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
+      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-stone-500">
         Active cases
       </h2>
-      <div className="mb-8 overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+      <div className="mb-8 overflow-x-auto rounded-2xl border border-stone-200 bg-white">
         <table className="w-full min-w-[760px] text-left text-sm">
-          <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+          <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
             <tr>
               <th className="px-4 py-3">Issue</th>
               <th className="px-4 py-3">Unit</th>
@@ -78,17 +78,17 @@ export function DisputesPanel({
           <tbody>
             {active.length === 0 && (
               <tr>
-                <td colSpan={canWrite ? 6 : 5} className="px-4 py-10 text-center text-slate-500">
+                <td colSpan={canWrite ? 6 : 5} className="px-4 py-10 text-center text-stone-500">
                   No active cases. {canWrite && "Add one to begin."}
                 </td>
               </tr>
             )}
             {active.map((d) => (
-              <tr key={d.id} className="border-b border-slate-100 last:border-0 align-top">
+              <tr key={d.id} className="border-b border-stone-100 last:border-0 align-top">
                 <td className="px-4 py-3">
-                  <p className="font-medium text-slate-900">{d.issue_type}</p>
+                  <p className="font-medium text-stone-900">{d.issue_type}</p>
                   {canSeeLawyerNotes && d.lawyer_notes && (
-                    <p className="mt-0.5 text-xs italic text-slate-400">⚖ {d.lawyer_notes}</p>
+                    <p className="mt-0.5 text-xs italic text-stone-400">⚖ {d.lawyer_notes}</p>
                   )}
                 </td>
                 <td className="px-4 py-3">{d.unit?.unit_number ?? "—"}</td>
@@ -102,7 +102,7 @@ export function DisputesPanel({
                     <button
                       type="button"
                       onClick={() => setModal({ kind: "edit", dispute: d })}
-                      className="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                      className="rounded-md border border-stone-300 px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100"
                     >
                       Edit
                     </button>
@@ -114,15 +114,15 @@ export function DisputesPanel({
         </table>
       </div>
 
-      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
+      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-stone-500">
         Reference library
       </h2>
-      <p className="mb-2 text-xs text-slate-400">
+      <p className="mb-2 text-xs text-stone-400">
         Historical cases seeded as institutional knowledge — start new disputes from these, not from zero.
       </p>
-      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+      <div className="overflow-x-auto rounded-2xl border border-stone-200 bg-white">
         <table className="w-full min-w-[680px] text-left text-sm">
-          <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+          <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
             <tr>
               <th className="px-4 py-3">Case</th>
               <th className="px-4 py-3">Reference</th>
@@ -132,14 +132,14 @@ export function DisputesPanel({
           </thead>
           <tbody>
             {references.map((d) => (
-              <tr key={d.id} className="border-b border-slate-100 last:border-0 align-top">
+              <tr key={d.id} className="border-b border-stone-100 last:border-0 align-top">
                 <td className="px-4 py-3">
-                  <p className="font-medium text-slate-900">{d.issue_type}</p>
+                  <p className="font-medium text-stone-900">{d.issue_type}</p>
                   {canSeeLawyerNotes && d.lawyer_notes && (
-                    <p className="mt-0.5 text-xs italic text-slate-400">⚖ {d.lawyer_notes}</p>
+                    <p className="mt-0.5 text-xs italic text-stone-400">⚖ {d.lawyer_notes}</p>
                   )}
                 </td>
-                <td className="px-4 py-3 text-slate-500">{d.case_ref ?? "—"}</td>
+                <td className="px-4 py-3 text-stone-500">{d.case_ref ?? "—"}</td>
                 <td className="px-4 py-3">
                   <StatusPill status={d.status} />
                 </td>

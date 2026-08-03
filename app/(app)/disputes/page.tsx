@@ -21,6 +21,7 @@ export default async function DisputesPage() {
   return (
     <>
       <PageHeader
+        backHref="/dashboard"
         title="Disputes"
         subtitle="Case log per unit, with the historical reference library"
         badge={<Badge tone="green">Live</Badge>}
@@ -33,7 +34,7 @@ export default async function DisputesPage() {
         canSeeLawyerNotes={canSeeLawyerNotes}
       />
       {!canWrite && (
-        <p className="mt-4 text-xs text-slate-400">You have view-only access to disputes.</p>
+        <p className="mt-4 text-xs text-stone-400">You have view-only access to disputes.</p>
       )}
     </>
   );

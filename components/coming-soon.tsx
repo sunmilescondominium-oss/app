@@ -69,12 +69,12 @@ export function ComingSoon({
           )}
         </div>
 
-        <h2 className="mt-5 text-sm font-semibold uppercase tracking-wide text-slate-500">
+        <h2 className="mt-5 text-sm font-semibold uppercase tracking-wide text-stone-500">
           What&apos;s coming
         </h2>
         <ul className="mt-3 space-y-2">
           {(PLANNED[moduleKey] ?? []).map((item) => (
-            <li key={item} className="flex gap-2 text-sm text-slate-700">
+            <li key={item} className="flex gap-2 text-sm text-stone-700">
               <span
                 aria-hidden
                 className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500"
@@ -84,7 +84,7 @@ export function ComingSoon({
           ))}
         </ul>
 
-        <p className="mt-6 rounded-lg bg-slate-50 px-4 py-3 text-xs text-slate-500">
+        <p className="mt-6 rounded-lg bg-stone-50 px-4 py-3 text-xs text-stone-500">
           Foundation is live — this screen is gated to the correct role(s) and is
           ready to be built out in milestone {m.milestone}.
         </p>

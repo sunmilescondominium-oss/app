@@ -16,12 +16,13 @@ export default async function RepairsPage() {
   return (
     <>
       <PageHeader
+        backHref="/dashboard"
         title="Repair Requests"
         subtitle="Tenant & guest tickets — triage, assign, and track to completion"
         badge={<Badge tone={open > 0 ? "amber" : "green"}>{open} open</Badge>}
       />
       <RepairsBoard requests={requests} canWrite={canWrite} />
-      <p className="mt-4 text-xs text-slate-400">
+      <p className="mt-4 text-xs text-stone-400">
         Public submissions come in via /repair-request and are auto-assigned to
         operations for triage.
       </p>

@@ -33,6 +33,7 @@ export default async function HotelPage() {
   return (
     <>
       <PageHeader
+        backHref="/dashboard"
         title="Hotel Ops"
         subtitle="Room board — check-in, live timers, orders, folio & receipts"
         badge={<Badge tone="amber">{occupied}/{board.length} occupied</Badge>}
@@ -45,7 +46,7 @@ export default async function HotelPage() {
       </div>
 
       {board.length === 0 ? (
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-500">
+        <div className="rounded-2xl border border-stone-200 bg-white p-6 text-sm text-stone-500">
           No hotel rooms yet. Add rooms in Inventory with business line = Hotel.
         </div>
       ) : (

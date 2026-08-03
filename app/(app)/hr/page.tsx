@@ -35,30 +35,31 @@ export default async function HrPage({
   ]);
 
   const inputCls =
-    "rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
+    "rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
 
   return (
     <>
       <div className="no-print mb-4 flex items-center justify-between gap-3">
-        <PageHeader title="HR / Payroll" subtitle={`DTR & payroll (PH daily-rate) · ${from} to ${to}`} />
+        <PageHeader
+        backHref="/dashboard" title="HR / Payroll" subtitle={`DTR & payroll (PH daily-rate) · ${from} to ${to}`} />
         <PrintButton label="Print payroll" />
       </div>
 
-      <div className="mb-4 hidden border-b border-slate-300 pb-3 print:block">
+      <div className="mb-4 hidden border-b border-stone-300 pb-3 print:block">
         <p className="text-lg font-bold">{APP_BRAND_SHORT}</p>
         <p className="text-sm">Payroll Summary — {from} to {to}</p>
       </div>
 
-      <form method="get" className="no-print mb-4 flex flex-wrap items-end gap-3 rounded-2xl border border-slate-200 bg-white p-4">
+      <form method="get" className="no-print mb-4 flex flex-wrap items-end gap-3 rounded-2xl border border-stone-200 bg-white p-4">
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-600">From</label>
+          <label className="mb-1 block text-xs font-medium text-stone-600">From</label>
           <input type="date" name="from" defaultValue={from} className={inputCls} />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-600">To</label>
+          <label className="mb-1 block text-xs font-medium text-stone-600">To</label>
           <input type="date" name="to" defaultValue={to} className={inputCls} />
         </div>
-        <button type="submit" className="rounded-lg bg-slate-800 px-4 py-2 text-sm font-medium text-white hover:bg-slate-900">
+        <button type="submit" className="rounded-lg bg-stone-800 px-4 py-2 text-sm font-medium text-white hover:bg-stone-900">
           Apply
         </button>
       </form>
@@ -69,10 +70,10 @@ export default async function HrPage({
         </div>
       )}
 
-      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Payroll summary</h2>
-      <div className="mb-6 overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-stone-500">Payroll summary</h2>
+      <div className="mb-6 overflow-x-auto rounded-2xl border border-stone-200 bg-white">
         <table className="w-full min-w-[900px] text-left text-sm">
-          <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+          <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
             <tr>
               <th className="px-3 py-3">Staff</th>
               <th className="px-3 py-3 text-right">Daily</th>
@@ -92,11 +93,11 @@ export default async function HrPage({
           <tbody>
             {report.rows.length === 0 && (
               <tr>
-                <td colSpan={13} className="px-4 py-8 text-center text-slate-500">No completed time records in this range.</td>
+                <td colSpan={13} className="px-4 py-8 text-center text-stone-500">No completed time records in this range.</td>
               </tr>
             )}
             {report.rows.map((r) => (
-              <tr key={r.userId} className="border-b border-slate-100 last:border-0">
+              <tr key={r.userId} className="border-b border-stone-100 last:border-0">
                 <td className="px-3 py-2.5">
                   <Link href={`/hr/${r.userId}?from=${from}&to=${to}`} className="font-medium text-amber-700 hover:underline">
                     {r.label}
@@ -118,7 +119,7 @@ export default async function HrPage({
             ))}
           </tbody>
           <tfoot>
-            <tr className="border-t border-slate-200 font-semibold">
+            <tr className="border-t border-stone-200 font-semibold">
               <td className="px-3 py-3" colSpan={8}>Total</td>
               <td className="px-3 py-3 text-right tabular-nums">{peso(report.basicTotal)}</td>
               <td className="px-3 py-3 text-right tabular-nums">{peso(report.otTotal)}</td>
@@ -129,15 +130,15 @@ export default async function HrPage({
           </tfoot>
         </table>
       </div>
-      <p className="mb-6 text-xs text-slate-400">
+      <p className="mb-6 text-xs text-stone-400">
         Hourly = daily ÷ {settings.standard_hours}. OT = hourly × {settings.ot_multiplier}. Night diff = {Math.round(settings.night_diff_rate * 100)}% ({settings.night_start.slice(0, 5)}–{settings.night_end.slice(0, 5)}). Undertime is not offset by OT (Art. 88). Click a name for the daily DTR.
       </p>
 
       {canWrite && (
         <>
-          <h2 className="no-print mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Daily rates</h2>
+          <h2 className="no-print mb-2 text-sm font-semibold uppercase tracking-wide text-stone-500">Daily rates</h2>
           <PayPanel rows={payList} />
-          <p className="no-print mt-2 text-xs text-slate-400">Confirm final payroll figures with accounting.</p>
+          <p className="no-print mt-2 text-xs text-stone-400">Confirm final payroll figures with accounting.</p>
         </>
       )}
     </>

@@ -68,15 +68,15 @@ export function CollectionsPanel({
         <button
           type="button"
           onClick={() => window.print()}
-          className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+          className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100"
         >
           Print report
         </button>
       </div>
 
-      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+      <div className="overflow-x-auto rounded-2xl border border-stone-200 bg-white">
         <table className="w-full min-w-[760px] text-left text-sm">
-          <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+          <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
             <tr>
               <th className="px-4 py-3">OR #</th>
               <th className="px-4 py-3">Category</th>
@@ -90,14 +90,14 @@ export function CollectionsPanel({
           <tbody>
             {collections.length === 0 && (
               <tr>
-                <td colSpan={canWrite ? 7 : 6} className="px-4 py-10 text-center text-slate-500">
+                <td colSpan={canWrite ? 7 : 6} className="px-4 py-10 text-center text-stone-500">
                   No collections recorded for {date}.
                 </td>
               </tr>
             )}
             {collections.map((c) => (
-              <tr key={c.id} className="border-b border-slate-100 last:border-0">
-                <td className="px-4 py-3 font-medium text-slate-900">{c.or_number ?? "—"}</td>
+              <tr key={c.id} className="border-b border-stone-100 last:border-0">
+                <td className="px-4 py-3 font-medium text-stone-900">{c.or_number ?? "—"}</td>
                 <td className="px-4 py-3">{CAT_LABEL[c.business_line] ?? c.business_line}</td>
                 <td className="px-4 py-3">{c.unit?.unit_number ?? "—"}</td>
                 <td className="px-4 py-3">{PAY_LABEL[c.payment_type] ?? c.payment_type}</td>
@@ -106,7 +106,7 @@ export function CollectionsPanel({
                 {canWrite && (
                   <td className="no-print px-4 py-3 text-right">
                     {c.transmittal_id ? (
-                      <span className="text-[10px] font-semibold uppercase text-slate-400">
+                      <span className="text-[10px] font-semibold uppercase text-stone-400">
                         transmitted
                       </span>
                     ) : (

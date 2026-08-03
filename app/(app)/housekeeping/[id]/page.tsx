@@ -64,18 +64,18 @@ export default async function TaskDetailPage({
         </div>
 
         <div>
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Activity log</h2>
-          <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-stone-500">Activity log</h2>
+          <div className="rounded-2xl border border-stone-200 bg-white p-4">
             {events.length === 0 ? (
-              <p className="text-sm text-slate-400">No activity yet.</p>
+              <p className="text-sm text-stone-400">No activity yet.</p>
             ) : (
               <ul className="space-y-3">
                 {events.map((e) => (
                   <li key={e.id} className="flex items-start gap-3 text-sm">
                     <span aria-hidden className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
                     <span>
-                      <span className="text-slate-800">{eventText(e.event_type, e.detail)}</span>
-                      <span className="mt-0.5 block text-xs text-slate-400">
+                      <span className="text-stone-800">{eventText(e.event_type, e.detail)}</span>
+                      <span className="mt-0.5 block text-xs text-stone-400">
                         {e.actor_role ? `${e.actor_role.replace(/_/g, " ")} · ` : ""}
                         {new Date(e.at).toLocaleString()}
                       </span>

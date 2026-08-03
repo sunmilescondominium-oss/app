@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import { lookupRenter, type RenterState } from "@/app/(public)/renter-portal/actions";
 
 const peso = (n: number) => `₱${n.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-const inputCls = "w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-slate-900 outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
+const inputCls = "w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-stone-900 outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
 
 export function RenterLookup() {
   const [state, action, pending] = useActionState<RenterState, FormData>(lookupRenter, undefined);
@@ -23,33 +23,33 @@ export function RenterLookup() {
 
       {state?.ok && (
         <div className="mt-5">
-          <div className="rounded-xl bg-slate-50 p-4">
-            <p className="font-semibold text-slate-800">{state.data.tenant}</p>
-            <p className="text-sm text-slate-500">Unit {state.data.unit_number} · {state.data.business_line}</p>
-            <p className="mt-1 text-sm text-slate-600">Rent: {peso(state.data.rent)}/{state.data.billing_cycle === "nightly" ? "night" : "mo"}</p>
+          <div className="rounded-xl bg-stone-50 p-4">
+            <p className="font-semibold text-stone-800">{state.data.tenant}</p>
+            <p className="text-sm text-stone-500">Unit {state.data.unit_number} · {state.data.business_line}</p>
+            <p className="mt-1 text-sm text-stone-600">Rent: {peso(state.data.rent)}/{state.data.billing_cycle === "nightly" ? "night" : "mo"}</p>
             <p className="mt-2 text-lg font-bold text-rose-700">Total due: {peso(state.data.totalDue)}</p>
           </div>
 
           <table className="mt-4 w-full text-left text-sm">
-            <thead className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
+            <thead className="border-b border-stone-200 text-xs uppercase tracking-wide text-stone-500">
               <tr><th className="py-2">Item</th><th className="py-2">Due</th><th className="py-2 text-right">Amount</th><th className="py-2">Status</th></tr>
             </thead>
             <tbody>
-              {state.data.dues.length === 0 && <tr><td colSpan={4} className="py-3 text-center text-slate-400">No charges yet.</td></tr>}
+              {state.data.dues.length === 0 && <tr><td colSpan={4} className="py-3 text-center text-stone-400">No charges yet.</td></tr>}
               {state.data.dues.map((d, i) => (
-                <tr key={i} className="border-b border-slate-100">
-                  <td className="py-2">{d.category}{d.remarks ? <span className="block text-[11px] text-slate-400">{d.remarks}</span> : null}</td>
-                  <td className="py-2 text-slate-500">{d.due_date}</td>
+                <tr key={i} className="border-b border-stone-100">
+                  <td className="py-2">{d.category}{d.remarks ? <span className="block text-[11px] text-stone-400">{d.remarks}</span> : null}</td>
+                  <td className="py-2 text-stone-500">{d.due_date}</td>
                   <td className="py-2 text-right tabular-nums">{peso(d.amount)}</td>
                   <td className="py-2">
                     <span className={d.status === "paid" ? "text-emerald-600" : "text-amber-700"}>{d.status}</span>
-                    {d.ar_no && <span className="block text-[11px] text-slate-400">{d.ar_no}</span>}
+                    {d.ar_no && <span className="block text-[11px] text-stone-400">{d.ar_no}</span>}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-          <p className="mt-3 text-xs text-slate-400">Paid items show their acknowledgement receipt number. Contact the office for any discrepancy.</p>
+          <p className="mt-3 text-xs text-stone-400">Paid items show their acknowledgement receipt number. Contact the office for any discrepancy.</p>
         </div>
       )}
     </div>

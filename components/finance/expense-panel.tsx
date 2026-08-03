@@ -9,7 +9,7 @@ import type { Expense } from "@/lib/finance/types";
 
 const LINE = Object.fromEntries(COLLECTION_CATEGORIES.map((c) => [c.key, c.label]));
 const inputCls =
-  "rounded-lg border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
+  "rounded-lg border border-stone-300 px-2 py-1.5 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
 
 export function ExpensePanel({ expenses, canWrite }: { expenses: Expense[]; canWrite: boolean }) {
   const router = useRouter();
@@ -31,7 +31,7 @@ export function ExpensePanel({ expenses, canWrite }: { expenses: Expense[]; canW
   return (
     <div>
       {canWrite && (
-        <form action={action} className="no-print mb-3 flex flex-wrap items-end gap-2 rounded-2xl border border-slate-200 bg-white p-4">
+        <form action={action} className="no-print mb-3 flex flex-wrap items-end gap-2 rounded-2xl border border-stone-200 bg-white p-4">
           <select name="business_line" defaultValue="hotel" className={inputCls}>
             {COLLECTION_CATEGORIES.map((c) => (
               <option key={c.key} value={c.key}>
@@ -57,9 +57,9 @@ export function ExpensePanel({ expenses, canWrite }: { expenses: Expense[]; canW
         </form>
       )}
 
-      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+      <div className="overflow-x-auto rounded-2xl border border-stone-200 bg-white">
         <table className="w-full min-w-[640px] text-left text-sm">
-          <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+          <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
             <tr>
               <th className="px-4 py-3">Date</th>
               <th className="px-4 py-3">Line</th>
@@ -72,17 +72,17 @@ export function ExpensePanel({ expenses, canWrite }: { expenses: Expense[]; canW
           <tbody>
             {expenses.length === 0 && (
               <tr>
-                <td colSpan={canWrite ? 6 : 5} className="px-4 py-8 text-center text-slate-500">
+                <td colSpan={canWrite ? 6 : 5} className="px-4 py-8 text-center text-stone-500">
                   No expenses in this range.
                 </td>
               </tr>
             )}
             {expenses.map((e) => (
-              <tr key={e.id} className="border-b border-slate-100 last:border-0">
+              <tr key={e.id} className="border-b border-stone-100 last:border-0">
                 <td className="px-4 py-2.5">{e.expense_date}</td>
                 <td className="px-4 py-2.5">{LINE[e.business_line] ?? e.business_line}</td>
                 <td className="px-4 py-2.5">{e.category}</td>
-                <td className="px-4 py-2.5 text-slate-500">{e.vendor ?? "—"}</td>
+                <td className="px-4 py-2.5 text-stone-500">{e.vendor ?? "—"}</td>
                 <td className="px-4 py-2.5 text-right tabular-nums">{peso(e.amount)}</td>
                 {canWrite && (
                   <td className="no-print px-4 py-2.5 text-right">

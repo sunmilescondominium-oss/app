@@ -12,7 +12,7 @@ import {
   type ActionResult,
 } from "@/app/(app)/advances/actions";
 
-const cls = "rounded-lg border border-slate-300 px-2.5 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
+const cls = "rounded-lg border border-stone-300 px-2.5 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
 
 export function RequestAdvanceForm() {
   const router = useRouter();
@@ -21,7 +21,7 @@ export function RequestAdvanceForm() {
     if (state?.ok) router.refresh();
   }, [state, router]);
   return (
-    <form action={action} className="flex flex-wrap items-end gap-2 rounded-2xl border border-slate-200 bg-white p-4">
+    <form action={action} className="flex flex-wrap items-end gap-2 rounded-2xl border border-stone-200 bg-white p-4">
       <input name="amount" type="number" step="0.01" min="0" placeholder="Amount ₱" required className={`${cls} w-28`} />
       <input name="purpose" placeholder="Purpose" required className={`${cls} min-w-[12rem] flex-1`} />
       <input name="needed_by" type="date" className={cls} title="Needed by" />
@@ -63,7 +63,7 @@ export function AdvanceRowActions({
   return (
     <div className="flex justify-end gap-2 text-xs font-medium">
       {isOwner && status === "pending" && (
-        <button type="button" disabled={busy} onClick={() => run(() => cancelAdvance(id))} className="text-slate-500 hover:underline">cancel</button>
+        <button type="button" disabled={busy} onClick={() => run(() => cancelAdvance(id))} className="text-stone-500 hover:underline">cancel</button>
       )}
       {canApprove && status === "pending" && (
         <>
@@ -108,7 +108,7 @@ export function CloseLiquidation({ advanceId }: { advanceId: string }) {
       type="button"
       disabled={busy}
       onClick={() => { if (window.confirm("Close liquidation? This finalizes the advance.")) run(() => closeLiquidation(advanceId)); }}
-      className="rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-900 disabled:opacity-60"
+      className="rounded-lg bg-stone-800 px-4 py-2 text-sm font-semibold text-white hover:bg-stone-900 disabled:opacity-60"
     >
       Close liquidation
     </button>

@@ -25,14 +25,15 @@ export default async function HousekeepingPage() {
   return (
     <>
       <PageHeader
+        backHref="/dashboard"
         title="Housekeeping"
         subtitle="Room cleaning, turnover & supplies"
         badge={<Badge tone={toClean > 0 ? "amber" : "green"}>{toClean} to clean</Badge>}
       />
 
-      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+      <div className="overflow-x-auto rounded-2xl border border-stone-200 bg-white">
         <table className="w-full min-w-[680px] text-left text-sm">
-          <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+          <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
             <tr>
               <th className="px-4 py-3">Room</th>
               <th className="px-4 py-3">Status</th>
@@ -44,14 +45,14 @@ export default async function HousekeepingPage() {
           <tbody>
             {tasks.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-10 text-center text-slate-500">
+                <td colSpan={5} className="px-4 py-10 text-center text-stone-500">
                   No housekeeping tasks. They appear automatically when a guest checks out.
                 </td>
               </tr>
             )}
             {tasks.map((t) => (
-              <tr key={t.id} className="border-b border-slate-100 last:border-0">
-                <td className="px-4 py-3 font-medium text-slate-900">
+              <tr key={t.id} className="border-b border-stone-100 last:border-0">
+                <td className="px-4 py-3 font-medium text-stone-900">
                   <Link href={`/housekeeping/${t.id}`} className="text-amber-700 hover:underline">
                     {t.unit_number ?? "—"}
                   </Link>
@@ -63,7 +64,7 @@ export default async function HousekeepingPage() {
                 </td>
                 <td className="px-4 py-3 capitalize">{t.shift ?? "—"}</td>
                 <td className="px-4 py-3">{t.assigned_to_role ? t.assigned_to_role.replace(/_/g, " ") : "—"}</td>
-                <td className="px-4 py-3 text-slate-500">{new Date(t.created_at).toLocaleString()}</td>
+                <td className="px-4 py-3 text-stone-500">{new Date(t.created_at).toLocaleString()}</td>
               </tr>
             ))}
           </tbody>

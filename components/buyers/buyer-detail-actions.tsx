@@ -63,23 +63,23 @@ export function BuyerDetailActions({
         type="button"
         onClick={regen}
         disabled={busy}
-        className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50"
+        className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100 disabled:opacity-50"
       >
         {busy ? "Recomputing…" : "Regenerate SOA"}
       </button>
       <button
         type="button"
         onClick={() => setModal("edit")}
-        className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+        className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100"
       >
         Edit buyer
       </button>
-      <label className="ml-1 flex items-center gap-1 text-xs text-slate-500">
+      <label className="ml-1 flex items-center gap-1 text-xs text-stone-500">
         Status
         <select
           defaultValue={buyer.payment_status}
           onChange={changeStatus}
-          className="rounded-lg border border-slate-300 px-2 py-1 text-sm outline-none focus:border-amber-500"
+          className="rounded-lg border border-stone-300 px-2 py-1 text-sm outline-none focus:border-amber-500"
         >
           {BUYER_STATUSES.map((s) => (
             <option key={s.key} value={s.key}>

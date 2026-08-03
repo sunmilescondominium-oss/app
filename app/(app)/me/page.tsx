@@ -15,7 +15,7 @@ const STATUS_TONE: Record<string, string> = {
   pending: "bg-amber-100 text-amber-800",
   approved: "bg-emerald-100 text-emerald-700",
   rejected: "bg-rose-100 text-rose-700",
-  cancelled: "bg-slate-100 text-slate-500",
+  cancelled: "bg-stone-100 text-stone-500",
 };
 
 function t(iso: string | null): string {
@@ -40,32 +40,33 @@ export default async function MyPortalPage() {
 
   return (
     <>
-      <PageHeader title="My Portal" subtitle="Your attendance, leave, and staff details." />
+      <PageHeader
+        backHref="/dashboard" title="My Portal" subtitle="Your attendance, leave, and staff details." />
 
       {/* Profile */}
-      <div className="mt-4 flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-5">
+      <div className="mt-4 flex items-center gap-4 rounded-2xl border border-stone-200 bg-white p-5">
         <Avatar id={user.userId} label={user.displayLabel} photoPath={photoPath} size={64} />
         <div>
-          <p className="text-lg font-semibold text-slate-800">{user.displayLabel}</p>
+          <p className="text-lg font-semibold text-stone-800">{user.displayLabel}</p>
           <div className="mt-1 flex flex-wrap gap-1">
             {user.allRoleKeys.map((r) => (
-              <span key={r} className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] capitalize text-slate-600">
+              <span key={r} className="rounded-full bg-stone-100 px-2 py-0.5 text-[11px] capitalize text-stone-600">
                 {roleLabel(r)}
               </span>
             ))}
           </div>
-          <p className="mt-1 text-xs text-slate-400">A photo can be added by HR/admin from the Employees page.</p>
+          <p className="mt-1 text-xs text-stone-400">A photo can be added by HR/admin from the Employees page.</p>
         </div>
       </div>
 
       {/* Payslip (this month) */}
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-5">
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-stone-200 bg-white p-5">
         <div>
-          <p className="text-sm text-slate-500">My pay this month (est.)</p>
+          <p className="text-sm text-stone-500">My pay this month (est.)</p>
           <p className="mt-1 text-2xl font-bold tabular-nums text-emerald-700">{peso(payslip.net)}</p>
-          <p className="mt-0.5 text-xs text-slate-400">Basic {peso(payslip.basic)} · OT {peso(payslip.ot)} · Deductions ({peso(payslip.deductions)})</p>
+          <p className="mt-0.5 text-xs text-stone-400">Basic {peso(payslip.basic)} · OT {peso(payslip.ot)} · Deductions ({peso(payslip.deductions)})</p>
         </div>
-        <Link href="/me/payslip" className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+        <Link href="/me/payslip" className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50">
           View / print payslip →
         </Link>
       </div>
@@ -74,15 +75,15 @@ export default async function MyPortalPage() {
         {/* Attendance */}
         <section>
           <div className="mb-2 flex items-center justify-between">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">My attendance</h2>
-            <span className="text-xs text-slate-400">Clock in / out at the attendance kiosk</span>
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-stone-500">My attendance</h2>
+            <span className="text-xs text-stone-400">Clock in / out at the attendance kiosk</span>
           </div>
-          <div className="rounded-2xl border border-slate-200 bg-white p-4">
-            <p className="mb-3 text-sm text-slate-600">
-              This month: <span className="font-semibold tabular-nums text-slate-800">{monthHours.toFixed(2)} h</span>
+          <div className="rounded-2xl border border-stone-200 bg-white p-4">
+            <p className="mb-3 text-sm text-stone-600">
+              This month: <span className="font-semibold tabular-nums text-stone-800">{monthHours.toFixed(2)} h</span>
             </p>
             <table className="w-full text-left text-sm">
-              <thead className="text-xs uppercase tracking-wide text-slate-400">
+              <thead className="text-xs uppercase tracking-wide text-stone-400">
                 <tr>
                   <th className="py-1">Date</th>
                   <th className="py-1">In</th>
@@ -92,10 +93,10 @@ export default async function MyPortalPage() {
               </thead>
               <tbody>
                 {records.length === 0 && (
-                  <tr><td colSpan={4} className="py-3 text-center text-slate-400">No records yet.</td></tr>
+                  <tr><td colSpan={4} className="py-3 text-center text-stone-400">No records yet.</td></tr>
                 )}
                 {records.map((r) => (
-                  <tr key={r.id} className="border-t border-slate-100">
+                  <tr key={r.id} className="border-t border-stone-100">
                     <td className="py-1.5">{r.work_date}</td>
                     <td className="py-1.5">{t(r.time_in)}</td>
                     <td className="py-1.5">{r.time_out ? t(r.time_out) : <span className="text-emerald-600">open</span>}</td>
@@ -109,15 +110,15 @@ export default async function MyPortalPage() {
 
         {/* Leave */}
         <section>
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Requests</h2>
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-stone-500">Requests</h2>
           <div className="space-y-2">
             <LeaveForm />
             <ObForm />
             <RequestForm />
           </div>
-          <div className="mt-3 rounded-2xl border border-slate-200 bg-white">
+          <div className="mt-3 rounded-2xl border border-stone-200 bg-white">
             <table className="w-full text-left text-sm">
-              <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+              <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
                 <tr>
                   <th className="px-4 py-2.5">Type</th>
                   <th className="px-4 py-2.5">Dates</th>
@@ -127,19 +128,19 @@ export default async function MyPortalPage() {
               </thead>
               <tbody>
                 {leave.length === 0 && (
-                  <tr><td colSpan={4} className="px-4 py-6 text-center text-slate-400">No leave requests yet.</td></tr>
+                  <tr><td colSpan={4} className="px-4 py-6 text-center text-stone-400">No leave requests yet.</td></tr>
                 )}
                 {leave.map((l) => (
-                  <tr key={l.id} className="border-b border-slate-100 last:border-0">
+                  <tr key={l.id} className="border-b border-stone-100 last:border-0">
                     <td className="px-4 py-2.5">{l.leave_type}</td>
-                    <td className="px-4 py-2.5 text-slate-500">
+                    <td className="px-4 py-2.5 text-stone-500">
                       {l.hours != null ? `${l.start_date} · ${l.hours}h` : `${l.start_date} → ${l.end_date} (${l.days}d)`}
                     </td>
                     <td className="px-4 py-2.5">
-                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium capitalize ${STATUS_TONE[l.status] ?? "bg-slate-100 text-slate-500"}`}>
+                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium capitalize ${STATUS_TONE[l.status] ?? "bg-stone-100 text-stone-500"}`}>
                         {LEAVE_STATUSES.find((s) => s.key === l.status)?.label ?? l.status}
                       </span>
-                      {l.decision_note && <span className="ml-1 text-[11px] text-slate-400">· {l.decision_note}</span>}
+                      {l.decision_note && <span className="ml-1 text-[11px] text-stone-400">· {l.decision_note}</span>}
                     </td>
                     <td className="px-4 py-2.5 text-right">{l.status === "pending" && <CancelLeave id={l.id} />}</td>
                   </tr>

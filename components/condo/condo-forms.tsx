@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { setCondoDefaults, setPropertyRate, setUnitRateOverride, generateMonthlyDues } from "@/app/(app)/condo/actions";
 
-const cls = "rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
+const cls = "rounded-lg border border-stone-300 px-2.5 py-1.5 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
 
 export function CondoSettingsForm({ defaultRate, bankAccount, dueDay }: { defaultRate: number; bankAccount: string | null; dueDay: number }) {
   const router = useRouter();
@@ -20,17 +20,17 @@ export function CondoSettingsForm({ defaultRate, bankAccount, dueDay }: { defaul
     router.refresh();
   }
   return (
-    <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-slate-200 bg-white p-4">
+    <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-stone-200 bg-white p-4">
       <div>
-        <label className="mb-1 block text-xs font-medium text-slate-600">Default dues rate (₱/sqm)</label>
+        <label className="mb-1 block text-xs font-medium text-stone-600">Default dues rate (₱/sqm)</label>
         <input type="number" step="0.01" min="0" value={rate} onChange={(e) => setRate(Number(e.target.value))} className={`${cls} w-28`} />
       </div>
       <div className="min-w-[14rem] flex-1">
-        <label className="mb-1 block text-xs font-medium text-slate-600">Common-area bank account</label>
+        <label className="mb-1 block text-xs font-medium text-stone-600">Common-area bank account</label>
         <input value={bank} onChange={(e) => setBank(e.target.value)} placeholder="Bank / account no. for condo fund" className={`${cls} w-full`} />
       </div>
       <div>
-        <label className="mb-1 block text-xs font-medium text-slate-600">Due day</label>
+        <label className="mb-1 block text-xs font-medium text-stone-600">Due day</label>
         <input type="number" min="1" max="28" value={day} onChange={(e) => setDay(Number(e.target.value))} className={`${cls} w-16`} />
       </div>
       <button type="button" onClick={save} disabled={busy} className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-60">
@@ -42,10 +42,10 @@ export function CondoSettingsForm({ defaultRate, bankAccount, dueDay }: { defaul
 
 export function PropertyRates({ properties }: { properties: { id: string; name: string; rate: number }[] }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4">
-      <p className="mb-2 text-sm font-semibold text-slate-700">Rate per property (₱/sqm)</p>
+    <div className="rounded-2xl border border-stone-200 bg-white p-4">
+      <p className="mb-2 text-sm font-semibold text-stone-700">Rate per property (₱/sqm)</p>
       <div className="space-y-2">{properties.map((p) => <PropertyRateRow key={p.id} p={p} />)}</div>
-      <p className="mt-2 text-[11px] text-slate-400">Blank / 0 falls back to the default rate; a per-unit override wins over both.</p>
+      <p className="mt-2 text-[11px] text-stone-400">Blank / 0 falls back to the default rate; a per-unit override wins over both.</p>
     </div>
   );
 }
@@ -63,7 +63,7 @@ function PropertyRateRow({ p }: { p: { id: string; name: string; rate: number } 
   }
   return (
     <div className="flex items-center gap-2 text-sm">
-      <span className="min-w-[10rem] flex-1 text-slate-700">{p.name}</span>
+      <span className="min-w-[10rem] flex-1 text-stone-700">{p.name}</span>
       <input type="number" step="0.01" min="0" value={rate} onChange={(e) => setRate(Number(e.target.value))} className={`${cls} w-24`} />
       <button type="button" onClick={save} disabled={busy || rate === p.rate} className="rounded-lg bg-amber-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-50">Save</button>
     </div>
@@ -83,15 +83,15 @@ export function GenerateDues({ month }: { month: string }) {
     router.refresh();
   }
   return (
-    <div className="flex flex-wrap items-end gap-2 rounded-2xl border border-slate-200 bg-white p-4">
+    <div className="flex flex-wrap items-end gap-2 rounded-2xl border border-stone-200 bg-white p-4">
       <div>
-        <label className="mb-1 block text-xs font-medium text-slate-600">Generate dues for month</label>
+        <label className="mb-1 block text-xs font-medium text-stone-600">Generate dues for month</label>
         <input type="month" value={m} onChange={(e) => setM(e.target.value)} className={cls} />
       </div>
-      <button type="button" onClick={gen} disabled={busy} className="rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-900 disabled:opacity-60">
+      <button type="button" onClick={gen} disabled={busy} className="rounded-lg bg-stone-800 px-4 py-2 text-sm font-semibold text-white hover:bg-stone-900 disabled:opacity-60">
         {busy ? "Generating…" : "Generate association dues"}
       </button>
-      <span className="pb-2 text-xs text-slate-400">Area × rate per unit; skips units already billed for the month.</span>
+      <span className="pb-2 text-xs text-stone-400">Area × rate per unit; skips units already billed for the month.</span>
     </div>
   );
 }

@@ -41,7 +41,7 @@ export function BuyersToolbar({
         <button
           type="button"
           onClick={() => setModal("params")}
-          className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+          className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100"
         >
           Computation settings
         </button>

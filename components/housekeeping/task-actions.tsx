@@ -13,7 +13,7 @@ import { HOUSEKEEPING_SHIFTS } from "@/lib/config";
 import type { TaskDetail, HKChecklistItem } from "@/lib/housekeeping/types";
 
 const inputCls =
-  "rounded-lg border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
+  "rounded-lg border border-stone-300 px-2 py-1.5 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
 
 export function TaskActions({ detail, canWrite }: { detail: TaskDetail; canWrite: boolean }) {
   const router = useRouter();
@@ -72,9 +72,9 @@ export function TaskActions({ detail, canWrite }: { detail: TaskDetail; canWrite
   return (
     <div className="space-y-5">
       {task.status === "pending" && (
-        <div className="flex flex-wrap items-end gap-2 rounded-2xl border border-slate-200 bg-white p-4">
+        <div className="flex flex-wrap items-end gap-2 rounded-2xl border border-stone-200 bg-white p-4">
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600">Shift</label>
+            <label className="mb-1 block text-xs font-medium text-stone-600">Shift</label>
             <select value={shift} onChange={(e) => setShift(e.target.value)} className={inputCls}>
               {HOUSEKEEPING_SHIFTS.map((s) => (
                 <option key={s.key} value={s.key}>
@@ -91,12 +91,12 @@ export function TaskActions({ detail, canWrite }: { detail: TaskDetail; canWrite
 
       {task.status === "in_progress" && (
         <>
-          <div className="rounded-2xl border border-slate-200 bg-white p-4">
-            <p className="mb-2 text-sm font-semibold text-slate-700">Cleaning checklist</p>
+          <div className="rounded-2xl border border-stone-200 bg-white p-4">
+            <p className="mb-2 text-sm font-semibold text-stone-700">Cleaning checklist</p>
             <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
               {checklist.map((i) => (
                 <label key={i.key} className="flex items-center gap-2 text-sm">
-                  <input type="checkbox" checked={i.done} onChange={() => toggle(i.key)} className="h-4 w-4 rounded border-slate-300" />
+                  <input type="checkbox" checked={i.done} onChange={() => toggle(i.key)} className="h-4 w-4 rounded border-stone-300" />
                   {i.label}
                 </label>
               ))}
@@ -107,8 +107,8 @@ export function TaskActions({ detail, canWrite }: { detail: TaskDetail; canWrite
             </button>
           </div>
 
-          <form action={replAction} className="flex flex-wrap items-end gap-2 rounded-2xl border border-slate-200 bg-white p-4">
-            <p className="w-full text-sm font-semibold text-slate-700">Replace room material</p>
+          <form action={replAction} className="flex flex-wrap items-end gap-2 rounded-2xl border border-stone-200 bg-white p-4">
+            <p className="w-full text-sm font-semibold text-stone-700">Replace room material</p>
             <select name="supply_id" className={inputCls} defaultValue={supplies[0]?.id ?? ""}>
               {supplies.map((s) => (
                 <option key={s.id} value={s.id}>
@@ -117,14 +117,14 @@ export function TaskActions({ detail, canWrite }: { detail: TaskDetail; canWrite
               ))}
             </select>
             <input name="qty" type="number" min={1} defaultValue={1} className={`${inputCls} w-20`} />
-            <button type="submit" disabled={replPending} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-60">
+            <button type="submit" disabled={replPending} className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100 disabled:opacity-60">
               Record & draw from stock
             </button>
             {replState && !replState.ok && <p className="w-full text-sm text-red-700">{replState.error}</p>}
           </form>
 
-          <form action={toAction} className="flex flex-wrap items-end gap-2 rounded-2xl border border-slate-200 bg-white p-4">
-            <p className="w-full text-sm font-semibold text-slate-700">Turn over to next shift</p>
+          <form action={toAction} className="flex flex-wrap items-end gap-2 rounded-2xl border border-stone-200 bg-white p-4">
+            <p className="w-full text-sm font-semibold text-stone-700">Turn over to next shift</p>
             <select name="to_shift" className={inputCls} defaultValue="afternoon">
               {HOUSEKEEPING_SHIFTS.map((s) => (
                 <option key={s.key} value={s.key}>
@@ -133,7 +133,7 @@ export function TaskActions({ detail, canWrite }: { detail: TaskDetail; canWrite
               ))}
             </select>
             <input name="note" placeholder="What's left to do…" className={`${inputCls} flex-1`} />
-            <button type="submit" disabled={toPending} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-60">
+            <button type="submit" disabled={toPending} className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100 disabled:opacity-60">
               Hand over
             </button>
             {toState && !toState.ok && <p className="w-full text-sm text-red-700">{toState.error}</p>}

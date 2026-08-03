@@ -49,7 +49,7 @@ export function HotelBoard({
           <button
             type="button"
             onClick={() => setModal({ kind: "config" })}
-            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+            className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100"
           >
             Settings (rates, menu, tax)
           </button>
@@ -77,14 +77,14 @@ export function HotelBoard({
           {isAdmin && (
             <>
               <RatePromoManager ratePlans={ratePlans} promos={promos} onDone={done} />
-              <div className="border-t border-slate-200 pt-6">
+              <div className="border-t border-stone-200 pt-6">
                 <MenuManager menu={menu} onDone={done} />
               </div>
             </>
           )}
           {canManageTax && (
-            <div className="border-t border-slate-200 pt-6">
-              <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Tax</p>
+            <div className="border-t border-stone-200 pt-6">
+              <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-stone-500">Tax</p>
               <TaxSettings global={globalTax} roomTax={roomTax} units={units} onDone={done} />
             </div>
           )}

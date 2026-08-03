@@ -10,7 +10,7 @@ export function LoginForm() {
   return (
     <form action={action} className="mt-8 space-y-5">
       <div className="space-y-1.5">
-        <label htmlFor="email" className="block text-sm font-medium text-slate-700">
+        <label htmlFor="email" className="block text-sm font-medium text-stone-700">
           Email
         </label>
         <input
@@ -19,13 +19,13 @@ export function LoginForm() {
           type="email"
           autoComplete="email"
           required
-          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-slate-900 outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
+          className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-stone-900 outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
           placeholder="you@sunmiles.ph"
         />
       </div>
 
       <div className="space-y-1.5">
-        <label htmlFor="password" className="block text-sm font-medium text-slate-700">
+        <label htmlFor="password" className="block text-sm font-medium text-stone-700">
           Password
         </label>
         <div className="relative">
@@ -35,7 +35,7 @@ export function LoginForm() {
             type={showPassword ? "text" : "password"}
             autoComplete="current-password"
             required
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 pr-16 text-slate-900 outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
+            className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 pr-16 text-stone-900 outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
             placeholder="••••••••"
           />
           <button
@@ -43,7 +43,7 @@ export function LoginForm() {
             onClick={() => setShowPassword((v) => !v)}
             aria-pressed={showPassword}
             aria-label={showPassword ? "Hide password" : "Show password"}
-            className="absolute inset-y-0 right-0 flex items-center px-3 text-xs font-medium text-slate-500 hover:text-slate-700"
+            className="absolute inset-y-0 right-0 flex items-center px-3 text-xs font-medium text-stone-500 hover:text-stone-700"
           >
             {showPassword ? "Hide" : "Show"}
           </button>

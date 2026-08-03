@@ -13,8 +13,8 @@ import { MODULE_LIST } from "@/lib/rbac/modules";
 import type { ManagedUser, RoleOption } from "@/lib/users/types";
 
 const inputCls =
-  "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
-const labelCls = "mb-1 block text-xs font-medium text-slate-600";
+  "w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
+const labelCls = "mb-1 block text-xs font-medium text-stone-600";
 
 /** Which module labels a role can open — shown as a task hint. */
 function accessHint(roleKey: string): string {
@@ -40,14 +40,14 @@ function RoleChecklist({
 
   const renderGroup = (title: string, group: RoleOption[]) => (
     <div>
-      <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">
+      <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-stone-400">
         {title}
       </p>
       <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
         {group.map((r) => (
           <label
             key={r.role_key}
-            className="flex items-start gap-2 rounded-lg border border-slate-200 px-2.5 py-2 text-sm"
+            className="flex items-start gap-2 rounded-lg border border-stone-200 px-2.5 py-2 text-sm"
           >
             <input
               type="checkbox"
@@ -56,11 +56,11 @@ function RoleChecklist({
               checked={controlled ? selected.has(r.role_key) : undefined}
               defaultChecked={controlled ? undefined : selected.has(r.role_key)}
               onChange={controlled ? () => onToggle?.(r.role_key) : undefined}
-              className="mt-0.5 h-4 w-4 rounded border-slate-300"
+              className="mt-0.5 h-4 w-4 rounded border-stone-300"
             />
             <span>
-              <span className="font-medium text-slate-800">{r.label}</span>
-              <span className="mt-0.5 block text-[11px] text-slate-400">
+              <span className="font-medium text-stone-800">{r.label}</span>
+              <span className="mt-0.5 block text-[11px] text-stone-400">
                 {accessHint(r.role_key)}
               </span>
             </span>
@@ -116,7 +116,7 @@ function EditRolesForm({
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-stone-500">
         {user.email} · <span className="font-medium">{user.displayLabel}</span>
       </p>
       {isSelf && (
@@ -133,7 +133,7 @@ function EditRolesForm({
         <button
           type="button"
           onClick={onDone}
-          className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+          className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100"
         >
           Cancel
         </button>
@@ -195,7 +195,7 @@ function AddUserForm({
         <button
           type="button"
           onClick={onDone}
-          className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+          className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100"
         >
           Cancel
         </button>
@@ -261,9 +261,9 @@ export function UsersTable({
         </div>
       )}
 
-      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+      <div className="overflow-x-auto rounded-2xl border border-stone-200 bg-white">
         <table className="w-full min-w-[720px] text-left text-sm">
-          <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+          <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
             <tr>
               <th className="px-4 py-3">Email</th>
               <th className="px-4 py-3">Display label</th>
@@ -276,11 +276,11 @@ export function UsersTable({
             {users.map((u) => (
               <tr
                 key={u.id}
-                className={`border-b border-slate-100 last:border-0 ${
-                  u.isActive ? "" : "bg-slate-50/60 text-slate-400"
+                className={`border-b border-stone-100 last:border-0 ${
+                  u.isActive ? "" : "bg-stone-50/60 text-stone-400"
                 }`}
               >
-                <td className="px-4 py-3 font-medium text-slate-900">
+                <td className="px-4 py-3 font-medium text-stone-900">
                   {u.email}
                   {u.id === currentUserId && (
                     <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-amber-800">
@@ -292,12 +292,12 @@ export function UsersTable({
                 <td className="px-4 py-3">
                   <div className="flex flex-wrap gap-1">
                     {u.roleKeys.length === 0 && (
-                      <span className="text-xs text-slate-400">no roles</span>
+                      <span className="text-xs text-stone-400">no roles</span>
                     )}
                     {u.roleKeys.map((rk) => (
                       <span
                         key={rk}
-                        className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700"
+                        className="rounded-full bg-stone-100 px-2 py-0.5 text-xs font-medium text-stone-700"
                       >
                         {roleLabel.get(rk) ?? rk}
                       </span>
@@ -308,7 +308,7 @@ export function UsersTable({
                   {u.isActive ? (
                     <span className="text-emerald-700">Active</span>
                   ) : (
-                    <span className="text-slate-400">Inactive</span>
+                    <span className="text-stone-400">Inactive</span>
                   )}
                 </td>
                 {canWrite && (
@@ -317,7 +317,7 @@ export function UsersTable({
                       <button
                         type="button"
                         onClick={() => setModal({ kind: "edit", user: u })}
-                        className="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                        className="rounded-md border border-stone-300 px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100"
                       >
                         Edit roles
                       </button>
@@ -326,7 +326,7 @@ export function UsersTable({
                         onClick={() => toggleActive(u)}
                         disabled={pendingId === u.id || u.id === currentUserId}
                         title={u.id === currentUserId ? "You can't deactivate yourself" : undefined}
-                        className="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-40"
+                        className="rounded-md border border-stone-300 px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100 disabled:opacity-40"
                       >
                         {u.isActive ? "Deactivate" : "Reactivate"}
                       </button>

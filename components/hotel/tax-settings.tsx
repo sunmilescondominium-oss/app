@@ -7,7 +7,7 @@ import { TAX_MODES } from "@/lib/config";
 import type { TaxSetting, RoomTaxRow } from "@/lib/hotel/types";
 
 const inputCls =
-  "rounded-lg border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
+  "rounded-lg border border-stone-300 px-2 py-1.5 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
 
 const MODE_LABEL = Object.fromEntries(TAX_MODES.map((m) => [m.key, m.label]));
 function defaultRate(mode: string): number {
@@ -48,13 +48,13 @@ export function TaxSettings({
 
   return (
     <div className="space-y-4">
-      <p className="text-xs text-slate-500">
+      <p className="text-xs text-stone-500">
         Tax applies to <strong>all rooms</strong> by default. Add a <strong>per-room override</strong> where it
         differs. Confirm the regime with accounting.
       </p>
 
-      <div className="rounded-lg border border-slate-200 p-3">
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Apply to all rooms</p>
+      <div className="rounded-lg border border-stone-200 p-3">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">Apply to all rooms</p>
         <div className="flex flex-wrap items-end gap-2">
           <select
             value={gMode}
@@ -89,8 +89,8 @@ export function TaxSettings({
         </div>
       </div>
 
-      <div className="rounded-lg border border-slate-200 p-3">
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Per-room overrides</p>
+      <div className="rounded-lg border border-stone-200 p-3">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">Per-room overrides</p>
         {roomTax.length > 0 && (
           <ul className="mb-2 space-y-1 text-sm">
             {roomTax.map((r) => (
@@ -143,7 +143,7 @@ export function TaxSettings({
             type="button"
             onClick={() => run(() => setRoomTax(ru, rMode, rRate))}
             disabled={busy}
-            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-60"
+            className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm font-medium text-stone-700 hover:bg-stone-100 disabled:opacity-60"
           >
             Set override
           </button>
@@ -151,7 +151,7 @@ export function TaxSettings({
       </div>
 
       <div className="flex justify-end">
-        <button type="button" onClick={onDone} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">
+        <button type="button" onClick={onDone} className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100">
           Close
         </button>
       </div>

@@ -34,11 +34,11 @@ export default async function MyPayslipPage({ searchParams }: { searchParams: Pr
         <PrintButton label="Print payslip" />
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-6">
-        <div className="mb-4 border-b border-slate-300 pb-3">
+      <div className="rounded-2xl border border-stone-200 bg-white p-6">
+        <div className="mb-4 border-b border-stone-300 pb-3">
           <p className="text-lg font-bold">{APP_BRAND_SHORT}</p>
           <p className="text-sm">Payslip — {user.displayLabel} · {from} to {to}</p>
-          <p className="text-xs text-slate-500">Daily rate: {peso(p.dailyRate)} (hourly {peso(p.dailyRate / 8)})</p>
+          <p className="text-xs text-stone-500">Daily rate: {peso(p.dailyRate)} (hourly {peso(p.dailyRate / 8)})</p>
         </div>
 
         <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -48,22 +48,22 @@ export default async function MyPayslipPage({ searchParams }: { searchParams: Pr
             { k: "Night diff", v: peso(p.night) },
             { k: "Deductions", v: `(${peso(p.deductions)})` },
           ].map((c) => (
-            <div key={c.k}><p className="text-xs text-slate-400">{c.k}</p><p className="tabular-nums">{c.v}</p></div>
+            <div key={c.k}><p className="text-xs text-stone-400">{c.k}</p><p className="tabular-nums">{c.v}</p></div>
           ))}
         </div>
         <p className="mb-4 text-lg font-bold">Net pay: <span className="tabular-nums">{peso(p.net)}</span></p>
 
         <table className="w-full text-left text-sm">
-          <thead className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
+          <thead className="border-b border-stone-200 text-xs uppercase tracking-wide text-stone-500">
             <tr>
               <th className="py-2">Date</th><th className="py-2">In</th><th className="py-2">Out</th>
               <th className="py-2 text-right">Reg h</th><th className="py-2 text-right">OT h</th><th className="py-2 text-right">Net</th>
             </tr>
           </thead>
           <tbody>
-            {p.days.length === 0 && <tr><td colSpan={6} className="py-4 text-center text-slate-500">No records in this range.</td></tr>}
+            {p.days.length === 0 && <tr><td colSpan={6} className="py-4 text-center text-stone-500">No records in this range.</td></tr>}
             {p.days.map((d, i) => (
-              <tr key={`${d.date}-${i}`} className="border-b border-slate-100">
+              <tr key={`${d.date}-${i}`} className="border-b border-stone-100">
                 <td className="py-1.5">{d.date}</td>
                 <td className="py-1.5">{t(d.timeIn)}</td>
                 <td className="py-1.5">{t(d.timeOut)}</td>
@@ -74,7 +74,7 @@ export default async function MyPayslipPage({ searchParams }: { searchParams: Pr
             ))}
           </tbody>
         </table>
-        <p className="mt-4 text-[11px] text-slate-400">Computed from your recorded attendance. Final payroll is confirmed by accounting.</p>
+        <p className="mt-4 text-[11px] text-stone-400">Computed from your recorded attendance. Final payroll is confirmed by accounting.</p>
       </div>
     </>
   );

@@ -31,9 +31,9 @@ export default async function BankAccountPage({ params }: { params: Promise<{ ac
     label: `${t.transmittal_date} · ${t.business_line ?? "combined"} · ${peso(t.total_amount)}`,
   }));
 
-  const stat = (label: string, value: number, tone = "text-slate-900") => (
-    <div className="rounded-xl border border-slate-200 bg-white p-3">
-      <p className="text-xs text-slate-500">{label}</p>
+  const stat = (label: string, value: number, tone = "text-stone-900") => (
+    <div className="rounded-xl border border-stone-200 bg-white p-3">
+      <p className="text-xs text-stone-500">{label}</p>
       <p className={`text-lg font-bold tabular-nums ${tone}`}>{peso(value)}</p>
     </div>
   );
@@ -55,34 +55,34 @@ export default async function BankAccountPage({ params }: { params: Promise<{ ac
 
       {canWrite && (
         <div className="mt-4 grid gap-3 lg:grid-cols-2">
-          <details className="rounded-2xl border border-slate-200 bg-white p-4" open>
+          <details className="rounded-2xl border border-stone-200 bg-white p-4" open>
             <summary className="cursor-pointer text-sm font-semibold text-emerald-700">Record deposit</summary>
             <div className="mt-3"><DepositForm accountId={accountId} transmittals={txOptions} /></div>
           </details>
-          <details className="rounded-2xl border border-slate-200 bg-white p-4">
+          <details className="rounded-2xl border border-stone-200 bg-white p-4">
             <summary className="cursor-pointer text-sm font-semibold text-rose-700">Release check</summary>
             <div className="mt-3"><CheckForm accountId={accountId} available={balances.book} /></div>
           </details>
-          <details className="rounded-2xl border border-slate-200 bg-white p-4">
-            <summary className="cursor-pointer text-sm font-semibold text-slate-700">Other entry (withdrawal, charge, interest…)</summary>
+          <details className="rounded-2xl border border-stone-200 bg-white p-4">
+            <summary className="cursor-pointer text-sm font-semibold text-stone-700">Other entry (withdrawal, charge, interest…)</summary>
             <div className="mt-3"><EntryForm accountId={accountId} /></div>
           </details>
-          <details className="rounded-2xl border border-slate-200 bg-white p-4">
+          <details className="rounded-2xl border border-stone-200 bg-white p-4">
             <summary className="cursor-pointer text-sm font-semibold text-indigo-700">Bank reconciliation</summary>
             <div className="mt-3"><ReconcileForm accountId={accountId} clearedBalance={balances.cleared} /></div>
           </details>
         </div>
       )}
 
-      <h2 className="mt-6 mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Ledger</h2>
+      <h2 className="mt-6 mb-2 text-sm font-semibold uppercase tracking-wide text-stone-500">Ledger</h2>
       <Ledger txns={txns} accountId={accountId} canWrite={canWrite} />
 
       {recons.length > 0 && (
         <>
-          <h2 className="mt-6 mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Reconciliation history</h2>
-          <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+          <h2 className="mt-6 mb-2 text-sm font-semibold uppercase tracking-wide text-stone-500">Reconciliation history</h2>
+          <div className="overflow-x-auto rounded-2xl border border-stone-200 bg-white">
             <table className="w-full min-w-[560px] text-left text-sm">
-              <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+              <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
                 <tr>
                   <th className="px-4 py-3">Statement date</th>
                   <th className="px-4 py-3 text-right">Statement</th>
@@ -94,13 +94,13 @@ export default async function BankAccountPage({ params }: { params: Promise<{ ac
               </thead>
               <tbody>
                 {recons.map((r) => (
-                  <tr key={r.id} className="border-b border-slate-100 last:border-0">
+                  <tr key={r.id} className="border-b border-stone-100 last:border-0">
                     <td className="px-4 py-2.5">{r.statement_date}</td>
                     <td className="px-4 py-2.5 text-right tabular-nums">{peso(r.statement_balance)}</td>
                     <td className="px-4 py-2.5 text-right tabular-nums">{peso(r.book_cleared_balance)}</td>
                     <td className={`px-4 py-2.5 text-right tabular-nums font-semibold ${Math.abs(r.difference) < 0.01 ? "text-emerald-700" : "text-rose-700"}`}>{peso(r.difference)}</td>
                     <td className="px-4 py-2.5 capitalize">{r.reconciled_by_role?.replace(/_/g, " ") ?? "—"}</td>
-                    <td className="px-4 py-2.5 text-slate-500">{r.note ?? "—"}</td>
+                    <td className="px-4 py-2.5 text-stone-500">{r.note ?? "—"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -110,8 +110,8 @@ export default async function BankAccountPage({ params }: { params: Promise<{ ac
       )}
 
       {canWrite && (
-        <details className="mt-6 rounded-2xl border border-slate-200 bg-white p-4">
-          <summary className="cursor-pointer text-sm font-semibold text-slate-600">Edit account settings</summary>
+        <details className="mt-6 rounded-2xl border border-stone-200 bg-white p-4">
+          <summary className="cursor-pointer text-sm font-semibold text-stone-600">Edit account settings</summary>
           <div className="mt-3"><AccountForm account={account} /></div>
         </details>
       )}

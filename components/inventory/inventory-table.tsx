@@ -16,7 +16,7 @@ const BL_LABEL: Record<string, string> = Object.fromEntries(
 
 const STATUS_META: Record<string, { label: string; cls: string }> = {
   available: { label: "Available", cls: "bg-emerald-100 text-emerald-800" },
-  occupied: { label: "Occupied", cls: "bg-slate-200 text-slate-700" },
+  occupied: { label: "Occupied", cls: "bg-stone-200 text-stone-700" },
   reserved: { label: "Reserved", cls: "bg-amber-100 text-amber-800" },
   under_maintenance: { label: "Maintenance", cls: "bg-orange-100 text-orange-800" },
   blocked: { label: "Blocked", cls: "bg-red-100 text-red-700" },
@@ -25,7 +25,7 @@ const STATUS_META: Record<string, { label: string; cls: string }> = {
 function StatusPill({ status }: { status: string }) {
   const m = STATUS_META[status] ?? {
     label: status,
-    cls: "bg-slate-100 text-slate-700",
+    cls: "bg-stone-100 text-stone-700",
   };
   return (
     <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${m.cls}`}>
@@ -98,7 +98,7 @@ export function InventoryTable({
               <button
                 type="button"
                 onClick={() => setModal({ kind: "import" })}
-                className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+                className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100"
               >
                 Import CSV
               </button>
@@ -108,7 +108,7 @@ export function InventoryTable({
             <button
               type="button"
               onClick={() => setModal({ kind: "fields" })}
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+              className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100"
             >
               Manage fields
             </button>
@@ -116,9 +116,9 @@ export function InventoryTable({
         </div>
       )}
 
-      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+      <div className="overflow-x-auto rounded-2xl border border-stone-200 bg-white">
         <table className="w-full min-w-[820px] text-left text-sm">
-          <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+          <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
             <tr>
               <th className="px-4 py-3">Property</th>
               <th className="px-4 py-3">Unit / room</th>
@@ -134,7 +134,7 @@ export function InventoryTable({
           <tbody>
             {units.length === 0 && (
               <tr>
-                <td colSpan={cols} className="px-4 py-10 text-center text-slate-500">
+                <td colSpan={cols} className="px-4 py-10 text-center text-stone-500">
                   No units match. {canWrite && "Add one or import a CSV to begin."}
                 </td>
               </tr>
@@ -144,15 +144,15 @@ export function InventoryTable({
               return (
                 <tr
                   key={u.id}
-                  className={`border-b border-slate-100 last:border-0 ${
-                    u.is_active ? "" : "bg-slate-50/60 text-slate-400"
+                  className={`border-b border-stone-100 last:border-0 ${
+                    u.is_active ? "" : "bg-stone-50/60 text-stone-400"
                   }`}
                 >
                   <td className="px-4 py-3">{u.property?.name ?? "—"}</td>
-                  <td className="px-4 py-3 font-medium text-slate-900">
+                  <td className="px-4 py-3 font-medium text-stone-900">
                     {u.unit_number}
                     {!u.is_active && (
-                      <span className="ml-2 rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-slate-500">
+                      <span className="ml-2 rounded bg-stone-200 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-stone-500">
                         inactive
                       </span>
                     )}
@@ -161,7 +161,7 @@ export function InventoryTable({
                   <td className="px-4 py-3">
                     {u.floor ?? "—"}
                     {tower ? (
-                      <span className="text-slate-500"> · {String(tower)}</span>
+                      <span className="text-stone-500"> · {String(tower)}</span>
                     ) : null}
                   </td>
                   <td className="px-4 py-3">{BL_LABEL[u.business_line] ?? u.business_line}</td>
@@ -180,7 +180,7 @@ export function InventoryTable({
                         <button
                           type="button"
                           onClick={() => setModal({ kind: "edit", unit: u })}
-                          className="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                          className="rounded-md border border-stone-300 px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100"
                         >
                           Edit
                         </button>
@@ -188,7 +188,7 @@ export function InventoryTable({
                           type="button"
                           onClick={() => toggleActive(u)}
                           disabled={pendingId === u.id}
-                          className="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50"
+                          className="rounded-md border border-stone-300 px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100 disabled:opacity-50"
                         >
                           {u.is_active ? "Deactivate" : "Reactivate"}
                         </button>

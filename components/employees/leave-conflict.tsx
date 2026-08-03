@@ -31,7 +31,7 @@ export function LeaveConflictFlags({ c }: { c: LeaveConflict }) {
         </span>
       ))}
       {c.coverage.length > 0 && (
-        <span className="text-[11px] text-slate-400">
+        <span className="text-[11px] text-stone-400">
           coverage: {c.coverage.map((r) => `${r.label} ${r.scheduled}/${r.others} scheduled`).join(", ")}
         </span>
       )}

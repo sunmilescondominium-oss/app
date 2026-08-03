@@ -20,7 +20,8 @@ export default async function RentalsPage() {
 
   return (
     <>
-      <PageHeader title="Rentals & Airbnb" subtitle="Tap a unit to record dues, meter readings & manage the lease." />
+      <PageHeader
+        backHref="/dashboard" title="Rentals & Airbnb" subtitle="Tap a unit to record dues, meter readings & manage the lease." />
 
       {rem.length > 0 && (
         <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
@@ -48,30 +49,30 @@ export default async function RentalsPage() {
             <Link
               key={b.unitId}
               href={`/rentals/${b.unitId}`}
-              className={`rounded-2xl border-2 p-4 transition hover:shadow-sm ${b.checkoutSoon ? "border-amber-300 bg-amber-50" : occupied ? "border-sky-200 bg-white" : "border-slate-200 bg-white"}`}
+              className={`rounded-2xl border-2 p-4 transition hover:shadow-sm ${b.checkoutSoon ? "border-amber-300 bg-amber-50" : occupied ? "border-sky-200 bg-white" : "border-stone-200 bg-white"}`}
             >
               <div className="flex items-center justify-between gap-2">
-                <p className="font-semibold text-slate-900">{b.unitNumber}</p>
+                <p className="font-semibold text-stone-900">{b.unitNumber}</p>
                 <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${badge.cls}`}>{badge.text}</span>
               </div>
-              <p className="mt-0.5 text-xs text-slate-400">{b.propertyName} · {b.businessLine}</p>
+              <p className="mt-0.5 text-xs text-stone-400">{b.propertyName} · {b.businessLine}</p>
               {occupied ? (
-                <p className="mt-2 truncate text-sm text-slate-700">{b.lease!.tenantLabel}</p>
+                <p className="mt-2 truncate text-sm text-stone-700">{b.lease!.tenantLabel}</p>
               ) : (
-                <p className="mt-2 text-sm text-slate-400">—</p>
+                <p className="mt-2 text-sm text-stone-400">—</p>
               )}
               {b.businessLine === "airbnb" && b.lease?.endAt && (
-                <p className={`mt-1 text-xs ${b.checkoutSoon ? "font-medium text-amber-700" : "text-slate-500"}`}>checkout {fmtCheckout(b.checkoutInMins)}</p>
+                <p className={`mt-1 text-xs ${b.checkoutSoon ? "font-medium text-amber-700" : "text-stone-500"}`}>checkout {fmtCheckout(b.checkoutInMins)}</p>
               )}
               {b.nextDue && (
-                <p className={`mt-1 text-xs ${b.nextDue.overdue ? "text-rose-700" : b.nextDue.dueSoon ? "text-amber-700" : "text-slate-500"}`}>
+                <p className={`mt-1 text-xs ${b.nextDue.overdue ? "text-rose-700" : b.nextDue.dueSoon ? "text-amber-700" : "text-stone-500"}`}>
                   due {peso(b.nextDue.amount)} · {b.nextDue.dueDate}
                 </p>
               )}
             </Link>
           );
         })}
-        {board.length === 0 && <p className="text-sm text-slate-500">No rental or Airbnb units yet.</p>}
+        {board.length === 0 && <p className="text-sm text-stone-500">No rental or Airbnb units yet.</p>}
       </div>
     </>
   );

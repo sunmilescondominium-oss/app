@@ -32,7 +32,7 @@ export function PhotoUpload({ userId }: { userId: string }) {
         type="button"
         onClick={() => ref.current?.click()}
         disabled={busy}
-        className="rounded-lg border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+        className="rounded-lg border border-stone-300 px-2.5 py-1 text-xs font-medium text-stone-600 hover:bg-stone-50 disabled:opacity-50"
       >
         {busy ? "Uploading…" : "Photo"}
       </button>

@@ -57,8 +57,8 @@ export default async function BuyerFolderPage({
 
       {categories.map((cat) => (
         <div key={cat} className="mb-6">
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">{cat}</h2>
-          <div className="rounded-2xl border border-slate-200 bg-white px-4">
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-stone-500">{cat}</h2>
+          <div className="rounded-2xl border border-stone-200 bg-white px-4">
             {folder.rows
               .filter((r) => r.type.category === cat)
               .map((r) => (

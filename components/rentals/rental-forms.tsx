@@ -14,7 +14,7 @@ import {
 import { UTILITY_TYPES, RENTAL_DUE_CATEGORIES, BILLING_CYCLES } from "@/lib/config";
 
 type Unit = { id: string; label: string; businessLine: string };
-const cls = "rounded-lg border border-slate-300 px-2.5 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
+const cls = "rounded-lg border border-stone-300 px-2.5 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
 
 function useRefreshingAction(fn: (p: ActionResult | undefined, fd: FormData) => Promise<ActionResult>) {
   const router = useRouter();
@@ -28,7 +28,7 @@ function useRefreshingAction(fn: (p: ActionResult | undefined, fd: FormData) => 
 export function StartLeaseForm({ units }: { units: Unit[] }) {
   const { state, action, pending } = useRefreshingAction(startLease);
   return (
-    <form action={action} className="flex flex-wrap items-end gap-2 rounded-2xl border border-slate-200 bg-white p-4">
+    <form action={action} className="flex flex-wrap items-end gap-2 rounded-2xl border border-stone-200 bg-white p-4">
       <select name="unit_id" required className={cls} defaultValue="">
         <option value="" disabled>Unit…</option>
         {units.map((u) => (
@@ -83,7 +83,7 @@ export function LeaseActions({ leaseId, canExtend }: { leaseId: string; canExten
 export function MeterForm({ units }: { units: Unit[] }) {
   const { state, action, pending } = useRefreshingAction(addMeterReading);
   return (
-    <form action={action} className="flex flex-wrap items-end gap-2 rounded-2xl border border-slate-200 bg-white p-4">
+    <form action={action} className="flex flex-wrap items-end gap-2 rounded-2xl border border-stone-200 bg-white p-4">
       <select name="unit_id" required className={cls} defaultValue="">
         <option value="" disabled>Unit…</option>
         {units.map((u) => <option key={u.id} value={u.id}>{u.label}</option>)}
@@ -104,7 +104,7 @@ export function MeterForm({ units }: { units: Unit[] }) {
 export function DueForm({ units }: { units: Unit[] }) {
   const { state, action, pending } = useRefreshingAction(createDue);
   return (
-    <form action={action} className="flex flex-wrap items-end gap-2 rounded-2xl border border-slate-200 bg-white p-4">
+    <form action={action} className="flex flex-wrap items-end gap-2 rounded-2xl border border-stone-200 bg-white p-4">
       <select name="unit_id" required className={cls} defaultValue="">
         <option value="" disabled>Unit…</option>
         {units.map((u) => <option key={u.id} value={u.id}>{u.label}</option>)}

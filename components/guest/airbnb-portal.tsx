@@ -48,27 +48,27 @@ export function AirbnbPortal({ booking }: { booking: AirbnbGuest }) {
   return (
     <div>
       {endMs && (
-        <div className={`rounded-xl p-4 text-center ${overtime ? "bg-rose-50" : "bg-slate-50"}`}>
-          <p className="text-xs uppercase tracking-wide text-slate-500">{overtime ? "Checkout overdue by" : "Time remaining"}</p>
-          <p className={`mt-1 text-2xl font-bold tabular-nums ${overtime ? "text-rose-700" : "text-slate-900"}`}>{fmtDuration(remaining!)}</p>
-          <p className="mt-1 text-xs text-slate-400">Checkout: {new Date(endMs).toLocaleString("en-PH", { timeZone: "Asia/Manila", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
+        <div className={`rounded-xl p-4 text-center ${overtime ? "bg-rose-50" : "bg-stone-50"}`}>
+          <p className="text-xs uppercase tracking-wide text-stone-500">{overtime ? "Checkout overdue by" : "Time remaining"}</p>
+          <p className={`mt-1 text-2xl font-bold tabular-nums ${overtime ? "text-rose-700" : "text-stone-900"}`}>{fmtDuration(remaining!)}</p>
+          <p className="mt-1 text-xs text-stone-400">Checkout: {new Date(endMs).toLocaleString("en-PH", { timeZone: "Asia/Manila", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
         </div>
       )}
 
       {booking.amenities.length > 0 && (
         <div className="mt-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Unit amenities</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">Unit amenities</p>
           <div className="mt-1 flex flex-wrap gap-1.5">
-            {booking.amenities.map((a) => <span key={a} className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">{a}</span>)}
+            {booking.amenities.map((a) => <span key={a} className="rounded-full bg-stone-100 px-2 py-0.5 text-xs text-stone-600">{a}</span>)}
           </div>
         </div>
       )}
 
       <table className="mt-4 w-full text-left text-sm">
         <tbody>
-          <tr className="border-b border-slate-100"><td className="py-1.5">Booking rate (paid in advance)</td><td className="py-1.5 text-right tabular-nums">{peso(booking.rate)}</td></tr>
+          <tr className="border-b border-stone-100"><td className="py-1.5">Booking rate (paid in advance)</td><td className="py-1.5 text-right tabular-nums">{peso(booking.rate)}</td></tr>
           {booking.extraCharges.map((c, i) => (
-            <tr key={i} className="border-b border-slate-100"><td className="py-1.5 capitalize text-slate-600">{c.label}</td><td className="py-1.5 text-right tabular-nums">{peso(c.amount)}</td></tr>
+            <tr key={i} className="border-b border-stone-100"><td className="py-1.5 capitalize text-stone-600">{c.label}</td><td className="py-1.5 text-right tabular-nums">{peso(c.amount)}</td></tr>
           ))}
           <tr className="text-base font-bold"><td className="py-2">Balance due</td><td className="py-2 text-right tabular-nums text-rose-700">{peso(booking.balance)}</td></tr>
         </tbody>
@@ -78,8 +78,8 @@ export function AirbnbPortal({ booking }: { booking: AirbnbGuest }) {
         <div className="mt-5 space-y-3">
           <div className="flex items-end gap-2">
             <div className="flex-1">
-              <label className="mb-1 block text-xs font-medium text-slate-600">Request to extend</label>
-              <input value={req} onChange={(e) => setReq(e.target.value)} placeholder="e.g. +1 day / until 2pm" className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm" />
+              <label className="mb-1 block text-xs font-medium text-stone-600">Request to extend</label>
+              <input value={req} onChange={(e) => setReq(e.target.value)} placeholder="e.g. +1 day / until 2pm" className="w-full rounded-lg border border-stone-300 px-2.5 py-2 text-sm" />
             </div>
             <button type="button" onClick={() => run(() => requestAirbnbExtension(booking.token, req))} disabled={busy} className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-60">
               Request
@@ -97,7 +97,7 @@ export function AirbnbPortal({ booking }: { booking: AirbnbGuest }) {
           </button>
         </div>
       ) : (
-        <p className="mt-5 rounded-lg bg-slate-50 px-3 py-2 text-center text-sm text-slate-500">This booking has ended.</p>
+        <p className="mt-5 rounded-lg bg-stone-50 px-3 py-2 text-center text-sm text-stone-500">This booking has ended.</p>
       )}
 
       {msg && <p className={`mt-3 rounded-lg px-3 py-2 text-sm ${msg.tone === "ok" ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-700"}`}>{msg.text}</p>}

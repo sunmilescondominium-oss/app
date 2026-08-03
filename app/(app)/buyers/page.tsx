@@ -14,7 +14,7 @@ const STATUS_CLS: Record<string, string> = {
   current: "bg-emerald-100 text-emerald-800",
   overdue: "bg-red-100 text-red-700",
   restructured: "bg-amber-100 text-amber-800",
-  in_dispute: "bg-slate-200 text-slate-700",
+  in_dispute: "bg-stone-200 text-stone-700",
 };
 const STATUS_LABEL = Object.fromEntries(BUYER_STATUSES.map((s) => [s.key, s.label]));
 const SCHEME_LABEL = Object.fromEntries(PAYMENT_SCHEMES.map((s) => [s.key, s.label]));
@@ -33,6 +33,7 @@ export default async function BuyersPage() {
   return (
     <>
       <PageHeader
+        backHref="/dashboard"
         title="Buyers"
         subtitle="Buyer accounts, Statement of Account & payment history"
         badge={<Badge tone="green">Live</Badge>}
@@ -45,9 +46,9 @@ export default async function BuyersPage() {
         canManageParams={canManageParams}
       />
 
-      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+      <div className="overflow-x-auto rounded-2xl border border-stone-200 bg-white">
         <table className="w-full min-w-[760px] text-left text-sm">
-          <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+          <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
             <tr>
               <th className="px-4 py-3">Unit</th>
               <th className="px-4 py-3">Buyer</th>
@@ -60,15 +61,15 @@ export default async function BuyersPage() {
           <tbody>
             {buyers.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-10 text-center text-slate-500">
+                <td colSpan={6} className="px-4 py-10 text-center text-stone-500">
                   No buyers yet. {canWrite && "Add one to begin."}
                 </td>
               </tr>
             )}
             {buyers.map((b) => (
-              <tr key={b.id} className="border-b border-slate-100 last:border-0">
+              <tr key={b.id} className="border-b border-stone-100 last:border-0">
                 <td className="px-4 py-3">{b.unit?.unit_number ?? "—"}</td>
-                <td className="px-4 py-3 font-medium text-slate-900">
+                <td className="px-4 py-3 font-medium text-stone-900">
                   <Link href={`/buyers/${b.id}`} className="text-amber-700 hover:underline">
                     {b.contact_label}
                   </Link>
@@ -77,7 +78,7 @@ export default async function BuyersPage() {
                 <td className="px-4 py-3">
                   <span
                     className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
-                      STATUS_CLS[b.payment_status] ?? "bg-slate-100 text-slate-700"
+                      STATUS_CLS[b.payment_status] ?? "bg-stone-100 text-stone-700"
                     }`}
                   >
                     {STATUS_LABEL[b.payment_status] ?? b.payment_status}

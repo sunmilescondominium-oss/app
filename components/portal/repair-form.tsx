@@ -8,8 +8,8 @@ import {
 import { REPAIR_URGENCY, REPAIR_ISSUE_TYPES } from "@/lib/config";
 
 const inputCls =
-  "w-full rounded-lg border border-slate-300 px-3 py-2.5 text-slate-900 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
-const labelCls = "mb-1 block text-sm font-medium text-slate-700";
+  "w-full rounded-lg border border-stone-300 px-3 py-2.5 text-stone-900 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
+const labelCls = "mb-1 block text-sm font-medium text-stone-700";
 
 export function RepairForm() {
   const [state, action, pending] = useActionState<SubmitState, FormData>(
@@ -21,18 +21,18 @@ export function RepairForm() {
     return (
       <div className="text-center">
         <p className="text-3xl">✅</p>
-        <h2 className="mt-2 text-lg font-bold text-slate-900">Request submitted</h2>
-        <p className="mt-1 text-sm text-slate-600">
+        <h2 className="mt-2 text-lg font-bold text-stone-900">Request submitted</h2>
+        <p className="mt-1 text-sm text-stone-600">
           Your ticket reference is
         </p>
         <p className="mt-1 text-xl font-bold tracking-wide text-amber-700">{state.ticket}</p>
-        <p className="mt-3 text-sm text-slate-500">
+        <p className="mt-3 text-sm text-stone-500">
           Please keep this reference. Our team has been notified and will act on it.
         </p>
         <button
           type="button"
           onClick={() => window.location.reload()}
-          className="mt-5 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+          className="mt-5 rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100"
         >
           Submit another request
         </button>

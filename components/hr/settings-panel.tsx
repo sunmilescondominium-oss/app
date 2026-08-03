@@ -6,14 +6,14 @@ import { setPayrollSettings } from "@/app/(app)/hr/actions";
 import type { PayrollSettings } from "@/lib/hr/payroll";
 
 const cls =
-  "w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
+  "w-full rounded-lg border border-stone-300 px-2 py-1.5 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
 
 function Field({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-xs font-medium text-slate-600">{label}</span>
+      <span className="mb-1 block text-xs font-medium text-stone-600">{label}</span>
       {children}
-      {hint && <span className="mt-0.5 block text-[11px] text-slate-400">{hint}</span>}
+      {hint && <span className="mt-0.5 block text-[11px] text-stone-400">{hint}</span>}
     </label>
   );
 }
@@ -36,8 +36,8 @@ export function PayrollSettingsPanel({ settings }: { settings: PayrollSettings }
   }
 
   return (
-    <div className="no-print rounded-2xl border border-slate-200 bg-white p-4">
-      <p className="mb-3 text-sm font-semibold text-slate-800">Payroll rules (Labor Code)</p>
+    <div className="no-print rounded-2xl border border-stone-200 bg-white p-4">
+      <p className="mb-3 text-sm font-semibold text-stone-800">Payroll rules (Labor Code)</p>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <Field label="Scheduled time-in">
           <input type="time" value={s.scheduled_time_in.slice(0, 5)} onChange={(e) => set("scheduled_time_in", e.target.value)} className={cls} />
@@ -78,7 +78,7 @@ export function PayrollSettingsPanel({ settings }: { settings: PayrollSettings }
           </button>
         </div>
       </div>
-      <p className="mt-2 text-[11px] text-slate-400">
+      <p className="mt-2 text-[11px] text-stone-400">
         TODO(client-confirm): defaults follow DOLE norms (8h day, OT 125%, night diff 10% for 10PM–6AM). Adjust to your company policy.
       </p>
     </div>
