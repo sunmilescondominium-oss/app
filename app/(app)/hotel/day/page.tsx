@@ -63,7 +63,7 @@ export default async function HotelDayPage({
         ))}
       </div>
 
-      <div className="mb-6 overflow-x-auto rounded-2xl border border-stone-200 bg-white">
+      <div className="mb-6 table-wrap">
         <table className="w-full text-left text-sm">
           <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
             <tr>

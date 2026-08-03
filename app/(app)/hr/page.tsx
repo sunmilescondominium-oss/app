@@ -71,7 +71,7 @@ export default async function HrPage({
       )}
 
       <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-stone-500">Payroll summary</h2>
-      <div className="mb-6 overflow-x-auto rounded-2xl border border-stone-200 bg-white">
+      <div className="mb-6 table-wrap">
         <table className="w-full min-w-[900px] text-left text-sm">
           <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
             <tr>

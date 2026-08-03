@@ -176,7 +176,7 @@ export default async function BuyerDetailPage({
       <h2 className="mt-6 text-sm font-semibold uppercase tracking-wide text-stone-500">
         Payment history
       </h2>
-      <div className="mt-2 overflow-x-auto rounded-2xl border border-stone-200 bg-white">
+      <div className="mt-2 table-wrap">
         <table className="w-full min-w-[560px] text-left text-sm">
           <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
             <tr>

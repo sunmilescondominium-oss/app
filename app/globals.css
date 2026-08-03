@@ -92,6 +92,17 @@ body {
   /* Fade/slide-in for page content */
   .animate-rise { animation: rise 0.35s cubic-bezier(0.22, 1, 0.36, 1) both; }
   @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+  /* Data tables — consistent premium container with subtle row hover. */
+  .table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    box-shadow: var(--shadow-sm);
+  }
+  .table-wrap tbody tr { transition: background-color 0.12s ease; }
+  .table-wrap tbody tr:hover { background: var(--surface-2); }
 }
 
 /* Print helpers — Owner Dashboard (M6) print-to-PDF, transmittals, receipts. */

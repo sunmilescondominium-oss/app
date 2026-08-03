@@ -34,7 +34,7 @@ export default async function CondoUnitPage({ params }: { params: Promise<{ unit
 
       <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-stone-500">Dues & utilities</h2>
       <div className="mb-2"><DueForm units={one} /></div>
-      <div className="mb-6 overflow-x-auto rounded-2xl border border-stone-200 bg-white">
+      <div className="mb-6 table-wrap">
         <table className="w-full min-w-[520px] text-left text-sm">
           <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
             <tr><th className="px-4 py-3">Category</th><th className="px-4 py-3">Due</th><th className="px-4 py-3 text-right">Amount</th><th className="px-4 py-3">Status</th><th className="px-4 py-3 text-right">·</th></tr>
@@ -56,7 +56,7 @@ export default async function CondoUnitPage({ params }: { params: Promise<{ unit
 
       <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-stone-500">Meter readings (Meralco / water)</h2>
       <div className="mb-2"><MeterForm units={one} /></div>
-      <div className="overflow-x-auto rounded-2xl border border-stone-200 bg-white">
+      <div className="table-wrap">
         <table className="w-full min-w-[420px] text-left text-sm">
           <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
             <tr><th className="px-4 py-3">Utility</th><th className="px-4 py-3">Date</th><th className="px-4 py-3 text-right">Reading</th><th className="px-4 py-3 text-right">Consumption</th></tr>

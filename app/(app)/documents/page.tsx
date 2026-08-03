@@ -19,7 +19,7 @@ export default async function DocumentsPage() {
         badge={<Badge tone="green">Live</Badge>}
       />
 
-      <div className="overflow-x-auto rounded-2xl border border-stone-200 bg-white">
+      <div className="table-wrap">
         <table className="w-full min-w-[820px] text-left text-sm">
           <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
             <tr>

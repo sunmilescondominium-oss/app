@@ -62,7 +62,7 @@ export default async function EmployeesPage() {
       </div>
 
       <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-stone-500">Roster</h2>
-      <div className="overflow-x-auto rounded-2xl border border-stone-200 bg-white">
+      <div className="table-wrap">
         <table className="w-full min-w-[720px] text-left text-sm">
           <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
             <tr>
