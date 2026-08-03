@@ -82,6 +82,17 @@ export async function listAccountsWithBalances(): Promise<AccountWithBalances[]>
   });
 }
 
+/** Lightweight active-account options for pickers. */
+export async function listAccountOptions(): Promise<{ id: string; label: string }[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("bank_accounts")
+    .select("id, label")
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true });
+  return (data ?? []).map((r) => ({ id: r.id as string, label: r.label as string }));
+}
+
 export async function getAccount(id: string): Promise<BankAccount | null> {
   const supabase = await createClient();
   const { data } = await supabase.from("bank_accounts").select("*").eq("id", id).maybeSingle();

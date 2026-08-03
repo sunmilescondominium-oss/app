@@ -7,6 +7,44 @@ import type {
   TransmittalDetail,
   UnitOption,
 } from "./types";
+import type { CustodyStage } from "./custody";
+
+export interface CustodyEvent {
+  id: string;
+  stage: CustodyStage;
+  actor_role: string | null;
+  counted_amount: number | null;
+  expected_amount: number | null;
+  variance: number | null;
+  passbook_ref: string | null;
+  deposit_slip_ref: string | null;
+  bank_account_label: string | null;
+  note: string | null;
+  created_at: string;
+}
+
+/** Chain-of-custody events for a transmittal (service role; page-gated). */
+export async function listCustody(transmittalId: string): Promise<CustodyEvent[]> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("transmittal_custody")
+    .select("*, bank_accounts(label)")
+    .eq("transmittal_id", transmittalId)
+    .order("created_at", { ascending: true });
+  return (data ?? []).map((r: Record<string, unknown>) => ({
+    id: r.id as string,
+    stage: r.stage as CustodyStage,
+    actor_role: (r.actor_role as string) ?? null,
+    counted_amount: r.counted_amount != null ? Number(r.counted_amount) : null,
+    expected_amount: r.expected_amount != null ? Number(r.expected_amount) : null,
+    variance: r.variance != null ? Number(r.variance) : null,
+    passbook_ref: (r.passbook_ref as string) ?? null,
+    deposit_slip_ref: (r.deposit_slip_ref as string) ?? null,
+    bank_account_label: ((r.bank_accounts as { label?: string } | null)?.label as string) ?? null,
+    note: (r.note as string) ?? null,
+    created_at: r.created_at as string,
+  }));
+}
 
 function mapCollection(r: Record<string, unknown>): Collection {
   const u = r.units as

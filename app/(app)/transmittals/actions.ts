@@ -218,3 +218,83 @@ export async function markTransmittalPrinted(id: string): Promise<ActionResult> 
   revalidatePath(`/transmittals/${id}`);
   return { ok: true };
 }
+
+/**
+ * Advance a transmittal one hop along the chain of custody. Validates that the
+ * actor holds a role permitted for the *next* stage, records the amount counted
+ * at this hop + variance, and — on the final `deposited` hop — creates a linked
+ * bank deposit. Every hop is stamped by role.
+ */
+export async function recordCustodyStep(
+  id: string,
+  _prev: ActionResult | undefined,
+  formData: FormData,
+): Promise<ActionResult> {
+  const { nextStage, canActOnStage, CUSTODY_STAGES } = await import("@/lib/collections/custody");
+  const user = await requireModuleWrite("transmittals");
+  const admin = createAdminClient();
+
+  const { data: t } = await admin
+    .from("transmittals")
+    .select("id, total_amount, custody_stage")
+    .eq("id", id)
+    .maybeSingle();
+  if (!t) return { ok: false, error: "Transmittal not found." };
+
+  const current = (t.custody_stage as string) || "cashier_count";
+  const stage = nextStage(current as never);
+  if (!stage) return { ok: false, error: "Custody chain is already complete." };
+  if (!canActOnStage(user.roleKeys, stage))
+    return { ok: false, error: `Your role can't perform "${CUSTODY_STAGES[stage].label}".` };
+
+  const def = CUSTODY_STAGES[stage];
+  const expected = Number(t.total_amount);
+  const countedRaw = String(formData.get("counted_amount") ?? "").trim();
+  const counted = def.needs.counted && countedRaw ? Number(countedRaw) : null;
+  if (def.needs.counted && (counted == null || !Number.isFinite(counted) || counted < 0))
+    return { ok: false, error: "Enter the amount counted." };
+  const variance = counted == null ? null : Math.round((counted - expected) * 100) / 100;
+
+  const passbook_ref = def.needs.passbook ? String(formData.get("passbook_ref") ?? "").trim() || null : null;
+  const deposit_slip_ref = def.needs.depositSlip ? String(formData.get("deposit_slip_ref") ?? "").trim() || null : null;
+  const bank_account_id = def.needs.bankAccount ? String(formData.get("bank_account_id") ?? "").trim() || null : null;
+  const note = String(formData.get("note") ?? "").trim() || null;
+  if (def.needs.passbook && !passbook_ref) return { ok: false, error: "Enter the passbook reference." };
+  if (def.needs.depositSlip && !deposit_slip_ref) return { ok: false, error: "Enter the deposit slip reference." };
+  if (def.needs.bankAccount && !bank_account_id) return { ok: false, error: "Choose the bank account." };
+
+  const actor_role = firstHeld(user.roleKeys, [...def.actorRoles, "admin", "managing_officer"]);
+
+  const { error: cErr } = await admin.from("transmittal_custody").insert({
+    transmittal_id: id, stage, actor_user_id: user.userId, actor_role,
+    counted_amount: counted, expected_amount: expected, variance,
+    passbook_ref, deposit_slip_ref, bank_account_id, note,
+  });
+  if (cErr) return { ok: false, error: cErr.message };
+
+  // Reflect key facts onto the transmittal row.
+  const patch: Record<string, unknown> = { custody_stage: stage };
+  if (deposit_slip_ref) patch.deposit_slip_ref = deposit_slip_ref;
+  if (stage === "deposited") {
+    patch.status = "deposited";
+    patch.confirmed_by_role = actor_role;
+    if (counted != null) patch.deposited_amount = counted;
+  }
+  await admin.from("transmittals").update(patch).eq("id", id);
+
+  // Final hop → create a linked bank deposit (pending clearance).
+  if (stage === "deposited" && bank_account_id) {
+    await admin.from("bank_transactions").insert({
+      bank_account_id, direction: "in", amount: counted ?? expected, kind: "deposit",
+      reference: deposit_slip_ref, counterparty: "Transmittal deposit",
+      memo: `Transmittal ${id.slice(0, 8).toUpperCase()}`, status: "pending",
+      transmittal_id: id, created_by: user.userId, actor_role,
+    });
+  }
+
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "update", entity: "transmittal_custody", entityId: id, diff: { stage, counted, variance } });
+  revalidatePath(`/transmittals/${id}`);
+  revalidatePath("/transmittals");
+  if (stage === "deposited" && bank_account_id) revalidatePath(`/banking/${bank_account_id}`);
+  return { ok: true };
+}

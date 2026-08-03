@@ -42,6 +42,7 @@ export interface Transmittal {
   passbook_returned_on: string | null;
   passbook_returned_by_role: string | null;
   status: string;
+  custody_stage: string;
   notes: string | null;
   printed_at: string | null;
   created_at: string;

@@ -2,10 +2,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireModule } from "@/lib/auth/dal";
 import { canWriteModule } from "@/lib/rbac/modules";
-import { getTransmittal } from "@/lib/collections/queries";
+import { getTransmittal, listCustody } from "@/lib/collections/queries";
 import { summarizeCollections, peso } from "@/lib/collections/summary";
+import { canActOnStage, nextStage, type CustodyStage } from "@/lib/collections/custody";
+import { listAccountOptions } from "@/lib/banking/queries";
 import { APP_BRAND, APP_BRAND_SHORT, PHP_DENOMINATIONS } from "@/lib/config";
 import { TransmittalActions } from "@/components/transmittals/transmittal-actions";
+import { CustodyPanel } from "@/components/transmittals/custody-panel";
 
 export const metadata = { title: "Transmittal" };
 
@@ -33,6 +36,14 @@ export default async function TransmittalDetailPage({
 
   const summary = summarizeCollections(t.transmittal_date, t.collections);
   const canWrite = canWriteModule(user.roleKeys, "transmittals");
+
+  const currentStage = (t.custody_stage as CustodyStage) ?? "cashier_count";
+  const upcoming = nextStage(currentStage);
+  const [custodyEvents, bankAccounts] = await Promise.all([
+    listCustody(t.id),
+    upcoming && (upcoming === "liaison_count" || upcoming === "deposited") ? listAccountOptions() : Promise.resolve([]),
+  ]);
+  const canActNext = upcoming ? canActOnStage(user.roleKeys, upcoming) : false;
   const canReconcile = user.roleKeys.some((r) =>
     ["accounting", "managing_officer"].includes(r),
   );
@@ -167,6 +178,17 @@ export default async function TransmittalDetailPage({
             Printed {new Date(t.printed_at).toLocaleString()}
           </p>
         )}
+      </div>
+
+      <div className="no-print mt-4">
+        <CustodyPanel
+          transmittalId={t.id}
+          currentStage={currentStage}
+          total={t.total_amount}
+          events={custodyEvents}
+          canActNext={canActNext}
+          bankAccounts={bankAccounts}
+        />
       </div>
 
       <div className="no-print mt-4">
