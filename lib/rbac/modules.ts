@@ -46,6 +46,8 @@ export type ModuleKey =
   | "finance"
   | "banking"
   | "incidents"
+  | "media"
+  | "actas"
   | "hr"
   | "employee"
   | "employees"
@@ -56,6 +58,9 @@ export type ModuleKey =
 /** Roles that may approve/reject leave — TODO(client-confirm). Owner included so
  *  the owner can act on requests surfaced in the Owner Dashboard. */
 export const LEAVE_APPROVER_ROLES: RoleKey[] = ["owner", "admin", "managing_officer", "operations_manager"];
+
+/** Roles that may open Access Control and grant module/capability access. */
+export const GRANT_ROLES: RoleKey[] = ["admin", "owner", "consultant", "managing_officer"];
 
 /** Roles that may approve a cash advance, and roles that may release/disburse it. */
 export const ADVANCE_APPROVER_ROLES: RoleKey[] = ["admin", "managing_officer", "operations_manager", "accounting"];
@@ -71,6 +76,8 @@ export interface ModuleDef {
   read: readonly RoleKey[];
   /** Roles that may WRITE within the module. */
   write: readonly RoleKey[];
+  /** Capability-only entries (no page/nav item), still editable in Access Control. */
+  hidden?: boolean;
 }
 
 export const MODULES: Record<ModuleKey, ModuleDef> = {
@@ -215,6 +222,27 @@ export const MODULES: Record<ModuleKey, ModuleDef> = {
     read: ["owner", "consultant", "admin", "managing_officer", "operations_manager", "guard", "electrician", "utility"],
     write: ["admin", "managing_officer", "operations_manager", "guard", "electrician", "utility"],
   },
+  media: {
+    key: "media",
+    path: "/",
+    label: "Photo/Video evidence access",
+    blurb: "Who may VIEW captured photo/video documentation.",
+    milestone: "Ops",
+    // Top roles always see evidence; grant to others in Access Control.
+    read: ["admin", "owner", "consultant", "managing_officer"],
+    write: [],
+    hidden: true,
+  },
+  actas: {
+    key: "actas",
+    path: "/",
+    label: "“Act as / view as” another role",
+    blurb: "Who may preview the app as another role.",
+    milestone: "Admin",
+    read: ["owner", "admin", "consultant"],
+    write: [],
+    hidden: true,
+  },
   hr: {
     key: "hr",
     path: "/hr",
@@ -320,7 +348,7 @@ export function effectivePermission(role: string, key: ModuleKey): { read: boole
 
 /** Modules the given roles may see in the nav (override-aware, declared order). */
 export function accessibleModules(roleKeys: readonly string[]): ModuleDef[] {
-  return MODULE_LIST.filter((m) => roleKeys.some((r) => roleGrants(r, m.key, "read")));
+  return MODULE_LIST.filter((m) => !m.hidden && roleKeys.some((r) => roleGrants(r, m.key, "read")));
 }
 
 export function canReadModule(roleKeys: readonly string[], key: ModuleKey): boolean {

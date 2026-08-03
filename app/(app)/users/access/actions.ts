@@ -1,10 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireModuleWrite, userHasAnyRole } from "@/lib/auth/dal";
+import { requireAuth, userHasAnyRole } from "@/lib/auth/dal";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit";
-import { MODULE_LIST } from "@/lib/rbac/modules";
+import { MODULE_LIST, GRANT_ROLES } from "@/lib/rbac/modules";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -14,9 +14,9 @@ export async function setRolePermissions(
   _prev: ActionResult | undefined,
   formData: FormData,
 ): Promise<ActionResult> {
-  const user = await requireModuleWrite("users");
-  if (!userHasAnyRole(user, ["admin", "managing_officer"]))
-    return { ok: false, error: "Only admin / managing officer can change access." };
+  const user = await requireAuth();
+  if (!userHasAnyRole(user, [...GRANT_ROLES]))
+    return { ok: false, error: "Only admin / owner / consultant / managing officer can change access." };
   if (!roleKey) return { ok: false, error: "No role selected." };
 
   const actorRole = user.roleKeys.includes("admin") ? "admin" : "managing_officer";
@@ -37,9 +37,9 @@ export async function setRolePermissions(
 
 /** Reset a role to code defaults by removing all its override rows. */
 export async function resetRolePermissions(roleKey: string): Promise<ActionResult> {
-  const user = await requireModuleWrite("users");
-  if (!userHasAnyRole(user, ["admin", "managing_officer"]))
-    return { ok: false, error: "Only admin / managing officer can change access." };
+  const user = await requireAuth();
+  if (!userHasAnyRole(user, [...GRANT_ROLES]))
+    return { ok: false, error: "Only admin / owner / consultant / managing officer can change access." };
   const admin = createAdminClient();
   const { error } = await admin.from("role_permissions").delete().eq("role_key", roleKey);
   if (error) return { ok: false, error: error.message };

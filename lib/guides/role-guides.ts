@@ -97,6 +97,16 @@ export const ROLE_GUIDES: Record<string, RoleGuide> = {
     steps: [
       { text: "Open the Owner Dashboard for the weekly overview and decisions.", href: "/owner" },
       { text: "Approve pending leave / requests when they appear." },
+      { text: "Grant module & photo/video evidence access to any role in Access Control.", href: "/users/access" },
+    ],
+  },
+  consultant: {
+    role: "consultant",
+    icon: "🧠",
+    headline: "Advise and oversee",
+    steps: [
+      { text: "Review the Owner Dashboard and reports.", href: "/owner" },
+      { text: "Grant module & evidence access, or 'act as' any role, from Access Control.", href: "/users/access" },
     ],
   },
   managing_officer: {

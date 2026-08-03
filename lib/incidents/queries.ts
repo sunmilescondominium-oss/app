@@ -29,7 +29,7 @@ export async function listIncidents(limit = 100): Promise<Incident[]> {
   const admin = createAdminClient();
   const ids = rows.map((r) => r.id as string);
   const { data: pics } = ids.length
-    ? await admin.from("doc_photos").select("id, entity, entity_id, kind, actor_role, captured_at, server_at, note").eq("entity", "incident").in("entity_id", ids).order("created_at", { ascending: false })
+    ? await admin.from("doc_photos").select("id, entity, entity_id, kind, media_type, actor_role, captured_at, server_at, note").eq("entity", "incident").in("entity_id", ids).order("created_at", { ascending: false })
     : { data: [] };
   const byId = new Map<string, DocPhoto[]>();
   for (const p of pics ?? []) {
@@ -37,6 +37,7 @@ export async function listIncidents(limit = 100): Promise<Incident[]> {
     const srv = new Date(p.server_at as string).getTime();
     const photo: DocPhoto = {
       id: p.id as string, entity: p.entity as string, entity_id: p.entity_id as string, kind: p.kind as string,
+      media_type: ((p.media_type as string) ?? "image") as "image" | "video",
       actor_role: (p.actor_role as string) ?? null, captured_at: (p.captured_at as string) ?? null,
       server_at: p.server_at as string, note: (p.note as string) ?? null,
       stale: cap != null ? Math.abs(srv - cap) > 5 * 60 * 1000 : false,

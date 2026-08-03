@@ -1,5 +1,5 @@
 import { requireModule } from "@/lib/auth/dal";
-import { canWriteModule } from "@/lib/rbac/modules";
+import { canWriteModule, canReadModule } from "@/lib/rbac/modules";
 import { listIncidents } from "@/lib/incidents/queries";
 import { PageHeader, Badge } from "@/components/ui";
 import { HelpPanel } from "@/components/guide/help";
@@ -62,10 +62,12 @@ export default async function IncidentsPage() {
                 entity="incident"
                 entityId={i.id}
                 kind="incident"
-                title="Photo evidence"
+                title="Photo / video evidence"
                 label={`Incident · ${i.category}`}
                 canWrite={canWrite}
+                canView={canReadModule(user.roleKeys, "media")}
                 photos={i.photos}
+                allowVideo
               />
             </div>
           </div>

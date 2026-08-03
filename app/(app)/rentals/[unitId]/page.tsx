@@ -4,7 +4,7 @@ import { requireModule } from "@/lib/auth/dal";
 import { rentalUnitDetail, duesForUnit, metersForUnit, leaseDocuments } from "@/lib/rentals/queries";
 import { peso } from "@/lib/collections/summary";
 import { PageHeader, Breadcrumb } from "@/components/ui";
-import { canWriteModule } from "@/lib/rbac/modules";
+import { canWriteModule, canReadModule } from "@/lib/rbac/modules";
 import { StartLeaseForm, LeaseActions, MeterForm, DueForm, MarkPaid } from "@/components/rentals/rental-forms";
 import { RenterDetails, LeaseDocsChecklist } from "@/components/rentals/renter-details";
 import { listDocPhotos } from "@/lib/docs/photos";
@@ -96,8 +96,8 @@ export default async function RentalUnitPage({ params }: { params: Promise<{ uni
 
       {unit.lease && (
         <div className="mb-6 grid gap-4 lg:grid-cols-2">
-          <PhotoDocPanel entity="lease" entityId={unit.lease.id} kind="move_in" title="Move-in condition" label={`Move-in · Unit ${unit.unitNumber}`} canWrite={canWrite} photos={conditionPhotos} />
-          <PhotoDocPanel entity="lease" entityId={unit.lease.id} kind="move_out" title="Move-out condition" label={`Move-out · Unit ${unit.unitNumber}`} canWrite={canWrite} photos={conditionPhotos} />
+          <PhotoDocPanel entity="lease" entityId={unit.lease.id} kind="move_in" title="Move-in condition" label={`Move-in · Unit ${unit.unitNumber}`} canWrite={canWrite} canView={canReadModule(user.roleKeys, "media")} photos={conditionPhotos} />
+          <PhotoDocPanel entity="lease" entityId={unit.lease.id} kind="move_out" title="Move-out condition" label={`Move-out · Unit ${unit.unitNumber}`} canWrite={canWrite} canView={canReadModule(user.roleKeys, "media")} photos={conditionPhotos} />
         </div>
       )}
 

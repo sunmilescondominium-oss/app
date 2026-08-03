@@ -4,7 +4,7 @@ import type { ModuleKey } from "@/lib/rbac/modules";
 
 export const DOC_PHOTO_BUCKET = "doc-photos";
 
-export type DocEntity = "transmittal" | "housekeeping_task" | "stock_count" | "lease" | "incident";
+export type DocEntity = "transmittal" | "housekeeping_task" | "stock_count" | "lease" | "incident" | "stay";
 
 /** Which module governs read/write access for each documented entity. */
 export const ENTITY_MODULE: Record<DocEntity, ModuleKey> = {
@@ -13,6 +13,7 @@ export const ENTITY_MODULE: Record<DocEntity, ModuleKey> = {
   stock_count: "housekeeping",
   lease: "rentals",
   incident: "incidents",
+  stay: "hotel",
 };
 
 export interface DocPhoto {
@@ -20,6 +21,7 @@ export interface DocPhoto {
   entity: string;
   entity_id: string;
   kind: string;
+  media_type: "image" | "video";
   actor_role: string | null;
   captured_at: string | null;
   server_at: string;
@@ -32,7 +34,7 @@ export async function listDocPhotos(entity: DocEntity, entityId: string): Promis
   const admin = createAdminClient();
   const { data } = await admin
     .from("doc_photos")
-    .select("id, entity, entity_id, kind, actor_role, captured_at, server_at, note")
+    .select("id, entity, entity_id, kind, media_type, actor_role, captured_at, server_at, note")
     .eq("entity", entity)
     .eq("entity_id", entityId)
     .order("created_at", { ascending: false });
@@ -44,6 +46,7 @@ export async function listDocPhotos(entity: DocEntity, entityId: string): Promis
       entity: r.entity as string,
       entity_id: r.entity_id as string,
       kind: r.kind as string,
+      media_type: ((r.media_type as string) ?? "image") as "image" | "video",
       actor_role: (r.actor_role as string) ?? null,
       captured_at: (r.captured_at as string) ?? null,
       server_at: r.server_at as string,

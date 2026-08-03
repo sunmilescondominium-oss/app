@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireModule } from "@/lib/auth/dal";
+import { canReadModule } from "@/lib/rbac/modules";
 import { listHousekeepingTasks, listSupplies, listStockMovements } from "@/lib/housekeeping/queries";
 import { HOUSEKEEPING_STATUSES } from "@/lib/config";
 import { PageHeader, Badge } from "@/components/ui";
@@ -100,6 +101,7 @@ export default async function HousekeepingPage() {
           title={`Physical count evidence — ${today}`}
           label={`Inventory count · ${today}`}
           canWrite={canManageSupplies}
+          canView={canReadModule(user.roleKeys, "media")}
           photos={countPhotos}
         />
       </div>

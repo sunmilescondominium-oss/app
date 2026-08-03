@@ -12,9 +12,6 @@ import {
 } from "@/lib/rbac/modules";
 import { isModuleEnabled } from "@/lib/settings/flags";
 
-/** Roles that may preview/"act as" ANY role (top-level; never an escalation). */
-const ACT_AS_ANY_ROLES = ["admin"];
-
 /**
  * Data Access Layer — the authoritative auth boundary.
  *
@@ -58,14 +55,14 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
   // Load the global DB permission overrides into the RBAC layer for this request.
   setPermissionOverrides((permRows ?? []) as never);
 
-  // "Act as role" — normally restricted to a held role (never an escalation).
-  // Admins may preview ANY role (admin already outranks all, so no escalation).
-  const canActAsAny = allRoleKeys.some((r) => ACT_AS_ANY_ROLES.includes(r));
+  // "Act as / view as" is a granted capability — owner/admin/consultant by
+  // default, or any role given the "actas" access in Access Control. Only those
+  // holders may preview another role (never an escalation for the top roles).
+  const canActAsAny = canReadModule(allRoleKeys, "actas");
   const cookieStore = await cookies();
   const requested = cookieStore.get("act_as_role")?.value ?? null;
   const validTarget =
-    requested != null &&
-    (allRoleKeys.includes(requested) || (canActAsAny && (ALL_ROLE_KEYS as readonly string[]).includes(requested)));
+    requested != null && canActAsAny && (ALL_ROLE_KEYS as readonly string[]).includes(requested);
   const actingAs = validTarget ? requested : null;
 
   return {

@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { requireModule } from "@/lib/auth/dal";
-import { canWriteModule } from "@/lib/rbac/modules";
+import { canWriteModule, canReadModule } from "@/lib/rbac/modules";
 import { getTransmittal, listCustody } from "@/lib/collections/queries";
 import { summarizeCollections, peso } from "@/lib/collections/summary";
 import { canActOnStage, nextStage, type CustodyStage } from "@/lib/collections/custody";
@@ -191,8 +191,8 @@ export default async function TransmittalDetailPage({
       </div>
 
       <div className="no-print mt-4 grid gap-3 sm:grid-cols-2">
-        <PhotoDocPanel entity="transmittal" entityId={t.id} kind="deposit_slip" title="Deposit slip photo" label="Transmittal · deposit slip" canWrite={canWrite} photos={docPhotos} />
-        <PhotoDocPanel entity="transmittal" entityId={t.id} kind="passbook" title="Passbook photo" label="Transmittal · passbook" canWrite={canWrite} photos={docPhotos} />
+        <PhotoDocPanel entity="transmittal" entityId={t.id} kind="deposit_slip" title="Deposit slip photo" label="Transmittal · deposit slip" canWrite={canWrite} canView={canReadModule(user.roleKeys, "media")} photos={docPhotos} />
+        <PhotoDocPanel entity="transmittal" entityId={t.id} kind="passbook" title="Passbook photo" label="Transmittal · passbook" canWrite={canWrite} canView={canReadModule(user.roleKeys, "media")} photos={docPhotos} />
       </div>
 
       <div className="no-print mt-4">

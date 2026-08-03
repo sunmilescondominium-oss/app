@@ -29,13 +29,13 @@ export default async function AppLayout({
       milestone: m.milestone,
     }));
 
-  // Resolve human role labels from the DB (roles are data, not constants).
-  // Admins may preview ANY active role; everyone else only the roles they hold.
+  // The "Act as / view as" switcher only appears for holders of the capability
+  // (owner/admin/consultant by default, or roles granted it). They may preview
+  // any active role.
   const supabase = await createClient();
-  const rolesQuery = supabase.from("roles").select("role_key, label, sort_order").eq("is_active", true).order("sort_order");
   const { data: roleRows } = user.canActAsAny
-    ? await rolesQuery
-    : await rolesQuery.in("role_key", user.allRoleKeys.length ? user.allRoleKeys : ["__none__"]);
+    ? await supabase.from("roles").select("role_key, label, sort_order").eq("is_active", true).order("sort_order")
+    : { data: [] };
 
   const allRoleOptions: RoleOption[] = (roleRows ?? []).map((r) => ({
     key: r.role_key as string,

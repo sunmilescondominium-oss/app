@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireModule } from "@/lib/auth/dal";
-import { canWriteModule } from "@/lib/rbac/modules";
+import { canWriteModule, canReadModule } from "@/lib/rbac/modules";
 import { getTaskDetail } from "@/lib/housekeeping/queries";
 import { HOUSEKEEPING_STATUSES } from "@/lib/config";
 import { PageHeader, Badge } from "@/components/ui";
@@ -64,7 +64,7 @@ export default async function TaskDetailPage({
         <div className="space-y-6">
           <TaskActions detail={detail} canWrite={canWrite} />
           <CleaningPhotos taskId={task.id} count={task.photos.length} canWrite={canWrite} />
-          <PhotoDocPanel entity="housekeeping_task" entityId={task.id} kind="inspection" title="Inspection photos" label={`Inspection · Room ${task.unit_number ?? ""}`} canWrite={canWrite} photos={inspectionPhotos} />
+          <PhotoDocPanel entity="housekeeping_task" entityId={task.id} kind="inspection" title="Inspection photos" label={`Inspection · Room ${task.unit_number ?? ""}`} canWrite={canWrite} canView={canReadModule(user.roleKeys, "media")} photos={inspectionPhotos} />
         </div>
 
         <div>

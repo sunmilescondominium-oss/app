@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireModule } from "@/lib/auth/dal";
-import { canWriteModule } from "@/lib/rbac/modules";
+import { canWriteModule, canReadModule } from "@/lib/rbac/modules";
 import { getStayDetail, listMenuItems, getLatestRoomCheck } from "@/lib/hotel/queries";
 import { stayTotals } from "@/lib/hotel/rates";
 import { computeTax } from "@/lib/hotel/tax";
@@ -11,6 +11,8 @@ import { OrdersPanel } from "@/components/hotel/orders-panel";
 import { ReceiptFrame } from "@/components/hotel/receipt-frame";
 import { FolioActions } from "@/components/hotel/folio-actions";
 import { RoomCheck } from "@/components/hotel/room-check";
+import { listDocPhotos } from "@/lib/docs/photos";
+import { PhotoDocPanel } from "@/components/capture/photo-doc-panel";
 
 export const metadata = { title: "Folio" };
 
@@ -24,10 +26,11 @@ export default async function StayFolioPage({
   const { stayId } = await params;
   const user = await requireModule("hotel");
   const canWrite = canWriteModule(user.roleKeys, "hotel");
-  const [detail, menu, roomCheck] = await Promise.all([
+  const [detail, menu, roomCheck, damagePhotos] = await Promise.all([
     getStayDetail(stayId),
     listMenuItems(),
     getLatestRoomCheck(stayId),
+    listDocPhotos("stay", stayId),
   ]);
   if (!detail) notFound();
 
@@ -75,6 +78,17 @@ export default async function StayFolioPage({
             <RoomCheck stayId={stay.id} gatepassNo={roomCheck?.gatepass_no ?? null} />
           )}
           {canWrite && <FolioActions stayId={stay.id} status={stay.status} balance={t.balance} />}
+          <PhotoDocPanel
+            entity="stay"
+            entityId={stay.id}
+            kind="checkout_damage"
+            title="Damage / lost-item evidence"
+            label="Hotel checkout · damage/lost item"
+            canWrite={canWrite}
+            canView={canReadModule(user.roleKeys, "media")}
+            photos={damagePhotos}
+            allowVideo
+          />
         </div>
 
         <ReceiptFrame>

@@ -1,16 +1,18 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { requireModule, userHasAnyRole } from "@/lib/auth/dal";
+import { requireAuth, userHasAnyRole } from "@/lib/auth/dal";
 import { listRoles } from "@/lib/users/queries";
-import { MODULE_LIST, effectivePermission } from "@/lib/rbac/modules";
+import { MODULE_LIST, effectivePermission, GRANT_ROLES } from "@/lib/rbac/modules";
 import { PageHeader, Badge } from "@/components/ui";
 import { PermissionEditor, type ModuleRow } from "@/components/users/permission-editor";
 
 export const metadata = { title: "Access Control" };
 
 export default async function AccessControlPage({ searchParams }: { searchParams: Promise<{ role?: string }> }) {
-  const user = await requireModule("users");
-  if (!userHasAnyRole(user, ["admin", "managing_officer"])) redirect("/no-access");
+  // Access-granting is its own capability (admin / owner / consultant /
+  // managing officer) — not the Users module — so top roles can manage it.
+  const user = await requireAuth();
+  if (!userHasAnyRole(user, [...GRANT_ROLES])) redirect("/no-access");
 
   const roles = (await listRoles()).map((r) => ({ key: r.role_key, label: r.label }));
   const { role } = await searchParams;

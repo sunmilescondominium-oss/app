@@ -17,7 +17,11 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   if (!row) return new NextResponse("Not found", { status: 404 });
 
   const module = ENTITY_MODULE[row.entity as DocEntity];
-  if (!module || !canReadModule(user.roleKeys, module)) return new NextResponse("Forbidden", { status: 403 });
+  // Must be able to read the owning module AND hold the media-view capability
+  // (granted by admin / owner / consultant in Access Control).
+  if (!module || !canReadModule(user.roleKeys, module) || !canReadModule(user.roleKeys, "media")) {
+    return new NextResponse("Forbidden", { status: 403 });
+  }
 
   const { data: signed, error } = await admin.storage.from(DOC_PHOTO_BUCKET).createSignedUrl(row.storage_path as string, 60);
   if (error || !signed?.signedUrl) return new NextResponse("Could not create link", { status: 500 });

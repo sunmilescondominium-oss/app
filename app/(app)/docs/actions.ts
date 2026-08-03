@@ -23,8 +23,10 @@ export async function uploadDocPhoto(
   if (!canWriteModule(user.roleKeys, module)) return { ok: false, error: "You can't add photos here." };
 
   const photo = formData.get("photo");
-  if (!(photo instanceof File) || photo.size === 0) return { ok: false, error: "No photo captured." };
-  if (photo.size > 8 * 1024 * 1024) return { ok: false, error: "Photo too large (max 8 MB)." };
+  if (!(photo instanceof File) || photo.size === 0) return { ok: false, error: "No media captured." };
+  const isVideo = (photo.type || "").startsWith("video");
+  const maxMb = isVideo ? 40 : 8;
+  if (photo.size > maxMb * 1024 * 1024) return { ok: false, error: `File too large (max ${maxMb} MB).` };
   const capturedAt = String(formData.get("captured_at") ?? "").trim() || null;
   const note = String(formData.get("note") ?? "").trim() || null;
 
@@ -32,7 +34,8 @@ export async function uploadDocPhoto(
   // Ensure the private bucket exists (idempotent).
   await admin.storage.createBucket(DOC_PHOTO_BUCKET, { public: false }).catch(() => {});
 
-  const path = `${entity}/${entityId}/${kind}-${Date.now()}.jpg`;
+  const ext = isVideo ? "webm" : "jpg";
+  const path = `${entity}/${entityId}/${kind}-${Date.now()}.${ext}`;
   const up = await admin.storage
     .from(DOC_PHOTO_BUCKET)
     .upload(path, new Uint8Array(await photo.arrayBuffer()), { contentType: photo.type || "image/jpeg" });
@@ -40,7 +43,7 @@ export async function uploadDocPhoto(
 
   const actorRole = user.roleKeys[0] ?? null;
   const { error } = await admin.from("doc_photos").insert({
-    entity, entity_id: entityId, kind, storage_path: path,
+    entity, entity_id: entityId, kind, storage_path: path, media_type: isVideo ? "video" : "image",
     actor_user_id: user.userId, actor_role: actorRole, captured_at: capturedAt, note,
   });
   if (error) return { ok: false, error: error.message };
