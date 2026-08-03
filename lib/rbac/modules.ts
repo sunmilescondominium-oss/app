@@ -45,6 +45,7 @@ export type ModuleKey =
   | "owner"
   | "finance"
   | "banking"
+  | "incidents"
   | "hr"
   | "employee"
   | "employees"
@@ -204,6 +205,15 @@ export const MODULES: Record<ModuleKey, ModuleDef> = {
     milestone: "M9",
     read: ["owner", "managing_officer", "consultant", "accounting", "admin"],
     write: ["accounting", "admin"],
+  },
+  incidents: {
+    key: "incidents",
+    path: "/incidents",
+    label: "Incident Reports",
+    blurb: "Security, safety & damage reports with photos.",
+    milestone: "Ops",
+    read: ["owner", "consultant", "admin", "managing_officer", "operations_manager", "guard", "electrician", "utility"],
+    write: ["admin", "managing_officer", "operations_manager", "guard", "electrician", "utility"],
   },
   hr: {
     key: "hr",

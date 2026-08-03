@@ -7,6 +7,8 @@ import { HOUSEKEEPING_STATUSES } from "@/lib/config";
 import { PageHeader, Badge } from "@/components/ui";
 import { TaskActions } from "@/components/housekeeping/task-actions";
 import { CleaningPhotos } from "@/components/housekeeping/cleaning-photos";
+import { listDocPhotos } from "@/lib/docs/photos";
+import { PhotoDocPanel } from "@/components/capture/photo-doc-panel";
 
 export const metadata = { title: "Housekeeping task" };
 
@@ -42,6 +44,7 @@ export default async function TaskDetailPage({
   if (!detail) notFound();
 
   const { task, events } = detail;
+  const inspectionPhotos = await listDocPhotos("housekeeping_task", task.id);
 
   return (
     <>
@@ -61,6 +64,7 @@ export default async function TaskDetailPage({
         <div className="space-y-6">
           <TaskActions detail={detail} canWrite={canWrite} />
           <CleaningPhotos taskId={task.id} count={task.photos.length} canWrite={canWrite} />
+          <PhotoDocPanel entity="housekeeping_task" entityId={task.id} kind="inspection" title="Inspection photos" label={`Inspection · Room ${task.unit_number ?? ""}`} canWrite={canWrite} photos={inspectionPhotos} />
         </div>
 
         <div>

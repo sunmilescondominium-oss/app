@@ -6,6 +6,9 @@ import { PageHeader, Badge } from "@/components/ui";
 import { SuppliesPanel } from "@/components/housekeeping/supplies-panel";
 import { StockMovementsPanel } from "@/components/housekeeping/stock-movements";
 import { HelpPanel } from "@/components/guide/help";
+import { listDocPhotos } from "@/lib/docs/photos";
+import { PhotoDocPanel } from "@/components/capture/photo-doc-panel";
+import { todayManila } from "@/lib/collections/summary";
 
 export const metadata = { title: "Housekeeping" };
 
@@ -20,7 +23,10 @@ export default async function HousekeepingPage() {
   const user = await requireModule("housekeeping");
   const canManageSupplies = user.roleKeys.some((r) => ["admin", "operations_manager"].includes(r));
 
-  const [tasks, supplies, movements] = await Promise.all([listHousekeepingTasks(), listSupplies(), listStockMovements()]);
+  const today = todayManila();
+  const [tasks, supplies, movements, countPhotos] = await Promise.all([
+    listHousekeepingTasks(), listSupplies(), listStockMovements(), listDocPhotos("stock_count", today),
+  ]);
   const toClean = tasks.filter((t) => t.status !== "done").length;
 
   return (
@@ -85,6 +91,18 @@ export default async function HousekeepingPage() {
       <SuppliesPanel supplies={supplies} canManage={canManageSupplies} />
 
       <StockMovementsPanel supplies={supplies} movements={movements} canManage={canManageSupplies} />
+
+      <div className="mt-6">
+        <PhotoDocPanel
+          entity="stock_count"
+          entityId={today}
+          kind="count"
+          title={`Physical count evidence — ${today}`}
+          label={`Inventory count · ${today}`}
+          canWrite={canManageSupplies}
+          photos={countPhotos}
+        />
+      </div>
     </>
   );
 }

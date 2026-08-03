@@ -9,6 +9,8 @@ import { APP_BRAND, APP_BRAND_SHORT, PHP_DENOMINATIONS } from "@/lib/config";
 import { TransmittalActions } from "@/components/transmittals/transmittal-actions";
 import { CustodyPanel } from "@/components/transmittals/custody-panel";
 import { Breadcrumb } from "@/components/ui";
+import { listDocPhotos } from "@/lib/docs/photos";
+import { PhotoDocPanel } from "@/components/capture/photo-doc-panel";
 
 export const metadata = { title: "Transmittal" };
 
@@ -44,6 +46,7 @@ export default async function TransmittalDetailPage({
     upcoming && (upcoming === "liaison_count" || upcoming === "deposited") ? listAccountOptions() : Promise.resolve([]),
   ]);
   const canActNext = upcoming ? canActOnStage(user.roleKeys, upcoming) : false;
+  const docPhotos = await listDocPhotos("transmittal", t.id);
   const canReconcile = user.roleKeys.some((r) =>
     ["accounting", "managing_officer"].includes(r),
   );
@@ -185,6 +188,11 @@ export default async function TransmittalDetailPage({
           canActNext={canActNext}
           bankAccounts={bankAccounts}
         />
+      </div>
+
+      <div className="no-print mt-4 grid gap-3 sm:grid-cols-2">
+        <PhotoDocPanel entity="transmittal" entityId={t.id} kind="deposit_slip" title="Deposit slip photo" label="Transmittal · deposit slip" canWrite={canWrite} photos={docPhotos} />
+        <PhotoDocPanel entity="transmittal" entityId={t.id} kind="passbook" title="Passbook photo" label="Transmittal · passbook" canWrite={canWrite} photos={docPhotos} />
       </div>
 
       <div className="no-print mt-4">
