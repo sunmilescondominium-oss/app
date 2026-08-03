@@ -32,6 +32,8 @@ export interface Transmittal {
   business_line: string | null;
   transmittal_date: string;
   total_amount: number;
+  counted_cash: number | null;
+  denomination_counts: Record<string, number> | null;
   counted_by_role: string | null;
   confirmed_by_role: string | null;
   reconciled_by_role: string | null;

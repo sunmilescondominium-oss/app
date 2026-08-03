@@ -86,9 +86,12 @@ export async function getTransmittal(id: string): Promise<TransmittalDetail | nu
     .eq("transmittal_id", id)
     .order("created_at", { ascending: true });
 
+  const d = data as Record<string, unknown>;
   return {
     ...(data as unknown as Transmittal),
-    total_amount: Number((data as Record<string, unknown>).total_amount),
+    total_amount: Number(d.total_amount),
+    counted_cash: d.counted_cash == null ? null : Number(d.counted_cash),
+    denomination_counts: (d.denomination_counts as Record<string, number> | null) ?? null,
     collections: (cols ?? []).map(mapCollection),
   };
 }
