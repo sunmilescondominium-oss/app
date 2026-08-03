@@ -51,6 +51,9 @@ export default async function DashboardPage() {
   if (can("repair"))
     cards.push(<Card key="rep" href="/repairs" label="Open repairs" value={String(d.repairsOpen)} sub="not yet completed" tone={d.repairsOpen > 0 ? "text-amber-700" : "text-slate-900"} />);
 
+  if (can("employees"))
+    cards.push(<Card key="emp" href="/employees" label="Employees / 201 files" value="Open →" sub="Roster, 201 records & documents" />);
+
   if (can("finance"))
     cards.push(<Card key="fin" href="/finance" label="P&L / Reports" value="Open →" sub="Sales, expenses & profit" />);
 

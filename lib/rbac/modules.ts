@@ -208,7 +208,7 @@ export const MODULES: Record<ModuleKey, ModuleDef> = {
     milestone: "M8",
     // Roster viewers + photo uploaders — HR / admin / consultant / ops / top users.
     // (warehouse_timekeeper handles only DTR + shift scheduling, not the roster.)
-    read: ["admin", "managing_officer", "operations_manager", "consultant", "accounting"],
+    read: ["owner", "admin", "managing_officer", "operations_manager", "consultant", "accounting"],
     write: ["admin", "managing_officer", "operations_manager", "consultant", "accounting"],
   },
   advances: {
