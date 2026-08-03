@@ -8,9 +8,12 @@ import {
   canWriteModule,
   setPermissionOverrides,
   ALL_ROLE_KEYS,
+  SUPER_ROLES,
   type ModuleKey,
 } from "@/lib/rbac/modules";
 import { isModuleEnabled } from "@/lib/settings/flags";
+
+const isSuper = (roleKeys: readonly string[]) => roleKeys.some((r) => SUPER_ROLES.includes(r));
 
 /**
  * Data Access Layer — the authoritative auth boundary.
@@ -87,7 +90,7 @@ export async function requireAuth(): Promise<SessionUser> {
 export async function requireModule(key: ModuleKey): Promise<SessionUser> {
   const user = await requireAuth();
   if (!canReadModule(user.roleKeys, key)) redirect("/no-access");
-  if (!(await isModuleEnabled(key))) redirect("/no-access");
+  if (!isSuper(user.roleKeys) && !(await isModuleEnabled(key))) redirect("/no-access");
   return user;
 }
 
@@ -95,7 +98,7 @@ export async function requireModule(key: ModuleKey): Promise<SessionUser> {
 export async function requireModuleWrite(key: ModuleKey): Promise<SessionUser> {
   const user = await requireAuth();
   if (!canWriteModule(user.roleKeys, key)) redirect("/no-access");
-  if (!(await isModuleEnabled(key))) redirect("/no-access");
+  if (!isSuper(user.roleKeys) && !(await isModuleEnabled(key))) redirect("/no-access");
   return user;
 }
 

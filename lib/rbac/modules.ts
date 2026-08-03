@@ -62,6 +62,10 @@ export const LEAVE_APPROVER_ROLES: RoleKey[] = ["owner", "admin", "managing_offi
 /** Roles that may open Access Control and grant module/capability access. */
 export const GRANT_ROLES: RoleKey[] = ["admin", "owner", "consultant", "managing_officer"];
 
+/** Super-admin roles — bypass every module read/write check. The consultant is
+ *  the app's programmer and holds the highest access. */
+export const SUPER_ROLES: readonly string[] = ["consultant"];
+
 /** Roles that may approve a cash advance, and roles that may release/disburse it. */
 export const ADVANCE_APPROVER_ROLES: RoleKey[] = ["admin", "managing_officer", "operations_manager", "accounting"];
 export const ADVANCE_RELEASE_ROLES: RoleKey[] = ["accounting", "admin"];
@@ -331,6 +335,7 @@ export function setPermissionOverrides(rows: RolePermissionRow[]): void {
 
 /** Does a single role grant read/write on a module — override wins over default. */
 function roleGrants(role: string, key: ModuleKey, kind: "read" | "write"): boolean {
+  if (SUPER_ROLES.includes(role)) return true;
   const o = PERMISSION_OVERRIDES.get(`${role}:${key}`);
   if (o) return kind === "read" ? o.read : o.write;
   const def = (kind === "read" ? MODULES[key].read : MODULES[key].write) as readonly string[];
@@ -339,6 +344,7 @@ function roleGrants(role: string, key: ModuleKey, kind: "read" | "write"): boole
 
 /** Effective read/write for a role on a module (override-aware). For the admin UI. */
 export function effectivePermission(role: string, key: ModuleKey): { read: boolean; write: boolean } {
+  if (SUPER_ROLES.includes(role)) return { read: true, write: true };
   const o = PERMISSION_OVERRIDES.get(`${role}:${key}`);
   if (o) return { read: o.read, write: o.write };
   const rd = MODULES[key].read as readonly string[];

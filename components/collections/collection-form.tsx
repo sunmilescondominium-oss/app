@@ -7,6 +7,7 @@ import {
 } from "@/app/(app)/collections/actions";
 import { COLLECTION_CATEGORIES, PAYMENT_TYPES } from "@/lib/config";
 import type { UnitOption } from "@/lib/collections/types";
+import { CameraCapture } from "@/components/capture/camera-capture";
 
 const inputCls =
   "w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
@@ -37,13 +38,24 @@ export function CollectionForm({
   >(createCollection, undefined);
   const [paymentType, setPaymentType] = useState("cash");
   const isCash = paymentType === "cash";
+  const [proof, setProof] = useState<{ file: File; at: string } | null>(null);
 
   useEffect(() => {
-    if (state?.ok) onDone();
+    if (state?.ok) { onDone(); setProof(null); }
   }, [state, onDone]);
 
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    if (proof) {
+      fd.set("proof", proof.file);
+      fd.set("captured_at", proof.at);
+    }
+    action(fd);
+  }
+
   return (
-    <form action={action} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4">
       <input type="hidden" name="collected_on" value={date} />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -119,8 +131,15 @@ export function CollectionForm({
               <input name="reference_no" className={inputCls} placeholder="GCash/bank ref #" />
             </div>
             <div>
-              <label className={labelCls}>Proof (screenshot)</label>
-              <input name="proof" type="file" accept="image/*" className="w-full text-sm" />
+              <label className={labelCls}>Proof — live photo of the payment screen</label>
+              {proof ? (
+                <p className="text-sm text-emerald-700">
+                  ✓ Captured {new Date(proof.at).toLocaleTimeString("en-PH", { timeZone: "Asia/Manila", hour: "2-digit", minute: "2-digit" })}{" "}
+                  <button type="button" onClick={() => setProof(null)} className="text-amber-700 underline">retake</button>
+                </p>
+              ) : (
+                <CameraCapture label="Payment proof" buttonText="Photo the payment screen" onCapture={(f, at) => setProof({ file: f, at })} />
+              )}
             </div>
           </div>
           <label className="mt-2 flex items-center gap-2 text-sm text-stone-700">

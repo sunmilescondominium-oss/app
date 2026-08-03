@@ -25,6 +25,21 @@ export default async function AccessControlPage({ searchParams }: { searchParams
     return { key: m.key, label: m.label, blurb: m.blurb, read: eff.read, write: eff.write };
   });
 
+  // Capability summary — which roles can view evidence / act as another role.
+  const mediaRoles = roles.filter((r) => effectivePermission(r.key, "media").read);
+  const actasRoles = roles.filter((r) => effectivePermission(r.key, "actas").read);
+
+  const Chips = ({ items }: { items: { key: string; label: string }[] }) =>
+    items.length ? (
+      <div className="flex flex-wrap gap-1.5">
+        {items.map((r) => (
+          <span key={r.key} className="inline-flex rounded-full bg-white px-2.5 py-1 text-xs font-medium text-stone-700 ring-1 ring-stone-200">{r.label}</span>
+        ))}
+      </div>
+    ) : (
+      <p className="text-xs text-stone-400">No roles.</p>
+    );
+
   return (
     <>
       <div className="mb-2"><Link href="/users" className="text-sm text-indigo-700 hover:underline">← Users & Roles</Link></div>
@@ -33,6 +48,18 @@ export default async function AccessControlPage({ searchParams }: { searchParams
         subtitle="Grant each role read/write per module. Overrides the built-in defaults — no code change needed."
         badge={<Badge tone="green">Granular</Badge>}
       />
+
+      <div className="mb-6 grid gap-3 sm:grid-cols-2">
+        <div className="rounded-2xl border border-stone-200 bg-stone-50/60 p-4">
+          <p className="mb-2 text-sm font-semibold text-stone-700">📷 Can view photo/video evidence</p>
+          <Chips items={mediaRoles} />
+        </div>
+        <div className="rounded-2xl border border-stone-200 bg-stone-50/60 p-4">
+          <p className="mb-2 text-sm font-semibold text-stone-700">🎭 Can “act as / view as” another role</p>
+          <Chips items={actasRoles} />
+        </div>
+      </div>
+
       <PermissionEditor roles={roles} selectedRole={selectedRole} modules={modules} />
     </>
   );

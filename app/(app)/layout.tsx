@@ -1,6 +1,6 @@
 import { requireAuth } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
-import { accessibleModules } from "@/lib/rbac/modules";
+import { accessibleModules, SUPER_ROLES } from "@/lib/rbac/modules";
 import { getFeatureFlags, MODULE_FLAG } from "@/lib/settings/flags";
 import { AppShell, type NavModule, type RoleOption } from "@/components/app-shell";
 
@@ -16,10 +16,11 @@ export default async function AppLayout({
   const user = await requireAuth();
 
   const flags = await getFeatureFlags();
+  const superUser = user.roleKeys.some((r) => SUPER_ROLES.includes(r));
   const modules: NavModule[] = accessibleModules(user.roleKeys)
     .filter((m) => {
       const flag = MODULE_FLAG[m.key];
-      return !flag || (flags.get(flag) ?? false);
+      return !flag || superUser || (flags.get(flag) ?? false);
     })
     .map((m) => ({
       key: m.key,
