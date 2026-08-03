@@ -19,6 +19,7 @@ type Lease = {
   motorPlate: string | null;
   leaseType: string | null;
   transferredFrom: string | null;
+  portalPin: string | null;
 };
 
 function Field({ label, name, defaultValue }: { label: string; name: string; defaultValue: string | null }) {
@@ -57,7 +58,9 @@ export function RenterDetails({ lease }: { lease: Lease }) {
           </select>
         </label>
         <Field label="Transferred from (unit)" name="transferred_from" defaultValue={lease.transferredFrom} />
+        <Field label="Renter portal PIN" name="portal_pin" defaultValue={lease.portalPin} />
       </div>
+      <p className="mt-1 text-[11px] text-slate-400">Give the tenant their unit number + PIN to view bills at /renter-portal.</p>
       <div className="mt-3 flex items-center gap-3">
         <button type="submit" disabled={pending} className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-60">
           {pending ? "Saving…" : "Save renter details"}

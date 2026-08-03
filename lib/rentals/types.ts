@@ -59,6 +59,7 @@ export interface UnitDetail {
         motorPlate: string | null;
         leaseType: string | null;
         transferredFrom: string | null;
+        portalPin: string | null;
       })
     | null;
   needsHousekeeping: boolean;

@@ -11,7 +11,7 @@ import { NextResponse, type NextRequest } from "next/server";
  */
 
 // Routes reachable without a signed-in staff session.
-const PUBLIC_PREFIXES = ["/login", "/buyer-portal", "/repair-request", "/attendance-portal"];
+const PUBLIC_PREFIXES = ["/login", "/buyer-portal", "/repair-request", "/attendance-portal", "/renter-portal"];
 
 function isPublicPath(path: string): boolean {
   if (path === "/") return true; // root decides where to send you

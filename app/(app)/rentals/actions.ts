@@ -172,6 +172,7 @@ export async function updateRenterDetails(_prev: ActionResult | undefined, formD
       motor_plate: str("motor_plate"),
       lease_type: str("lease_type"),
       transferred_from: str("transferred_from"),
+      portal_pin: str("portal_pin"),
     })
     .eq("id", leaseId);
   if (error) return { ok: false, error: error.message };

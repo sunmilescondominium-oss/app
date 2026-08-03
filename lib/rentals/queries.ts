@@ -182,6 +182,7 @@ export async function rentalUnitDetail(unitId: string): Promise<UnitDetail | nul
           motorPlate: (lease.motor_plate as string | null) ?? null,
           leaseType: (lease.lease_type as string | null) ?? null,
           transferredFrom: (lease.transferred_from as string | null) ?? null,
+          portalPin: (lease.portal_pin as string | null) ?? null,
         }
       : null,
     needsHousekeeping: !lease && Boolean(hk),
