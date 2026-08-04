@@ -7,6 +7,7 @@ import { peso } from "@/lib/collections/summary";
 import { BUYER_STATUSES, PAYMENT_SCHEMES } from "@/lib/config";
 import { PageHeader, Badge } from "@/components/ui";
 import { TableSearch } from "@/components/table-search";
+import { AdjustableColumns } from "@/components/adjustable-columns";
 import { CsvImporter } from "@/components/data/csv-importer";
 import { bulkImportBuyers } from "@/app/(app)/buyers/actions";
 import { BUYERS_TEMPLATE } from "@/lib/imports/buyers";
@@ -63,6 +64,7 @@ export default async function BuyersPage() {
       )}
 
       <TableSearch placeholder="Search buyers by unit, name, status…">
+      <AdjustableColumns storageKey="buyers">
       <div className="table-wrap">
         <table className="w-full min-w-[760px] text-left text-sm">
           <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
@@ -110,6 +112,7 @@ export default async function BuyersPage() {
           </tbody>
         </table>
       </div>
+      </AdjustableColumns>
       </TableSearch>
     </>
   );

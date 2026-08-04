@@ -10,6 +10,7 @@ import {
 import { BUSINESS_LINES, UNIT_STATUSES } from "@/lib/config";
 import { PageHeader, Badge } from "@/components/ui";
 import { InventoryTable } from "@/components/inventory/inventory-table";
+import { AdjustableColumns } from "@/components/adjustable-columns";
 
 export const metadata = { title: "Inventory" };
 
@@ -175,13 +176,15 @@ export default async function InventoryPage({
         </div>
       </form>
 
-      <InventoryTable
-        units={units}
-        properties={propOptions}
-        fieldDefs={fieldDefs}
-        canWrite={canWrite}
-        canManageFields={canManageFields}
-      />
+      <AdjustableColumns storageKey="inventory">
+        <InventoryTable
+          units={units}
+          properties={propOptions}
+          fieldDefs={fieldDefs}
+          canWrite={canWrite}
+          canManageFields={canManageFields}
+        />
+      </AdjustableColumns>
 
       {!canWrite && (
         <p className="mt-4 text-xs text-stone-400">

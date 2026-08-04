@@ -5,6 +5,7 @@ import { peso } from "@/lib/collections/summary";
 import { canWriteModule } from "@/lib/rbac/modules";
 import { PageHeader, Badge, Breadcrumb } from "@/components/ui";
 import { TableSearch } from "@/components/table-search";
+import { AdjustableColumns } from "@/components/adjustable-columns";
 import { CsvImporter } from "@/components/data/csv-importer";
 import { bulkImportLeases } from "@/app/(app)/rentals/actions";
 import { TENANTS_TEMPLATE } from "@/lib/imports/tenants";
@@ -40,6 +41,7 @@ export default async function TenantsPage() {
       )}
 
       <TableSearch placeholder="Search tenants by name, unit, contact…">
+      <AdjustableColumns storageKey="tenants">
       <div className="table-wrap">
         <table className="w-full min-w-[760px] text-left text-sm">
           <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
@@ -74,6 +76,7 @@ export default async function TenantsPage() {
           </tbody>
         </table>
       </div>
+      </AdjustableColumns>
       </TableSearch>
       <p className="mt-3 text-xs text-stone-400">Whoever is entered on a rental/Airbnb unit is a tenant. They view their bills through the renter portal using their unit # + PIN (set the PIN on the unit&rsquo;s detail page).</p>
     </>

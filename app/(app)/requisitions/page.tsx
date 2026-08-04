@@ -3,6 +3,7 @@ import { requireModule } from "@/lib/auth/dal";
 import { canWriteModule } from "@/lib/rbac/modules";
 import { PageHeader, Badge, Breadcrumb } from "@/components/ui";
 import { TableSearch } from "@/components/table-search";
+import { AdjustableColumns } from "@/components/adjustable-columns";
 import { NewRequisition } from "@/components/requisitions/new-requisition";
 import {
   listRequisitions, listMaterials, getOwnerThreshold, STATUS_LABEL, STATUS_TONE,
@@ -35,6 +36,7 @@ export default async function RequisitionsPage() {
       )}
 
       <TableSearch placeholder="Search by ref #, title, line, status…">
+      <AdjustableColumns storageKey="requisitions">
       <div className="table-wrap">
         <table className="w-full min-w-[820px] text-left text-sm">
           <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
@@ -66,6 +68,7 @@ export default async function RequisitionsPage() {
           </tbody>
         </table>
       </div>
+      </AdjustableColumns>
       </TableSearch>
     </>
   );
