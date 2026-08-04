@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { APP_BRAND, APP_BRAND_SHORT } from "@/lib/config";
 import { signOut, setActAsRole } from "@/lib/auth/actions";
+import { exitImpersonation } from "@/app/(app)/users/impersonate-actions";
 import { SunMilesMark } from "@/components/brand-logo";
 
 export interface NavModule {
@@ -25,12 +26,14 @@ export function AppShell({
   displayLabel,
   allRoleOptions,
   actingAs,
+  impersonating = false,
   children,
 }: {
   modules: NavModule[];
   displayLabel: string;
   allRoleOptions: RoleOption[];
   actingAs: string | null;
+  impersonating?: boolean;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -86,6 +89,16 @@ export function AppShell({
 
   return (
     <div className="flex min-h-screen flex-col">
+      {impersonating && (
+        <div className="no-print sticky top-0 z-40 flex flex-wrap items-center justify-center gap-3 bg-rose-600 px-4 py-2 text-center text-sm font-medium text-white">
+          <span>👁️ Signed in as <strong>{displayLabel}</strong> (impersonating for testing)</span>
+          <form action={exitImpersonation}>
+            <button type="submit" className="rounded-md bg-white/20 px-3 py-1 text-xs font-semibold text-white ring-1 ring-white/40 hover:bg-white/30">
+              Exit to my account
+            </button>
+          </form>
+        </div>
+      )}
       <header className="no-print sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-b border-stone-200/80 bg-white/80 px-4 backdrop-blur-md md:px-6">
         <div className="flex items-center gap-3">
           <button

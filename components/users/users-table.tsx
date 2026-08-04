@@ -10,6 +10,7 @@ import {
   sendUserPasswordReset,
   type ActionResult,
 } from "@/app/(app)/users/actions";
+import { signInAsUser } from "@/app/(app)/users/impersonate-actions";
 import { MODULE_LIST } from "@/lib/rbac/modules";
 import type { ManagedUser, RoleOption } from "@/lib/users/types";
 
@@ -219,11 +220,13 @@ export function UsersTable({
   roles,
   canWrite,
   currentUserId,
+  canImpersonate = false,
 }: {
   users: ManagedUser[];
   roles: RoleOption[];
   canWrite: boolean;
   currentUserId: string;
+  canImpersonate?: boolean;
 }) {
   const router = useRouter();
   const [modal, setModal] = useState<ModalState>(null);
@@ -253,6 +256,13 @@ export function UsersTable({
       return;
     }
     router.refresh();
+  }
+
+  async function impersonate(u: ManagedUser) {
+    if (!window.confirm(`Sign in as ${u.email}? You'll see the app exactly as they do until you exit.`)) return;
+    const res = await signInAsUser(u.id);
+    if (!res.ok) setToast({ msg: res.error, ok: false });
+    // on success the action redirects.
   }
 
   async function resetPw(u: ManagedUser) {
@@ -348,6 +358,15 @@ export function UsersTable({
                       >
                         Edit roles
                       </button>
+                      {canImpersonate && u.id !== currentUserId && (
+                        <button
+                          type="button"
+                          onClick={() => impersonate(u)}
+                          className="rounded-md border border-indigo-300 bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100"
+                        >
+                          Sign in as
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => resetPw(u)}

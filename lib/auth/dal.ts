@@ -38,6 +38,8 @@ export interface SessionUser {
   actingAs: string | null;
   /** True when the user may preview/act as any role (admin). */
   canActAsAny: boolean;
+  /** True when this session is a consultant impersonating another user. */
+  impersonating: boolean;
 }
 
 export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
@@ -76,6 +78,7 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
     allRoleKeys,
     actingAs,
     canActAsAny,
+    impersonating: cookieStore.get("imp_active")?.value === "1",
   };
 });
 

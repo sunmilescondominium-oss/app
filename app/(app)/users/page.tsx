@@ -41,6 +41,7 @@ export default async function UsersPage() {
         roles={roles}
         canWrite={canWrite}
         currentUserId={user.userId}
+        canImpersonate={user.allRoleKeys.includes("consultant")}
       />
     </>
   );

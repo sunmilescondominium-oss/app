@@ -49,6 +49,7 @@ export default async function AppLayout({
       displayLabel={user.displayLabel}
       allRoleOptions={allRoleOptions}
       actingAs={user.actingAs}
+      impersonating={user.impersonating}
     >
       {children}
     </AppShell>
