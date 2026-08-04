@@ -8,10 +8,12 @@ export function CredentialSetter({
   userId,
   employeeNo,
   hasPasscode,
+  canEditId = false,
 }: {
   userId: string;
   employeeNo: string | null;
   hasPasscode: boolean;
+  canEditId?: boolean;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -46,17 +48,23 @@ export function CredentialSetter({
 
   return (
     <div className="flex flex-wrap items-center justify-end gap-1.5">
-      <input
-        value={emp}
-        onChange={(e) => setEmp(e.target.value)}
-        placeholder="ID no."
-        className="w-20 rounded-lg border border-stone-300 px-2 py-1 text-xs outline-none focus:border-amber-500"
-      />
+      {canEditId ? (
+        <input
+          value={emp}
+          onChange={(e) => setEmp(e.target.value)}
+          placeholder="ID no."
+          className="w-20 rounded-lg border border-stone-300 px-2 py-1 text-xs outline-none focus:border-amber-500"
+        />
+      ) : (
+        <span className="rounded-lg bg-stone-100 px-2 py-1 text-xs text-stone-500" title="Only the consultant can change the ID">
+          ID {emp || "—"}
+        </span>
+      )}
       <input
         value={pass}
         onChange={(e) => setPass(e.target.value)}
         type="password"
-        placeholder={hasPasscode ? "New PIN" : "PIN"}
+        placeholder={hasPasscode ? "Reset PIN" : "PIN"}
         className="w-20 rounded-lg border border-stone-300 px-2 py-1 text-xs outline-none focus:border-amber-500"
       />
       <button type="button" onClick={save} disabled={busy} className="rounded-lg bg-amber-600 px-2 py-1 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-50">

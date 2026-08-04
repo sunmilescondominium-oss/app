@@ -111,7 +111,7 @@ export default async function EmployeesPage() {
                 {canWrite && (
                   <td className="px-4 py-2.5">
                     <div className="flex flex-col items-end gap-1.5">
-                      <CredentialSetter userId={e.id} employeeNo={e.employeeNo} hasPasscode={e.hasPasscode} />
+                      <CredentialSetter userId={e.id} employeeNo={e.employeeNo} hasPasscode={e.hasPasscode} canEditId={user.allRoleKeys.includes("consultant")} />
                       <QrControl userId={e.id} label={e.label} qrToken={e.qrToken} />
                     </div>
                   </td>

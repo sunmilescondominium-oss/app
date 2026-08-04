@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireModule, requireAuth } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit";
 import { LEAVE_TYPES } from "@/lib/config";
 import { todayManila } from "@/lib/collections/summary";
@@ -160,6 +161,27 @@ export async function changeMyPassword(_prev: AccountResult | undefined, formDat
 
   await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "update", entity: "auth.users", entityId: user.userId, diff: { password_changed: true } });
   return { ok: true, message: "Password updated. Use it next time you sign in." };
+}
+
+/** Employee changes their own attendance-kiosk PIN (default is 0000). */
+export async function changeMyPin(_prev: AccountResult | undefined, formData: FormData): Promise<AccountResult> {
+  const user = await requireAuth();
+  const pin = String(formData.get("new_pin") ?? "").trim();
+  const confirm = String(formData.get("confirm_pin") ?? "").trim();
+  if (!/^\d{4,8}$/.test(pin)) return { ok: false, error: "PIN must be 4–8 digits." };
+  if (pin !== confirm) return { ok: false, error: "The two PINs do not match." };
+
+  const admin = createAdminClient();
+  const { data: prof } = await admin.from("profiles").select("employee_no").eq("id", user.userId).maybeSingle();
+  const emp = (prof?.employee_no as string | null) ?? null;
+  if (!emp) return { ok: false, error: "You don't have an employee ID yet — ask the consultant to assign one." };
+
+  const { hashPasscode } = await import("@/lib/employees/passcode");
+  const { error } = await admin.from("profiles").update({ passcode_hash: hashPasscode(emp, pin) }).eq("id", user.userId);
+  if (error) return { ok: false, error: error.message };
+
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "update", entity: "profiles", entityId: user.userId, diff: { kiosk_pin_changed: true } });
+  return { ok: true, message: "Kiosk PIN updated." };
 }
 
 /** Request an email-address change (Supabase emails a confirmation link). */

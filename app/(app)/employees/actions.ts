@@ -101,17 +101,31 @@ export async function setEmployeeCredentials(userId: string, employeeNo: string,
   const user = await requireModuleWrite("employees");
   const emp = employeeNo.trim();
   if (!emp) return { ok: false, error: "Enter an ID number." };
-  if (passcode && passcode.trim().length < 4) return { ok: false, error: "Passcode must be at least 4 characters." };
+  if (passcode && passcode.trim().length < 4) return { ok: false, error: "PIN must be at least 4 digits." };
 
   const { hashPasscode } = await import("@/lib/employees/passcode");
   const admin = createAdminClient();
+
+  const { data: cur } = await admin.from("profiles").select("employee_no, passcode_hash").eq("id", userId).maybeSingle();
+  const currentId = (cur?.employee_no as string | null) ?? null;
+  const idChanged = emp !== currentId;
+
+  // Only the consultant may assign or change the employee ID number.
+  if (idChanged && !user.allRoleKeys.includes("consultant")) {
+    return { ok: false, error: "Only the consultant can assign or change the employee ID number." };
+  }
 
   // Enforce unique ID number across staff.
   const { data: clash } = await admin.from("profiles").select("id").eq("employee_no", emp).neq("id", userId).maybeSingle();
   if (clash) return { ok: false, error: "That ID number is already used by another employee." };
 
   const patch: Record<string, unknown> = { employee_no: emp };
-  if (passcode.trim()) patch.passcode_hash = hashPasscode(emp, passcode);
+  if (passcode.trim()) {
+    patch.passcode_hash = hashPasscode(emp, passcode.trim());
+  } else if (idChanged || !cur?.passcode_hash) {
+    // New/changed ID (or none set yet) → default PIN 0000 (employee changes it themselves).
+    patch.passcode_hash = hashPasscode(emp, "0000");
+  }
 
   const { error } = await admin.from("profiles").update(patch).eq("id", userId);
   if (error) return { ok: false, error: error.message };
@@ -122,7 +136,7 @@ export async function setEmployeeCredentials(userId: string, employeeNo: string,
     action: "update",
     entity: "profiles",
     entityId: userId,
-    diff: { employee_no: emp, passcode_changed: Boolean(passcode.trim()) },
+    diff: { employee_no: emp, id_changed: idChanged, passcode_changed: Boolean(passcode.trim()) },
   });
   revalidatePath("/employees");
   return { ok: true };
