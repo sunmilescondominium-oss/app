@@ -32,6 +32,20 @@ function cleanRoles(roleKeys: string[]): string[] {
 }
 
 /** Replace a user's entire role set (task-based access). */
+/** Rename a user's display label (shown across the app). */
+export async function setUserDisplayLabel(userId: string, label: string): Promise<ActionResult> {
+  const actor = await requireModuleWrite("users");
+  const value = label.trim();
+  if (!value) return { ok: false, error: "Display label can't be empty." };
+  const admin = createAdminClient();
+  const { error } = await admin.from("profiles").update({ display_label: value }).eq("id", userId);
+  if (error) return { ok: false, error: error.message };
+  await logAudit({ actorUserId: actor.userId, actorRoles: actor.roleKeys, action: "update", entity: "profiles", entityId: userId, diff: { display_label: value } });
+  revalidatePath("/users");
+  revalidatePath("/employees");
+  return { ok: true };
+}
+
 export async function setUserRoles(
   userId: string,
   roleKeys: string[],

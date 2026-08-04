@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Modal } from "@/components/modal";
 import {
   setUserRoles,
+  setUserDisplayLabel,
   createUser,
   setUserActive,
   sendUserPasswordReset,
@@ -92,6 +93,7 @@ function EditRolesForm({
   onDone: () => void;
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set(user.roleKeys));
+  const [label, setLabel] = useState(user.displayLabel);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
 
@@ -107,6 +109,11 @@ function EditRolesForm({
   async function save() {
     setPending(true);
     setError("");
+    const trimmed = label.trim();
+    if (trimmed && trimmed !== user.displayLabel) {
+      const r = await setUserDisplayLabel(user.id, trimmed);
+      if (!r.ok) { setPending(false); setError(r.error); return; }
+    }
     const res = await setUserRoles(user.id, [...selected]);
     setPending(false);
     if (!res.ok) {
@@ -118,9 +125,11 @@ function EditRolesForm({
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-stone-500">
-        {user.email} · <span className="font-medium">{user.displayLabel}</span>
-      </p>
+      <p className="text-sm text-stone-500">{user.email}</p>
+      <label className="block text-sm font-medium text-stone-700">
+        Display label (name shown across the app)
+        <input value={label} onChange={(e) => setLabel(e.target.value)} className="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200" />
+      </label>
       {isSelf && (
         <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
           You&apos;re editing your own account — removing your admin role will
@@ -145,7 +154,7 @@ function EditRolesForm({
           disabled={pending}
           className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-60"
         >
-          {pending ? "Saving…" : "Save roles"}
+          {pending ? "Saving…" : "Save changes"}
         </button>
       </div>
     </div>
@@ -356,7 +365,7 @@ export function UsersTable({
                         onClick={() => setModal({ kind: "edit", user: u })}
                         className="rounded-md border border-stone-300 px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100"
                       >
-                        Edit roles
+                        Edit
                       </button>
                       {canImpersonate && u.id !== currentUserId && (
                         <button
@@ -400,7 +409,7 @@ export function UsersTable({
       <Modal
         open={modal?.kind === "edit"}
         onClose={close}
-        title={modal?.kind === "edit" ? `Edit roles — ${modal.user.email}` : "Edit roles"}
+        title={modal?.kind === "edit" ? `Edit user — ${modal.user.email}` : "Edit user"}
       >
         {modal?.kind === "edit" && (
           <EditRolesForm
