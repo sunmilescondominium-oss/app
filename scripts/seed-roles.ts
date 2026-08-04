@@ -1,0 +1,109 @@
+/**
+ * Demo staff accounts — one per staff role — so "Act as" / "Sign in as" always
+ * lands on a populated screen while testing. Role-based labels only (no real
+ * names). Idempotent. Each demo user gets:
+ *   • the matching role
+ *   • an employee ID + default kiosk PIN 0000
+ *   • a daily pay rate + a few recent clock-in/out records (so DTR shows data)
+ *
+ *   npm run seed:roles
+ *
+ * Safe to re-run. Only touches accounts whose email ends with @demo.sunmiles.local
+ * so it never affects real users. Remove them later with: npm run seed:roles -- --purge
+ */
+import { config } from "dotenv";
+config({ path: ".env.local" });
+
+import { createHash } from "node:crypto";
+import postgres from "postgres";
+import { createClient } from "@supabase/supabase-js";
+
+function requireEnv(name: string): string {
+  const v = process.env[name];
+  if (!v) { console.error(`✖ ${name} is not set in .env.local`); process.exit(1); }
+  return v;
+}
+
+const DEMO_DOMAIN = "demo.sunmiles.local";
+const DEMO_PASSWORD = "demo1234"; // testing only
+const hashPasscode = (empNo: string, pin: string) => createHash("sha256").update(`${empNo}:${pin}`).digest("hex");
+
+function isoDaysAgo(n: number): string {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() - n);
+  return d.toISOString().slice(0, 10);
+}
+function at(date: string, hh: number, mm: number): string {
+  return new Date(`${date}T${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}:00+08:00`).toISOString();
+}
+
+async function main() {
+  const url = requireEnv("NEXT_PUBLIC_SUPABASE_URL");
+  const serviceKey = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
+  const dbUrl = requireEnv("SUPABASE_DB_URL");
+  const purge = process.argv.includes("--purge");
+
+  const sql = postgres(dbUrl, { ssl: "require", onnotice: () => {} });
+  const admin = createClient(url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
+
+  try {
+    const list = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    const byEmail = new Map(list.data.users.map((u) => [u.email?.toLowerCase() ?? "", u.id]));
+
+    if (purge) {
+      const demos = list.data.users.filter((u) => (u.email ?? "").endsWith(`@${DEMO_DOMAIN}`));
+      for (const u of demos) { await admin.auth.admin.deleteUser(u.id); process.stdout.write(`✗ removed ${u.email}\n`); }
+      console.log(`✔ purged ${demos.length} demo account(s).`);
+      return;
+    }
+
+    // Active STAFF roles (is_staff) from the DB — new roles are covered automatically.
+    const roles = await sql<{ role_key: string; label: string; sort_order: number }[]>`
+      select role_key, label, sort_order from public.roles where is_staff = true and is_active = true order by sort_order`;
+
+    let idx = 0;
+    for (const r of roles) {
+      idx += 1;
+      const email = `demo_${r.role_key}@${DEMO_DOMAIN}`.toLowerCase();
+      const label = `Demo — ${r.label}`;
+      const employeeNo = `90${String(idx).padStart(2, "0")}`; // 9001, 9002, …
+
+      let userId = byEmail.get(email);
+      if (!userId) {
+        const created = await admin.auth.admin.createUser({
+          email, password: DEMO_PASSWORD, email_confirm: true, user_metadata: { display_label: label },
+        });
+        if (created.error && !/already/i.test(created.error.message)) throw created.error;
+        userId = created.data?.user?.id ?? byEmail.get(email);
+      }
+      if (!userId) { console.warn(`⚠ could not resolve ${email}`); continue; }
+
+      await sql`
+        insert into public.profiles (id, display_label, employee_no, passcode_hash)
+        values (${userId}, ${label}, ${employeeNo}, ${hashPasscode(employeeNo, "0000")})
+        on conflict (id) do update set display_label = excluded.display_label, employee_no = excluded.employee_no, passcode_hash = excluded.passcode_hash`;
+      await sql`insert into public.user_roles (user_id, role_key) values (${userId}, ${r.role_key}) on conflict do nothing`;
+
+      // Daily rate (so payslip/DTR compute) — table exists from HR module.
+      await sql`insert into public.staff_pay (user_id, daily_rate) values (${userId}, 610) on conflict (user_id) do update set daily_rate = excluded.daily_rate`.catch(() => {});
+
+      // A few recent completed clock records so attendance/DTR isn't empty.
+      for (const d of [1, 2, 3]) {
+        const day = isoDaysAgo(d);
+        await sql`
+          insert into public.time_records (user_id, work_date, time_in, time_out)
+          values (${userId}, ${day}, ${at(day, 8, 2)}, ${at(day, 17, 5)})
+          on conflict do nothing`.catch(() => {});
+      }
+
+      process.stdout.write(`✔ ${label}  (${email} / ${DEMO_PASSWORD}, ID ${employeeNo}, PIN 0000)\n`);
+    }
+
+    console.log(`\n✔ Seeded ${roles.length} demo staff account(s). Sign in as any of them (or use "Sign in as" / "Act as").`);
+    console.log(`  All use password "${DEMO_PASSWORD}". Remove later with:  npm run seed:roles -- --purge`);
+  } finally {
+    await sql.end({ timeout: 5 });
+  }
+}
+
+main().catch((e) => { console.error(e); process.exit(1); });
