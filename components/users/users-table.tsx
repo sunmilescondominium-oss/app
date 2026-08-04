@@ -228,6 +228,13 @@ export function UsersTable({
   const router = useRouter();
   const [modal, setModal] = useState<ModalState>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 3500);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   const roleLabel = new Map(roles.map((r) => [r.role_key, r.label]));
   const close = () => setModal(null);
@@ -249,16 +256,26 @@ export function UsersTable({
   }
 
   async function resetPw(u: ManagedUser) {
-    if (!u.email) return window.alert("This user has no email address on file.");
+    if (!u.email) return setToast({ msg: "No email address on file.", ok: false });
     if (!window.confirm(`Email a password-reset link to ${u.email}?`)) return;
     setPendingId(u.id);
     const res = await sendUserPasswordReset(u.email);
     setPendingId(null);
-    window.alert(res.ok ? `Password-reset link sent to ${u.email}.` : res.error);
+    setToast(res.ok ? { msg: "Reset link sent ✓", ok: true } : { msg: res.error, ok: false });
   }
 
   return (
     <div>
+      {toast && (
+        <div
+          role="status"
+          className={`fixed bottom-5 right-5 z-50 rounded-lg px-4 py-2.5 text-sm font-medium shadow-lg ring-1 transition ${
+            toast.ok ? "bg-emerald-600 text-white ring-emerald-700" : "bg-rose-600 text-white ring-rose-700"
+          }`}
+        >
+          {toast.msg}
+        </div>
+      )}
       {canWrite && (
         <div className="mb-3">
           <button
