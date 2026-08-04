@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { requireModule } from "@/lib/auth/dal";
-import { scheduleForDate, schedulableStaff, weekSchedule } from "@/lib/scheduling/queries";
+import { scheduleForDate, schedulableStaff, weekSchedule, weekCoverage } from "@/lib/scheduling/queries";
 import { todayManila } from "@/lib/collections/summary";
 import { PageHeader } from "@/components/ui";
 import { AssignForm, RemoveShift } from "@/components/scheduling/schedule-form";
 import { WeekGrid } from "@/components/scheduling/week-grid";
+import { BulkAssign } from "@/components/scheduling/bulk-assign";
 
 export const metadata = { title: "Shift Schedule" };
 
@@ -29,11 +30,14 @@ export default async function SchedulePage({
   const date = (typeof sp.date === "string" && sp.date) || todayManila();
 
   const weekStart = weekStartOf(date);
-  const [shifts, staff, week] = await Promise.all([
+  const weekEnd = shiftDay(weekStart, 6);
+  const [shifts, staff, week, coverage] = await Promise.all([
     scheduleForDate(date),
     schedulableStaff(),
     weekSchedule(weekStart),
+    weekCoverage(weekStart),
   ]);
+  const gapDays = coverage.filter((c) => c.gaps.length > 0);
 
   return (
     <>
@@ -49,8 +53,32 @@ export default async function SchedulePage({
         <Link href={`/schedule?date=${shiftDay(date, 1)}`} className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm hover:bg-stone-50">Next →</Link>
       </div>
 
-      <div className="mb-4">
+      <div className="mb-4 flex flex-wrap items-start gap-3">
         <AssignForm staff={staff} date={date} />
+        <BulkAssign staff={staff} defaultFrom={weekStart} defaultTo={weekEnd} />
+      </div>
+
+      {/* Critical-coverage warnings for the displayed week */}
+      <div className={`mb-4 rounded-2xl border p-4 ${gapDays.length === 0 ? "border-emerald-200 bg-emerald-50/50" : "border-rose-200 bg-rose-50/50"}`}>
+        {gapDays.length === 0 ? (
+          <p className="text-sm font-medium text-emerald-700">✓ All critical roles covered this week ({weekStart} – {weekEnd}).</p>
+        ) : (
+          <>
+            <p className="mb-2 text-sm font-semibold text-rose-700">⚠ Coverage gaps this week — a critical task could be left unattended:</p>
+            <ul className="space-y-1 text-sm text-stone-700">
+              {gapDays.map((c) => (
+                <li key={c.date}>
+                  <span className="font-medium">{c.date}</span>{" "}
+                  {c.gaps.map((g) => (
+                    <span key={g.role_key} className="mr-1 inline-flex rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-700">
+                      {g.label}: {g.have}/{g.min}
+                    </span>
+                  ))}
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
       </div>
 
       {/* Weekly overview */}

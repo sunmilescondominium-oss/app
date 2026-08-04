@@ -200,6 +200,17 @@ export const HOUSEKEEPING_SHIFTS = [
   { key: "night", label: "Night" },
 ] as const;
 
+/**
+ * Roles whose absence on a given day leaves a critical task unattended. The
+ * schedule flags any day where fewer than `min` scheduled staff hold the role.
+ * TODO(client-confirm): confirm the critical roles and minimum headcounts.
+ */
+export const CRITICAL_COVERAGE = [
+  { role_key: "room_attendant", label: "Housekeeping", min: 1 },
+  { role_key: "guard", label: "Security", min: 1 },
+  { role_key: "hotel_cashier", label: "Hotel cashier", min: 1 },
+] as const;
+
 /** Pre-checkout room asset check (config-driven; TODO(client-confirm) counts). */
 export const ROOM_ASSET_CHECKLIST = [
   { key: "pillows", label: "Pillows", expected: 2 },

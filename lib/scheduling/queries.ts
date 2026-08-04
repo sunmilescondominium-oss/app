@@ -1,5 +1,48 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { CRITICAL_COVERAGE } from "@/lib/config";
+
+export interface CoverageGap { role_key: string; label: string; have: number; min: number }
+export interface CoverageDay { date: string; gaps: CoverageGap[] }
+
+/** Per-day critical-role coverage across the week (flags unattended tasks). */
+export async function weekCoverage(weekStart: string): Promise<CoverageDay[]> {
+  const days = Array.from({ length: 7 }, (_, i) =>
+    new Date(new Date(`${weekStart}T00:00:00+08:00`).getTime() + i * 86_400_000).toISOString().slice(0, 10),
+  );
+  const admin = createAdminClient();
+  const { data: sched } = await admin
+    .from("shift_schedules")
+    .select("user_id, work_date")
+    .gte("work_date", days[0])
+    .lte("work_date", days[6]);
+
+  const ids = [...new Set((sched ?? []).map((r) => r.user_id as string))];
+  const rolesByUser = new Map<string, Set<string>>();
+  if (ids.length) {
+    const { data: ur } = await admin.from("user_roles").select("user_id, role_key").in("user_id", ids);
+    for (const r of ur ?? []) {
+      const uid = r.user_id as string;
+      (rolesByUser.get(uid) ?? rolesByUser.set(uid, new Set()).get(uid)!).add(r.role_key as string);
+    }
+  }
+
+  const scheduledByDay = new Map<string, string[]>();
+  for (const r of sched ?? []) {
+    const d = r.work_date as string;
+    (scheduledByDay.get(d) ?? scheduledByDay.set(d, []).get(d)!).push(r.user_id as string);
+  }
+
+  return days.map((date) => {
+    const users = scheduledByDay.get(date) ?? [];
+    const gaps: CoverageGap[] = [];
+    for (const req of CRITICAL_COVERAGE) {
+      const have = users.filter((u) => rolesByUser.get(u)?.has(req.role_key)).length;
+      if (have < req.min) gaps.push({ role_key: req.role_key, label: req.label, have, min: req.min });
+    }
+    return { date, gaps };
+  });
+}
 
 export interface ShiftRow {
   id: string;
