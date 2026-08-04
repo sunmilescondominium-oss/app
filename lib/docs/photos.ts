@@ -4,7 +4,7 @@ import type { ModuleKey } from "@/lib/rbac/modules";
 
 export const DOC_PHOTO_BUCKET = "doc-photos";
 
-export type DocEntity = "transmittal" | "housekeeping_task" | "stock_count" | "lease" | "incident" | "stay";
+export type DocEntity = "transmittal" | "housekeeping_task" | "stock_count" | "lease" | "incident" | "stay" | "requisition";
 
 /** Which module governs read/write access for each documented entity. */
 export const ENTITY_MODULE: Record<DocEntity, ModuleKey> = {
@@ -14,6 +14,7 @@ export const ENTITY_MODULE: Record<DocEntity, ModuleKey> = {
   lease: "rentals",
   incident: "incidents",
   stay: "hotel",
+  requisition: "requisitions",
 };
 
 export interface DocPhoto {

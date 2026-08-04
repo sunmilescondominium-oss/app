@@ -46,6 +46,7 @@ export type ModuleKey =
   | "finance"
   | "banking"
   | "incidents"
+  | "requisitions"
   | "media"
   | "actas"
   | "hr"
@@ -225,6 +226,15 @@ export const MODULES: Record<ModuleKey, ModuleDef> = {
     milestone: "Ops",
     read: ["owner", "consultant", "admin", "managing_officer", "operations_manager", "guard", "electrician", "utility"],
     write: ["admin", "managing_officer", "operations_manager", "guard", "electrician", "utility"],
+  },
+  requisitions: {
+    key: "requisitions",
+    path: "/requisitions",
+    label: "Requisitions & Purchasing",
+    blurb: "Request, approve & purchase materials, tools & supplies.",
+    milestone: "Ops",
+    read: ["owner", "consultant", "admin", "managing_officer", "operations_manager", "accounting", "warehouse_timekeeper", "errand_liaison", "room_attendant", "hotel_rental_monitoring"],
+    write: ["admin", "managing_officer", "operations_manager", "accounting", "warehouse_timekeeper", "errand_liaison", "room_attendant", "hotel_rental_monitoring"],
   },
   media: {
     key: "media",
