@@ -11,6 +11,9 @@ import {
 } from "@/lib/hotel/queries";
 import { PageHeader, Badge } from "@/components/ui";
 import { HotelBoard } from "@/components/hotel/hotel-board";
+import { CsvImporter } from "@/components/data/csv-importer";
+import { RATE_PLAN_TEMPLATE, MENU_TEMPLATE } from "@/lib/imports/config";
+import { bulkImportRatePlans, bulkImportMenu } from "@/app/(app)/hotel/actions";
 
 export const metadata = { title: "Hotel Ops" };
 
@@ -39,10 +42,16 @@ export default async function HotelPage() {
         badge={<Badge tone="amber">{occupied}/{board.length} occupied</Badge>}
       />
 
-      <div className="no-print mb-4">
+      <div className="no-print mb-4 flex flex-wrap items-center gap-4">
         <Link href="/hotel/day" className="text-sm font-medium text-amber-700 hover:underline">
           Day-end / remittance report →
         </Link>
+        {isAdmin && (
+          <>
+            <CsvImporter title="Import rate plans from CSV" templateName="rate_plans_template.csv" templateCsv={RATE_PLAN_TEMPLATE} requiredHeaders={["name", "base_rate"]} commit={bulkImportRatePlans} />
+            <CsvImporter title="Import hotel menu from CSV" templateName="hotel_menu_template.csv" templateCsv={MENU_TEMPLATE} requiredHeaders={["category", "name", "price"]} commit={bulkImportMenu} />
+          </>
+        )}
       </div>
 
       {board.length === 0 ? (

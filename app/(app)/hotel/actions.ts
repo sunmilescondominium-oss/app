@@ -8,6 +8,7 @@ import { roomCharge, promoDiscount } from "@/lib/hotel/rates";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { todayManila } from "@/lib/collections/summary";
 import { HOTEL_PAYMENT_METHODS, CLEANING_CHECKLIST, ROOM_ASSET_CHECKLIST } from "@/lib/config";
+import type { ImportResult } from "@/lib/imports/types";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 const METHODS: readonly string[] = HOTEL_PAYMENT_METHODS.map((m) => m.key);
@@ -434,4 +435,67 @@ export async function createMenuItem(
   await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "create", entity: "hotel_menu_items", entityId: name });
   revalidatePath("/hotel");
   return { ok: true };
+}
+
+/** Bulk-import / update rate plans from CSV (upsert by unique name). */
+export async function bulkImportRatePlans(rows: Record<string, string>[]): Promise<ImportResult> {
+  const user = await requireModuleWrite("hotel");
+  if (!Array.isArray(rows) || rows.length === 0) return { ok: false, error: "No rows to import." };
+  if (rows.length > 2000) return { ok: false, error: "Too many rows (max 2000)." };
+  const admin = createAdminClient();
+  const errors: { row: number; error: string }[] = [];
+  const toUpsert: Record<string, unknown>[] = [];
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    const line = i + 2;
+    const name = (r.name ?? "").trim();
+    if (!name) { errors.push({ row: line, error: "name is required" }); continue; }
+    const baseRate = Number(r.base_rate);
+    if (!Number.isFinite(baseRate)) { errors.push({ row: line, error: "base_rate must be a number" }); continue; }
+    toUpsert.push({
+      name,
+      base_hours: r.base_hours ? Math.trunc(Number(r.base_hours)) : 3,
+      base_rate: baseRate,
+      extra_hour_rate: r.extra_hour_rate ? Number(r.extra_hour_rate) : 0,
+      sort_order: r.sort_order ? Math.trunc(Number(r.sort_order)) : 100,
+    });
+  }
+  let inserted = 0;
+  if (toUpsert.length) {
+    const { error } = await admin.from("rate_plans").upsert(toUpsert, { onConflict: "name" });
+    if (error) return { ok: false, error: error.message };
+    inserted = toUpsert.length;
+  }
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "create", entity: "rate_plans", entityId: null, diff: { imported: inserted, skipped: errors.length } });
+  revalidatePath("/hotel");
+  return { ok: true, inserted, errors: errors.length ? errors : undefined };
+}
+
+/** Bulk-import / update hotel menu items from CSV (upsert by category+name). */
+export async function bulkImportMenu(rows: Record<string, string>[]): Promise<ImportResult> {
+  const user = await requireModuleWrite("hotel");
+  if (!Array.isArray(rows) || rows.length === 0) return { ok: false, error: "No rows to import." };
+  if (rows.length > 2000) return { ok: false, error: "Too many rows (max 2000)." };
+  const admin = createAdminClient();
+  const errors: { row: number; error: string }[] = [];
+  const toUpsert: Record<string, unknown>[] = [];
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    const line = i + 2;
+    const name = (r.name ?? "").trim();
+    const category = (r.category ?? "Food").trim() || "Food";
+    if (!name) { errors.push({ row: line, error: "name is required" }); continue; }
+    const price = Number(r.price);
+    if (!Number.isFinite(price)) { errors.push({ row: line, error: "price must be a number" }); continue; }
+    toUpsert.push({ category, name, price, sort_order: r.sort_order ? Math.trunc(Number(r.sort_order)) : 100 });
+  }
+  let inserted = 0;
+  if (toUpsert.length) {
+    const { error } = await admin.from("hotel_menu_items").upsert(toUpsert, { onConflict: "category,name" });
+    if (error) return { ok: false, error: error.message };
+    inserted = toUpsert.length;
+  }
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "create", entity: "hotel_menu_items", entityId: null, diff: { imported: inserted, skipped: errors.length } });
+  revalidatePath("/hotel");
+  return { ok: true, inserted, errors: errors.length ? errors : undefined };
 }

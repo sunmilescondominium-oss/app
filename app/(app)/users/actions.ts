@@ -7,8 +7,62 @@ import { createClient } from "@/lib/supabase/server";
 import { siteOrigin } from "@/lib/site-url";
 import { logAudit } from "@/lib/audit";
 import { ALL_ROLE_KEYS } from "@/lib/rbac/modules";
+import type { ImportResult } from "@/lib/imports/types";
+import { randomBytes } from "node:crypto";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
+
+/**
+ * Bulk-add staff from CSV: creates a login user + roles per row. Existing emails
+ * are skipped (no overwrite). A random temp password is set — admins should use
+ * "Send reset" so each person sets their own. Optional daily_rate + employee_no.
+ */
+export async function bulkImportStaff(rows: Record<string, string>[]): Promise<ImportResult> {
+  const actor = await requireModuleWrite("users");
+  if (!Array.isArray(rows) || rows.length === 0) return { ok: false, error: "No rows to import." };
+  if (rows.length > 500) return { ok: false, error: "Too many rows (max 500 per import)." };
+  const admin = createAdminClient();
+  const errors: { row: number; error: string }[] = [];
+  let inserted = 0;
+
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    const line = i + 2;
+    const email = (r.email ?? "").trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { errors.push({ row: line, error: "invalid or missing email" }); continue; }
+
+    const label = (r.display_label ?? "").trim() || "Staff Member";
+    const roles = Array.from(new Set((r.roles ?? "").split(/[|;,]/).map((x) => x.trim()).filter(Boolean)));
+    const badRole = roles.find((rk) => !ALL_ROLE_KEYS.includes(rk as (typeof ALL_ROLE_KEYS)[number]));
+    if (badRole) { errors.push({ row: line, error: `unknown role "${badRole}"` }); continue; }
+
+    const { data: created, error: cErr } = await admin.auth.admin.createUser({
+      email,
+      password: randomBytes(18).toString("base64url"),
+      email_confirm: true,
+      user_metadata: { display_label: label },
+    });
+    if (cErr || !created.user) { errors.push({ row: line, error: cErr?.message ?? "could not create user (email may already exist)" }); continue; }
+    const userId = created.user.id;
+
+    await admin.from("profiles").update({ display_label: label }).eq("id", userId);
+    if (roles.length) await admin.from("user_roles").insert(roles.map((rk) => ({ user_id: userId, role_key: rk })));
+
+    const emp = (r.employee_no ?? "").trim();
+    if (emp) await admin.from("profiles").update({ employee_no: emp }).eq("id", userId);
+
+    const rate = Number(r.daily_rate);
+    if (Number.isFinite(rate) && rate > 0) {
+      await admin.from("staff_pay").upsert({ user_id: userId, daily_rate: rate }, { onConflict: "user_id" });
+    }
+    inserted += 1;
+  }
+
+  await logAudit({ actorUserId: actor.userId, actorRoles: actor.roleKeys, action: "create", entity: "profiles", entityId: null, diff: { staff_imported: inserted, skipped: errors.length } });
+  revalidatePath("/users");
+  revalidatePath("/employees");
+  return { ok: true, inserted, errors: errors.length ? errors : undefined };
+}
 
 /** Admin triggers a password-reset email for a staff member (locked-out help). */
 export async function sendUserPasswordReset(email: string): Promise<ActionResult> {

@@ -6,6 +6,9 @@ import { HOUSEKEEPING_STATUSES } from "@/lib/config";
 import { PageHeader, Badge } from "@/components/ui";
 import { SuppliesPanel } from "@/components/housekeeping/supplies-panel";
 import { StockMovementsPanel } from "@/components/housekeeping/stock-movements";
+import { CsvImporter } from "@/components/data/csv-importer";
+import { SUPPLY_TEMPLATE } from "@/lib/imports/config";
+import { bulkImportSupplies } from "@/app/(app)/housekeeping/actions";
 import { HelpPanel } from "@/components/guide/help";
 import { listDocPhotos } from "@/lib/docs/photos";
 import { PhotoDocPanel } from "@/components/capture/photo-doc-panel";
@@ -88,6 +91,12 @@ export default async function HousekeepingPage() {
           </tbody>
         </table>
       </div>
+
+      {canManageSupplies && (
+        <div className="mt-6">
+          <CsvImporter title="Import supplies from CSV" templateName="room_supplies_template.csv" templateCsv={SUPPLY_TEMPLATE} requiredHeaders={["name"]} commit={bulkImportSupplies} />
+        </div>
+      )}
 
       <SuppliesPanel supplies={supplies} canManage={canManageSupplies} />
 

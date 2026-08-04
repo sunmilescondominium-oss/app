@@ -7,6 +7,9 @@ import { UsersTable } from "@/components/users/users-table";
 import { TableSearch } from "@/components/table-search";
 import { AdjustableColumns } from "@/components/adjustable-columns";
 import { FeatureFlags } from "@/components/users/feature-flags";
+import { CsvImporter } from "@/components/data/csv-importer";
+import { STAFF_TEMPLATE } from "@/lib/imports/staff";
+import { bulkImportStaff } from "@/app/(app)/users/actions";
 
 export const metadata = { title: "Users & Roles" };
 
@@ -29,6 +32,18 @@ export default async function UsersPage() {
           <a href="/users/access" className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-300 bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100">
             ⚙ Access Control — grant modules per role
           </a>
+        </div>
+      )}
+
+      {canWrite && (
+        <div className="mb-4">
+          <CsvImporter
+            title="Bulk-add staff from CSV"
+            templateName="staff_template.csv"
+            templateCsv={STAFF_TEMPLATE}
+            requiredHeaders={["email", "display_label", "roles"]}
+            commit={bulkImportStaff}
+          />
         </div>
       )}
 

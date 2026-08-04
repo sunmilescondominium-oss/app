@@ -6,8 +6,41 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit";
 import type { HKChecklistItem } from "@/lib/housekeeping/types";
+import type { ImportResult } from "@/lib/imports/types";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
+
+/** Bulk-import / update room supplies from CSV (upsert by unique name). */
+export async function bulkImportSupplies(rows: Record<string, string>[]): Promise<ImportResult> {
+  const user = await requireModuleWrite("housekeeping");
+  if (!Array.isArray(rows) || rows.length === 0) return { ok: false, error: "No rows to import." };
+  if (rows.length > 2000) return { ok: false, error: "Too many rows (max 2000)." };
+  const admin = createAdminClient();
+  const errors: { row: number; error: string }[] = [];
+  const toUpsert: Record<string, unknown>[] = [];
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    const line = i + 2;
+    const name = (r.name ?? "").trim();
+    if (!name) { errors.push({ row: line, error: "name is required" }); continue; }
+    toUpsert.push({
+      name,
+      unit_label: (r.unit_label ?? "pcs").trim() || "pcs",
+      stock_qty: r.stock_qty ? Number(r.stock_qty) : 0,
+      reorder_level: r.reorder_level ? Number(r.reorder_level) : 0,
+      sort_order: r.sort_order ? Math.trunc(Number(r.sort_order)) : 100,
+    });
+  }
+  let inserted = 0;
+  if (toUpsert.length) {
+    const { error } = await admin.from("room_supplies").upsert(toUpsert, { onConflict: "name" });
+    if (error) return { ok: false, error: error.message };
+    inserted = toUpsert.length;
+  }
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "create", entity: "room_supplies", entityId: null, diff: { imported: inserted, skipped: errors.length } });
+  revalidatePath("/housekeeping");
+  return { ok: true, inserted, errors: errors.length ? errors : undefined };
+}
 
 function attendantRole(roleKeys: string[]): string {
   return roleKeys.includes("room_attendant") ? "room_attendant" : roleKeys[0] ?? "room_attendant";
