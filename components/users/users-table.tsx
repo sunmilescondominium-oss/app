@@ -7,6 +7,7 @@ import {
   setUserRoles,
   createUser,
   setUserActive,
+  sendUserPasswordReset,
   type ActionResult,
 } from "@/app/(app)/users/actions";
 import { MODULE_LIST } from "@/lib/rbac/modules";
@@ -247,6 +248,15 @@ export function UsersTable({
     router.refresh();
   }
 
+  async function resetPw(u: ManagedUser) {
+    if (!u.email) return window.alert("This user has no email address on file.");
+    if (!window.confirm(`Email a password-reset link to ${u.email}?`)) return;
+    setPendingId(u.id);
+    const res = await sendUserPasswordReset(u.email);
+    setPendingId(null);
+    window.alert(res.ok ? `Password-reset link sent to ${u.email}.` : res.error);
+  }
+
   return (
     <div>
       {canWrite && (
@@ -320,6 +330,14 @@ export function UsersTable({
                         className="rounded-md border border-stone-300 px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100"
                       >
                         Edit roles
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => resetPw(u)}
+                        disabled={pendingId === u.id}
+                        className="rounded-md border border-stone-300 px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100 disabled:opacity-40"
+                      >
+                        Send reset
                       </button>
                       <button
                         type="button"

@@ -1,20 +1,13 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { cookies, headers } from "next/headers";
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { getSessionUser } from "@/lib/auth/dal";
+import { siteOrigin } from "@/lib/site-url";
 
 export type LoginState = { error: string } | undefined;
 export type ResetState = { ok?: boolean; sent?: boolean; error?: string } | undefined;
-
-async function siteOrigin(): Promise<string> {
-  if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, "");
-  const h = await headers();
-  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
-  const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
-  return `${proto}://${host}`;
-}
 
 /** Send a password-reset email (Supabase). Always returns a generic success to
  *  avoid revealing whether an address exists. */

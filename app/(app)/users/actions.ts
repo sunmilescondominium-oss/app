@@ -3,10 +3,27 @@
 import { revalidatePath } from "next/cache";
 import { requireModuleWrite } from "@/lib/auth/dal";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
+import { siteOrigin } from "@/lib/site-url";
 import { logAudit } from "@/lib/audit";
 import { ALL_ROLE_KEYS } from "@/lib/rbac/modules";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
+
+/** Admin triggers a password-reset email for a staff member (locked-out help). */
+export async function sendUserPasswordReset(email: string): Promise<ActionResult> {
+  const actor = await requireModuleWrite("users");
+  const addr = email.trim().toLowerCase();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(addr)) return { ok: false, error: "Invalid email." };
+
+  const supabase = await createClient();
+  const origin = await siteOrigin();
+  const { error } = await supabase.auth.resetPasswordForEmail(addr, { redirectTo: `${origin}/auth/reset` });
+  if (error) return { ok: false, error: error.message };
+
+  await logAudit({ actorUserId: actor.userId, actorRoles: actor.roleKeys, action: "update", entity: "auth.users", entityId: addr, diff: { password_reset_sent: true } });
+  return { ok: true };
+}
 
 const VALID_ROLES: readonly string[] = ALL_ROLE_KEYS;
 
