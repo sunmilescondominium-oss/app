@@ -311,8 +311,8 @@ export function UsersTable({
         <table className="w-full min-w-[720px] text-left text-sm">
           <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
             <tr>
-              <th className="px-4 py-3">Name</th>
-              <th className="px-4 py-3">Roles</th>
+              <th className="px-4 py-3 min-w-[9rem]">Name</th>
+              <th className="px-4 py-3 min-w-[17rem]">Roles</th>
               <th className="px-4 py-3">Email</th>
               <th className="px-4 py-3">Status</th>
               {canWrite && <th className="px-4 py-3 text-right">Actions</th>}
@@ -342,7 +342,7 @@ export function UsersTable({
                     {u.roleKeys.map((rk) => (
                       <span
                         key={rk}
-                        className="rounded-full bg-stone-100 px-2 py-0.5 text-xs font-medium text-stone-700"
+                        className="whitespace-nowrap rounded-full bg-stone-100 px-2 py-0.5 text-xs font-medium text-stone-700"
                       >
                         {roleLabel.get(rk) ?? rk}
                       </span>

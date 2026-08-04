@@ -74,8 +74,8 @@ export default async function EmployeesPage() {
         <table className="w-full min-w-[720px] text-left text-sm">
           <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
             <tr>
-              <th className="px-4 py-3">Employee</th>
-              <th className="px-4 py-3">Roles</th>
+              <th className="px-4 py-3 min-w-[9rem]">Employee</th>
+              <th className="px-4 py-3 min-w-[15rem]">Roles</th>
               <th className="px-4 py-3 text-right">Daily rate</th>
               <th className="px-4 py-3">Status</th>
               {canWrite && <th className="px-4 py-3 text-right">Kiosk ID</th>}
@@ -98,7 +98,7 @@ export default async function EmployeesPage() {
                   <div className="flex flex-wrap gap-1">
                     {e.roleKeys.length === 0 && <span className="text-xs text-stone-400">—</span>}
                     {e.roleKeys.map((r) => (
-                      <span key={r} className="rounded-full bg-stone-100 px-2 py-0.5 text-[11px] capitalize text-stone-600">
+                      <span key={r} className="whitespace-nowrap rounded-full bg-stone-100 px-2 py-0.5 text-[11px] capitalize text-stone-600">
                         {roleLabel(r)}
                       </span>
                     ))}
