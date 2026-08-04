@@ -5,6 +5,7 @@ import { listFeatureFlags } from "@/lib/settings/flags";
 import { PageHeader, Badge } from "@/components/ui";
 import { UsersTable } from "@/components/users/users-table";
 import { TableSearch } from "@/components/table-search";
+import { AdjustableColumns } from "@/components/adjustable-columns";
 import { FeatureFlags } from "@/components/users/feature-flags";
 
 export const metadata = { title: "Users & Roles" };
@@ -38,13 +39,15 @@ export default async function UsersPage() {
         </div>
       )}
       <TableSearch placeholder="Search users by email or role…">
-        <UsersTable
-          users={users}
-          roles={roles}
-          canWrite={canWrite}
-          currentUserId={user.userId}
-          canImpersonate={user.allRoleKeys.includes("consultant")}
-        />
+        <AdjustableColumns storageKey="users">
+          <UsersTable
+            users={users}
+            roles={roles}
+            canWrite={canWrite}
+            currentUserId={user.userId}
+            canImpersonate={user.allRoleKeys.includes("consultant")}
+          />
+        </AdjustableColumns>
       </TableSearch>
     </>
   );

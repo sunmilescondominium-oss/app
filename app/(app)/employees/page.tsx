@@ -5,6 +5,7 @@ import { listRoles } from "@/lib/users/queries";
 import { analyzeLeave } from "@/lib/employees/leave-analysis";
 import { AddEmployee } from "@/components/employees/add-employee";
 import { TableSearch } from "@/components/table-search";
+import { AdjustableColumns } from "@/components/adjustable-columns";
 import { getKioskSettings } from "@/lib/kiosk/settings";
 import { KioskSettingsPanel } from "@/components/employees/kiosk-settings";
 import { peso } from "@/lib/collections/summary";
@@ -68,6 +69,7 @@ export default async function EmployeesPage() {
 
       <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-stone-500">Roster</h2>
       <TableSearch placeholder="Search staff by name, role, ID…">
+      <AdjustableColumns storageKey="employees">
       <div className="table-wrap">
         <table className="w-full min-w-[720px] text-left text-sm">
           <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
@@ -128,6 +130,7 @@ export default async function EmployeesPage() {
           </tbody>
         </table>
       </div>
+      </AdjustableColumns>
       </TableSearch>
     </>
   );
