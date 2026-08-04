@@ -9,6 +9,68 @@ import { CLEANING_CHECKLIST } from "@/lib/config";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
+/** Bulk-import current tenants (leases) from CSV, resolving unit by number. */
+export async function bulkImportLeases(rows: Record<string, string>[]): Promise<import("@/lib/imports/types").ImportResult> {
+  const user = await requireModuleWrite("rentals");
+  if (!Array.isArray(rows) || rows.length === 0) return { ok: false, error: "No rows to import." };
+  if (rows.length > 5000) return { ok: false, error: "Too many rows (max 5000)." };
+
+  const admin = createAdminClient();
+  const errors: { row: number; error: string }[] = [];
+  const toInsert: Record<string, unknown>[] = [];
+  const unitCache = new Map<string, { id: string; line: string } | null>();
+  const activeCache = new Map<string, boolean>();
+
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    const line = i + 2;
+    const unitNo = (r.unit_number ?? "").trim();
+    const tenant = (r.tenant_label ?? "").trim();
+    if (!unitNo) { errors.push({ row: line, error: "unit_number is required" }); continue; }
+    if (!tenant) { errors.push({ row: line, error: "tenant_label is required" }); continue; }
+
+    const key = unitNo.toLowerCase();
+    if (!unitCache.has(key)) {
+      const { data } = await admin.from("units").select("id, business_line").ilike("unit_number", unitNo).in("business_line", ["rental", "airbnb"]).limit(1).maybeSingle();
+      unitCache.set(key, data ? { id: data.id as string, line: data.business_line as string } : null);
+    }
+    const unit = unitCache.get(key);
+    if (!unit) { errors.push({ row: line, error: `rental/airbnb unit "${unitNo}" not found` }); continue; }
+
+    if (!activeCache.has(unit.id)) {
+      const { data } = await admin.from("leases").select("id").eq("unit_id", unit.id).eq("status", "active").limit(1).maybeSingle();
+      activeCache.set(unit.id, Boolean(data));
+    }
+    if (activeCache.get(unit.id)) { errors.push({ row: line, error: `unit "${unitNo}" already has an active lease` }); continue; }
+    activeCache.set(unit.id, true); // prevent a second row filling the same unit
+
+    const cycle = (r.billing_cycle ?? "").trim() || (unit.line === "airbnb" ? "nightly" : "monthly");
+    toInsert.push({
+      unit_id: unit.id,
+      business_line: unit.line,
+      tenant_label: tenant,
+      contact: (r.contact ?? "").trim() || null,
+      rent_amount: r.rent_amount ? Number(r.rent_amount) : 0,
+      billing_cycle: cycle,
+      deposit: r.deposit ? Number(r.deposit) : 0,
+      portal_pin: (r.portal_pin ?? "").trim() || null,
+      start_date: (r.start_date ?? "").trim() || undefined,
+      status: "active",
+    });
+  }
+
+  let inserted = 0;
+  if (toInsert.length) {
+    const { error } = await admin.from("leases").insert(toInsert);
+    if (error) return { ok: false, error: error.message };
+    inserted = toInsert.length;
+  }
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "create", entity: "leases", entityId: null, diff: { imported: inserted, skipped: errors.length } });
+  revalidatePath("/rentals");
+  revalidatePath("/rentals/tenants");
+  return { ok: true, inserted, errors };
+}
+
 /** Convert a datetime-local value to a Manila (UTC+8) ISO timestamp. */
 function manilaIso(v: string): string | null {
   const s = v.trim();

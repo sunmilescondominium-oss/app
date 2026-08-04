@@ -2,15 +2,20 @@ import Link from "next/link";
 import { requireModule } from "@/lib/auth/dal";
 import { listTenants } from "@/lib/rentals/queries";
 import { peso } from "@/lib/collections/summary";
+import { canWriteModule } from "@/lib/rbac/modules";
 import { PageHeader, Badge, Breadcrumb } from "@/components/ui";
 import { TableSearch } from "@/components/table-search";
+import { CsvImporter } from "@/components/data/csv-importer";
+import { bulkImportLeases } from "@/app/(app)/rentals/actions";
+import { TENANTS_TEMPLATE } from "@/lib/imports/tenants";
 
 export const metadata = { title: "Tenants" };
 
 const LINE_TONE: Record<string, "blue" | "indigo"> = { rental: "blue", airbnb: "indigo" };
 
 export default async function TenantsPage() {
-  await requireModule("rentals");
+  const user = await requireModule("rentals");
+  const canWrite = canWriteModule(user.roleKeys, "rentals");
   const tenants = await listTenants();
 
   return (
@@ -21,6 +26,18 @@ export default async function TenantsPage() {
         subtitle="Everyone currently occupying a rental or Airbnb unit."
         badge={<Badge tone="green">{tenants.length} active</Badge>}
       />
+
+      {canWrite && (
+        <div className="mb-4">
+          <CsvImporter
+            title="Import tenants (leases) from CSV"
+            templateName="tenants_template.csv"
+            templateCsv={TENANTS_TEMPLATE}
+            requiredHeaders={["unit_number", "tenant_label"]}
+            commit={bulkImportLeases}
+          />
+        </div>
+      )}
 
       <TableSearch placeholder="Search tenants by name, unit, contact…">
       <div className="table-wrap">
