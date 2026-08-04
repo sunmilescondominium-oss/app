@@ -7,6 +7,9 @@ import { peso } from "@/lib/collections/summary";
 import { BUYER_STATUSES, PAYMENT_SCHEMES } from "@/lib/config";
 import { PageHeader, Badge } from "@/components/ui";
 import { TableSearch } from "@/components/table-search";
+import { CsvImporter } from "@/components/data/csv-importer";
+import { bulkImportBuyers } from "@/app/(app)/buyers/actions";
+import { BUYERS_TEMPLATE } from "@/lib/imports/buyers";
 import { BuyersToolbar } from "@/components/buyers/buyers-toolbar";
 
 export const metadata = { title: "Buyers" };
@@ -46,6 +49,18 @@ export default async function BuyersPage() {
         canWrite={canWrite}
         canManageParams={canManageParams}
       />
+
+      {canWrite && (
+        <div className="mb-4">
+          <CsvImporter
+            title="Import buyers from CSV"
+            templateName="buyers_template.csv"
+            templateCsv={BUYERS_TEMPLATE}
+            requiredHeaders={["unit_number", "ref_pin"]}
+            commit={bulkImportBuyers}
+          />
+        </div>
+      )}
 
       <TableSearch placeholder="Search buyers by unit, name, status…">
       <div className="table-wrap">

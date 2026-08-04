@@ -7,9 +7,69 @@ import {
   userHasAnyRole,
 } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit";
 import { computeSOA } from "@/lib/computation";
 import { todayManila } from "@/lib/collections/summary";
+import type { ImportResult } from "@/lib/imports/types";
+
+/** Bulk-import buyers from a CSV (unit resolved by unit_number). */
+export async function bulkImportBuyers(rows: Record<string, string>[]): Promise<ImportResult> {
+  const user = await requireModuleWrite("buyers");
+  if (!Array.isArray(rows) || rows.length === 0) return { ok: false, error: "No rows to import." };
+  if (rows.length > 5000) return { ok: false, error: "Too many rows (max 5000)." };
+
+  const SCHEMES = ["step_up", "fixed", "balloon"];
+  const STATUSES = ["current", "overdue", "restructured", "in_dispute"];
+  const admin = createAdminClient();
+  const unitCache = new Map<string, string | null>();
+  const errors: { row: number; error: string }[] = [];
+  const toInsert: Record<string, unknown>[] = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    const line = i + 2; // header + 1-index
+    const unitNo = (r.unit_number ?? "").trim();
+    const pin = (r.ref_pin ?? "").trim();
+    if (!unitNo) { errors.push({ row: line, error: "unit_number is required" }); continue; }
+    if (!pin) { errors.push({ row: line, error: "ref_pin is required" }); continue; }
+
+    const key = unitNo.toLowerCase();
+    if (!unitCache.has(key)) {
+      const { data } = await admin.from("units").select("id").ilike("unit_number", unitNo).limit(1).maybeSingle();
+      unitCache.set(key, (data?.id as string) ?? null);
+    }
+    const unitId = unitCache.get(key);
+    if (!unitId) { errors.push({ row: line, error: `unit "${unitNo}" not found` }); continue; }
+
+    const scheme = (r.payment_scheme ?? "fixed").trim() || "fixed";
+    if (!SCHEMES.includes(scheme)) { errors.push({ row: line, error: `invalid payment_scheme "${scheme}"` }); continue; }
+    const status = (r.payment_status ?? "current").trim() || "current";
+    if (!STATUSES.includes(status)) { errors.push({ row: line, error: `invalid payment_status "${status}"` }); continue; }
+
+    toInsert.push({
+      unit_id: unitId,
+      contact_label: (r.contact_label ?? "Buyer").trim() || "Buyer",
+      ref_pin: pin,
+      payment_scheme: scheme,
+      payment_status: status,
+      tcp: r.tcp ? Number(r.tcp) : null,
+      downpayment: r.downpayment ? Number(r.downpayment) : 0,
+      term_months: r.term_months ? Math.trunc(Number(r.term_months)) : 60,
+      start_date: (r.start_date ?? "").trim() || undefined,
+    });
+  }
+
+  let inserted = 0;
+  if (toInsert.length) {
+    const { error } = await admin.from("buyers").insert(toInsert);
+    if (error) return { ok: false, error: error.message };
+    inserted = toInsert.length;
+  }
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "create", entity: "buyers", entityId: null, diff: { imported: inserted, skipped: errors.length } });
+  revalidatePath("/buyers");
+  return { ok: true, inserted, errors };
+}
 import { PAYMENT_SCHEMES, BUYER_STATUSES, PAYMENT_DOC_TYPES } from "@/lib/config";
 import type { SOAInput } from "@/lib/computation/types";
 
