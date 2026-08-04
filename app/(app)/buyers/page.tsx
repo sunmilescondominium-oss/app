@@ -6,6 +6,7 @@ import { listUnitOptions } from "@/lib/collections/queries";
 import { peso } from "@/lib/collections/summary";
 import { BUYER_STATUSES, PAYMENT_SCHEMES } from "@/lib/config";
 import { PageHeader, Badge } from "@/components/ui";
+import { TableSearch } from "@/components/table-search";
 import { BuyersToolbar } from "@/components/buyers/buyers-toolbar";
 
 export const metadata = { title: "Buyers" };
@@ -46,6 +47,7 @@ export default async function BuyersPage() {
         canManageParams={canManageParams}
       />
 
+      <TableSearch placeholder="Search buyers by unit, name, status…">
       <div className="table-wrap">
         <table className="w-full min-w-[760px] text-left text-sm">
           <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
@@ -93,6 +95,7 @@ export default async function BuyersPage() {
           </tbody>
         </table>
       </div>
+      </TableSearch>
     </>
   );
 }

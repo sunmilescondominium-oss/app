@@ -3,6 +3,7 @@ import { requireModule } from "@/lib/auth/dal";
 import { listTenants } from "@/lib/rentals/queries";
 import { peso } from "@/lib/collections/summary";
 import { PageHeader, Badge, Breadcrumb } from "@/components/ui";
+import { TableSearch } from "@/components/table-search";
 
 export const metadata = { title: "Tenants" };
 
@@ -21,6 +22,7 @@ export default async function TenantsPage() {
         badge={<Badge tone="green">{tenants.length} active</Badge>}
       />
 
+      <TableSearch placeholder="Search tenants by name, unit, contact…">
       <div className="table-wrap">
         <table className="w-full min-w-[760px] text-left text-sm">
           <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
@@ -55,6 +57,7 @@ export default async function TenantsPage() {
           </tbody>
         </table>
       </div>
+      </TableSearch>
       <p className="mt-3 text-xs text-stone-400">Whoever is entered on a rental/Airbnb unit is a tenant. They view their bills through the renter portal using their unit # + PIN (set the PIN on the unit&rsquo;s detail page).</p>
     </>
   );
