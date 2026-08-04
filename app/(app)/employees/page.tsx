@@ -1,7 +1,9 @@
 import { requireModule, userHasAnyRole } from "@/lib/auth/dal";
 import { canWriteModule, LEAVE_APPROVER_ROLES } from "@/lib/rbac/modules";
 import { employeeList, listLeave } from "@/lib/employees/queries";
+import { listRoles } from "@/lib/users/queries";
 import { analyzeLeave } from "@/lib/employees/leave-analysis";
+import { AddEmployee } from "@/components/employees/add-employee";
 import { getKioskSettings } from "@/lib/kiosk/settings";
 import { KioskSettingsPanel } from "@/components/employees/kiosk-settings";
 import { peso } from "@/lib/collections/summary";
@@ -22,7 +24,8 @@ export default async function EmployeesPage() {
   const canWrite = canWriteModule(user.roleKeys, "employees");
   const canDecide = userHasAnyRole(user, LEAVE_APPROVER_ROLES);
 
-  const [employees, pending, kiosk] = await Promise.all([employeeList(), listLeave("pending"), getKioskSettings()]);
+  const [employees, pending, kiosk, allRoles] = await Promise.all([employeeList(), listLeave("pending"), getKioskSettings(), canWrite ? listRoles() : Promise.resolve([])]);
+  const staffRoles = allRoles.filter((r) => r.is_staff).map((r) => ({ key: r.role_key, label: r.label }));
   const items = await Promise.all(
     pending.map(async (req) => ({
       req,
@@ -49,7 +52,8 @@ export default async function EmployeesPage() {
       </div>
 
       {canWrite && (
-        <div className="mt-3">
+        <div className="mt-3 space-y-3">
+          <AddEmployee roles={staffRoles} />
           <KioskSettingsPanel accessCode={kiosk.accessCode} showPhotos={kiosk.showPhotos} />
         </div>
       )}

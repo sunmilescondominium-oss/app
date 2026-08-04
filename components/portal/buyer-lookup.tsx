@@ -102,6 +102,37 @@ export function BuyerLookup() {
               </table>
             </div>
           </div>
+
+          {state.data.condo_dues.length > 0 && (
+            <div>
+              <p className="mb-2 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-stone-500">
+                <span>Condo association dues</span>
+                {state.data.condo_dues_total > 0 && <span className="text-rose-700">Unpaid: {peso(state.data.condo_dues_total)}</span>}
+              </p>
+              <div className="overflow-hidden rounded-xl border border-stone-200">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-stone-50 text-xs uppercase text-stone-500">
+                    <tr>
+                      <th className="px-3 py-2">Category</th>
+                      <th className="px-3 py-2">Due</th>
+                      <th className="px-3 py-2 text-right">Amount</th>
+                      <th className="px-3 py-2">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {state.data.condo_dues.map((d, i) => (
+                      <tr key={i} className="border-t border-stone-100">
+                        <td className="px-3 py-2 capitalize">{d.category.replace(/_/g, " ")}</td>
+                        <td className="px-3 py-2">{d.due_date ?? "—"}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">{peso(d.amount)}</td>
+                        <td className={`px-3 py-2 capitalize ${d.status === "unpaid" ? "text-rose-700" : "text-emerald-700"}`}>{d.status}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

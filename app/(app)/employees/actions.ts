@@ -10,6 +10,39 @@ import { sendAlert } from "@/lib/alerts/sendAlert";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
+/**
+ * Add an employee = create the account + assign staff role(s) in one step,
+ * right from the Employees page. Gated by employees-write (HR/ops/admin…),
+ * so managers can onboard staff without the full Users module.
+ */
+export async function createEmployee(_prev: ActionResult | undefined, formData: FormData): Promise<ActionResult> {
+  const actor = await requireModuleWrite("employees");
+  const admin = createAdminClient();
+
+  const email = String(formData.get("email") ?? "").trim();
+  const password = String(formData.get("password") ?? "");
+  const displayLabel = String(formData.get("display_label") ?? "").trim();
+  const role = String(formData.get("role") ?? "").trim();
+  if (!email) return { ok: false, error: "Email is required." };
+  if (password.length < 6) return { ok: false, error: "Password must be at least 6 characters." };
+  if (!displayLabel) return { ok: false, error: "Enter a display label (role/position, no personal name needed)." };
+  if (!role) return { ok: false, error: "Choose a role." };
+
+  const { data, error } = await admin.auth.admin.createUser({
+    email, password, email_confirm: true, user_metadata: { display_label: displayLabel },
+  });
+  if (error) return { ok: false, error: error.message };
+  const userId = data.user?.id;
+  if (!userId) return { ok: false, error: "Could not create the account." };
+
+  await admin.from("profiles").update({ display_label: displayLabel }).eq("id", userId);
+  await admin.from("user_roles").insert({ user_id: userId, role_key: role });
+
+  await logAudit({ actorUserId: actor.userId, actorRoles: actor.roleKeys, action: "create", entity: "profiles", entityId: userId, diff: { email, role } });
+  revalidatePath("/employees");
+  return { ok: true };
+}
+
 /** Upload a staff photo (HR / admin / consultant / ops / top users). */
 export async function uploadStaffPhoto(userId: string, formData: FormData): Promise<ActionResult> {
   const user = await requireModuleWrite("employees");

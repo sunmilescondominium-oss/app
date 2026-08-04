@@ -17,6 +17,9 @@ export interface PortalResult {
   amount_due_now: number | null;
   next_due_date: string | null;
   payments: { paid_on: string; doc_type: string; or_number: string | null; amount: number }[];
+  /** Condo association dues for the owner's unit (unpaid first). */
+  condo_dues: { category: string; amount: number; due_date: string | null; status: string }[];
+  condo_dues_total: number;
 }
 
 export type PortalState =
@@ -65,7 +68,7 @@ export async function lookupBuyer(
 
   const { data: buyer } = await admin
     .from("buyers")
-    .select("id, contact_label, payment_status, units(unit_number)")
+    .select("id, unit_id, contact_label, payment_status, units(unit_number)")
     .in("unit_id", unitIds)
     .eq("ref_pin", ref_pin)
     .eq("is_active", true)
@@ -73,7 +76,7 @@ export async function lookupBuyer(
     .maybeSingle();
   if (!buyer) return { ok: false, error: GENERIC };
 
-  const [{ data: soaRow }, { data: pays }] = await Promise.all([
+  const [{ data: soaRow }, { data: pays }, { data: duesRows }] = await Promise.all([
     admin
       .from("buyer_soa")
       .select("computed_json, contract_balance, next_due_date")
@@ -87,9 +90,24 @@ export async function lookupBuyer(
       .eq("buyer_id", buyer.id)
       .order("paid_on", { ascending: false })
       .limit(50),
+    // Condo association dues for the owner's unit (reuses rental_dues).
+    admin
+      .from("rental_dues")
+      .select("category, amount, due_date, status")
+      .eq("unit_id", buyer.unit_id as string)
+      .order("status", { ascending: true })
+      .order("due_date", { ascending: true })
+      .limit(60),
   ]);
 
   const soa = soaRow?.computed_json as SOAResult | undefined;
+  const condo_dues = (duesRows ?? []).map((d: Record<string, unknown>) => ({
+    category: d.category as string,
+    amount: Number(d.amount),
+    due_date: (d.due_date as string) ?? null,
+    status: d.status as string,
+  }));
+  const condo_dues_total = condo_dues.filter((d) => d.status === "unpaid").reduce((s, d) => s + d.amount, 0);
 
   return {
     ok: true,
@@ -106,6 +124,8 @@ export async function lookupBuyer(
         or_number: (p.or_number as string) ?? null,
         amount: Number(p.amount),
       })),
+      condo_dues,
+      condo_dues_total,
     },
   };
 }
