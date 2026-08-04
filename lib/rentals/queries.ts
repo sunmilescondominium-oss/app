@@ -290,6 +290,46 @@ export async function unitBill(unitId: string): Promise<{
   return { unit, lines, total };
 }
 
+export interface TenantRow {
+  leaseId: string;
+  unitId: string;
+  unitNumber: string;
+  businessLine: string;
+  propertyName: string | null;
+  tenantLabel: string;
+  contact: string | null;
+  rentAmount: number;
+  billingCycle: string;
+  startDate: string;
+  hasPin: boolean;
+}
+
+/** All current tenants (active rental/airbnb leases). */
+export async function listTenants(): Promise<TenantRow[]> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("leases")
+    .select("id, unit_id, tenant_label, contact, rent_amount, billing_cycle, start_date, portal_pin, units(unit_number, business_line, properties(name))")
+    .eq("status", "active")
+    .order("start_date", { ascending: false });
+  return (data ?? []).map((r: Record<string, unknown>) => {
+    const u = r.units as { unit_number?: string; business_line?: string; properties?: { name?: string } | null } | null;
+    return {
+      leaseId: r.id as string,
+      unitId: r.unit_id as string,
+      unitNumber: u?.unit_number ?? "—",
+      businessLine: u?.business_line ?? "rental",
+      propertyName: u?.properties?.name ?? null,
+      tenantLabel: r.tenant_label as string,
+      contact: (r.contact as string) ?? null,
+      rentAmount: Number(r.rent_amount),
+      billingCycle: r.billing_cycle as string,
+      startDate: r.start_date as string,
+      hasPin: Boolean(r.portal_pin),
+    };
+  });
+}
+
 export async function rentalUnitOptions(): Promise<{ id: string; label: string; businessLine: string }[]> {
   const admin = createAdminClient();
   const units = await unitsMap(admin);

@@ -103,10 +103,10 @@ export function BuyerLookup() {
             </div>
           </div>
 
-          {state.data.condo_dues.length > 0 && (
+          {state.data.condo_dues.some((d) => d.status !== "paid") && (
             <div>
               <p className="mb-2 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-stone-500">
-                <span>Condo association dues</span>
+                <span>Condo association dues — outstanding</span>
                 {state.data.condo_dues_total > 0 && <span className="text-rose-700">Unpaid: {peso(state.data.condo_dues_total)}</span>}
               </p>
               <div className="overflow-hidden rounded-xl border border-stone-200">
@@ -120,12 +120,40 @@ export function BuyerLookup() {
                     </tr>
                   </thead>
                   <tbody>
-                    {state.data.condo_dues.map((d, i) => (
+                    {state.data.condo_dues.filter((d) => d.status !== "paid").map((d, i) => (
                       <tr key={i} className="border-t border-stone-100">
                         <td className="px-3 py-2 capitalize">{d.category.replace(/_/g, " ")}</td>
                         <td className="px-3 py-2">{d.due_date ?? "—"}</td>
                         <td className="px-3 py-2 text-right tabular-nums">{peso(d.amount)}</td>
-                        <td className={`px-3 py-2 capitalize ${d.status === "unpaid" ? "text-rose-700" : "text-emerald-700"}`}>{d.status}</td>
+                        <td className={`px-3 py-2 capitalize ${d.status === "unpaid" ? "text-rose-700" : "text-stone-500"}`}>{d.status}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {state.data.condo_dues.some((d) => d.status === "paid") && (
+            <div>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">Condo dues — payment history</p>
+              <div className="overflow-hidden rounded-xl border border-stone-200">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-stone-50 text-xs uppercase text-stone-500">
+                    <tr>
+                      <th className="px-3 py-2">Category</th>
+                      <th className="px-3 py-2">Paid on</th>
+                      <th className="px-3 py-2">AR #</th>
+                      <th className="px-3 py-2 text-right">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {state.data.condo_dues.filter((d) => d.status === "paid").map((d, i) => (
+                      <tr key={i} className="border-t border-stone-100">
+                        <td className="px-3 py-2 capitalize">{d.category.replace(/_/g, " ")}</td>
+                        <td className="px-3 py-2">{d.paid_on ?? "—"}</td>
+                        <td className="px-3 py-2">{d.ar_no ?? "—"}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">{peso(d.amount)}</td>
                       </tr>
                     ))}
                   </tbody>

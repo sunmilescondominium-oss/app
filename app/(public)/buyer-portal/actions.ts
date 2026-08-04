@@ -18,7 +18,7 @@ export interface PortalResult {
   next_due_date: string | null;
   payments: { paid_on: string; doc_type: string; or_number: string | null; amount: number }[];
   /** Condo association dues for the owner's unit (unpaid first). */
-  condo_dues: { category: string; amount: number; due_date: string | null; status: string }[];
+  condo_dues: { category: string; amount: number; due_date: string | null; status: string; paid_on: string | null; ar_no: string | null }[];
   condo_dues_total: number;
 }
 
@@ -93,7 +93,7 @@ export async function lookupBuyer(
     // Condo association dues for the owner's unit (reuses rental_dues).
     admin
       .from("rental_dues")
-      .select("category, amount, due_date, status")
+      .select("category, amount, due_date, status, paid_on, ar_no")
       .eq("unit_id", buyer.unit_id as string)
       .order("status", { ascending: true })
       .order("due_date", { ascending: true })
@@ -106,6 +106,8 @@ export async function lookupBuyer(
     amount: Number(d.amount),
     due_date: (d.due_date as string) ?? null,
     status: d.status as string,
+    paid_on: (d.paid_on as string) ?? null,
+    ar_no: (d.ar_no as string) ?? null,
   }));
   const condo_dues_total = condo_dues.filter((d) => d.status === "unpaid").reduce((s, d) => s + d.amount, 0);
 

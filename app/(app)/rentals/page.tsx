@@ -20,8 +20,13 @@ export default async function RentalsPage() {
 
   return (
     <>
-      <PageHeader
-        backHref="/dashboard" title="Rentals & Airbnb" subtitle="Tap a unit to record dues, meter readings & manage the lease." />
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <PageHeader
+          backHref="/dashboard" title="Rentals & Airbnb" subtitle="Tap a unit to record dues, meter readings & manage the lease." />
+        <Link href="/rentals/tenants" className="rounded-lg border border-indigo-300 bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100">
+          👥 Tenants
+        </Link>
+      </div>
 
       {rem.length > 0 && (
         <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
