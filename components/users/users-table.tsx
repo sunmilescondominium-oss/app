@@ -302,9 +302,9 @@ export function UsersTable({
         <table className="w-full min-w-[720px] text-left text-sm">
           <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
             <tr>
-              <th className="px-4 py-3">Email</th>
-              <th className="px-4 py-3">Display label</th>
+              <th className="px-4 py-3">Name</th>
               <th className="px-4 py-3">Roles</th>
+              <th className="px-4 py-3">Email</th>
               <th className="px-4 py-3">Status</th>
               {canWrite && <th className="px-4 py-3 text-right">Actions</th>}
             </tr>
@@ -318,14 +318,13 @@ export function UsersTable({
                 }`}
               >
                 <td className="px-4 py-3 font-medium text-stone-900">
-                  {u.email}
+                  {u.displayLabel}
                   {u.id === currentUserId && (
                     <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-amber-800">
                       you
                     </span>
                   )}
                 </td>
-                <td className="px-4 py-3">{u.displayLabel}</td>
                 <td className="px-4 py-3">
                   <div className="flex flex-wrap gap-1">
                     {u.roleKeys.length === 0 && (
@@ -341,6 +340,7 @@ export function UsersTable({
                     ))}
                   </div>
                 </td>
+                <td className="px-4 py-3 text-stone-600">{u.email}</td>
                 <td className="px-4 py-3">
                   {u.isActive ? (
                     <span className="text-emerald-700">Active</span>
