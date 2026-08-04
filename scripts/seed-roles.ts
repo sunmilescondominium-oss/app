@@ -45,6 +45,9 @@ async function clearDemoActivity(sql: Sql) {
   await sql`delete from public.expenses where remarks like '[DEMO]%'`.catch(() => {});
   await sql`delete from public.repair_requests where ticket_ref like 'DEMO-%'`.catch(() => {});
   await sql`delete from public.incidents where title like '[DEMO]%'`.catch(() => {});
+  await sql`delete from public.rental_dues where remarks like '[DEMO]%'`.catch(() => {});
+  await sql`delete from public.leases where tenant_label like '[DEMO]%'`.catch(() => {});
+  await sql`delete from public.stays where guest_label like '[DEMO]%'`.catch(() => {});
 }
 
 async function seedActivity(sql: Sql) {
@@ -62,6 +65,37 @@ async function seedActivity(sql: Sql) {
   await sql`
     insert into public.incidents (title, category, location, description, status, reported_by_role)
     values ('[DEMO] Perimeter light out', 'safety', 'Gate 2', 'Reported during evening patrol.', 'open', 'guard')`.catch((e) => console.warn("  ⚠ incidents:", e.message));
+
+  // Hotel check-in on an available hotel room.
+  const hotelUnit = await sql`
+    select id from public.units where business_line = 'hotel' and is_active = true
+      and id not in (select unit_id from public.stays where status = 'active' and unit_id is not null)
+    order by unit_number limit 1`.catch(() => []);
+  if (hotelUnit[0]) {
+    await sql`
+      insert into public.stays (unit_id, guest_label, planned_hours, base_hours, base_rate, extra_hour_rate, status)
+      values (${hotelUnit[0].id as string}, '[DEMO] Walk-in guest', 3, 3, 250, 100, 'active')`.catch((e) => console.warn("  ⚠ stay:", e.message));
+  }
+
+  // Rental lease + dues (with a paid one for history) on an available rental unit.
+  const rentUnit = await sql`
+    select id from public.units where business_line = 'rental' and is_active = true
+      and id not in (select unit_id from public.leases where status = 'active')
+    order by unit_number limit 1`.catch(() => []);
+  if (rentUnit[0]) {
+    const uid = rentUnit[0].id as string;
+    const lease = await sql`
+      insert into public.leases (unit_id, business_line, tenant_label, contact, rent_amount, billing_cycle, status, notes)
+      values (${uid}, 'rental', '[DEMO] Sample Tenant', '0917-000-0000', 8000, 'monthly', 'active', '[DEMO]')
+      returning id`.catch((e) => { console.warn("  ⚠ lease:", e.message); return [] as { id: string }[]; });
+    const leaseId = lease[0]?.id ?? null;
+    await sql`
+      insert into public.rental_dues (unit_id, lease_id, category, due_date, amount, status, remarks)
+      values (${uid}, ${leaseId}, 'rent', current_date + 5, 8000, 'unpaid', '[DEMO] current month rent'),
+             (${uid}, ${leaseId}, 'rent', current_date - 25, 8000, 'paid', '[DEMO] last month rent')`.catch((e) => console.warn("  ⚠ dues:", e.message));
+    await sql`update public.rental_dues set paid_on = current_date - 22, ar_no = 'DEMO-AR-1'
+      where unit_id = ${uid} and status = 'paid' and remarks like '[DEMO]%'`.catch(() => {});
+  }
 }
 
 async function main() {
