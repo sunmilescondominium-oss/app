@@ -118,7 +118,7 @@ export default async function EmployeesPage() {
                 )}
                 {canWrite && (
                   <td className="px-4 py-2.5 text-right">
-                    <PhotoUpload userId={e.id} />
+                    <PhotoUpload userId={e.id} hasPhoto={!!e.photoPath} />
                   </td>
                 )}
               </tr>

@@ -52,6 +52,9 @@ export async function uploadStaffPhoto(userId: string, formData: FormData): Prom
   if (photo.size > 8 * 1024 * 1024) return { ok: false, error: "Photo too large (max 8 MB)." };
 
   const admin = createAdminClient();
+  const { data: prev } = await admin.from("profiles").select("photo_path").eq("id", userId).maybeSingle();
+  const oldPath = (prev?.photo_path as string | null) ?? null;
+
   const path = `${userId}/${Date.now()}.jpg`;
   const bytes = new Uint8Array(await photo.arrayBuffer());
   const up = await admin.storage.from("staff-photos").upload(path, bytes, { contentType: photo.type || "image/jpeg" });
@@ -59,6 +62,9 @@ export async function uploadStaffPhoto(userId: string, formData: FormData): Prom
 
   const { error } = await admin.from("profiles").update({ photo_path: path }).eq("id", userId);
   if (error) return { ok: false, error: error.message };
+
+  // Replace = discard the previous file so storage doesn't accumulate.
+  if (oldPath && oldPath !== path) await admin.storage.from("staff-photos").remove([oldPath]);
 
   await logAudit({
     actorUserId: user.userId,
@@ -68,6 +74,23 @@ export async function uploadStaffPhoto(userId: string, formData: FormData): Prom
     entityId: userId,
     diff: { photo: true },
   });
+  revalidatePath("/employees");
+  revalidatePath("/me");
+  return { ok: true };
+}
+
+/** Remove a staff photo (file + profile reference). */
+export async function deleteStaffPhoto(userId: string): Promise<ActionResult> {
+  const user = await requireModuleWrite("employees");
+  const admin = createAdminClient();
+  const { data: prof } = await admin.from("profiles").select("photo_path").eq("id", userId).maybeSingle();
+  const path = (prof?.photo_path as string | null) ?? null;
+
+  if (path) await admin.storage.from("staff-photos").remove([path]);
+  const { error } = await admin.from("profiles").update({ photo_path: null }).eq("id", userId);
+  if (error) return { ok: false, error: error.message };
+
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "update", entity: "profiles", entityId: userId, diff: { photo_removed: true } });
   revalidatePath("/employees");
   revalidatePath("/me");
   return { ok: true };

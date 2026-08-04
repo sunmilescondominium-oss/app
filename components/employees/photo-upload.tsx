@@ -2,12 +2,12 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { uploadStaffPhoto } from "@/app/(app)/employees/actions";
+import { uploadStaffPhoto, deleteStaffPhoto } from "@/app/(app)/employees/actions";
 
 const FRAME = 260; // on-screen editor frame (px)
 const OUT = 512; // exported square size (px)
 
-export function PhotoUpload({ userId }: { userId: string }) {
+export function PhotoUpload({ userId, hasPhoto = false }: { userId: string; hasPhoto?: boolean }) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
@@ -18,6 +18,15 @@ export function PhotoUpload({ userId }: { userId: string }) {
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [busy, setBusy] = useState(false);
+
+  async function remove() {
+    if (!window.confirm("Remove this photo?")) return;
+    setBusy(true);
+    const res = await deleteStaffPhoto(userId);
+    setBusy(false);
+    if (!res.ok) { window.alert(res.error); return; }
+    router.refresh();
+  }
 
   const baseScale = nat.w && nat.h ? FRAME / Math.min(nat.w, nat.h) : 1;
   const scale = baseScale * zoom;
@@ -91,13 +100,26 @@ export function PhotoUpload({ userId }: { userId: string }) {
   return (
     <>
       <input ref={fileRef} type="file" accept="image/*" hidden onChange={onPick} />
-      <button
-        type="button"
-        onClick={() => fileRef.current?.click()}
-        className="rounded-lg border border-stone-300 px-2.5 py-1 text-xs font-medium text-stone-600 hover:bg-stone-50"
-      >
-        Photo
-      </button>
+      <span className="inline-flex gap-1">
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          disabled={busy}
+          className="rounded-lg border border-stone-300 px-2.5 py-1 text-xs font-medium text-stone-600 hover:bg-stone-50 disabled:opacity-50"
+        >
+          {hasPhoto ? "Replace" : "Photo"}
+        </button>
+        {hasPhoto && (
+          <button
+            type="button"
+            onClick={remove}
+            disabled={busy}
+            className="rounded-lg border border-stone-300 px-2.5 py-1 text-xs font-medium text-rose-600 hover:bg-rose-50 disabled:opacity-50"
+          >
+            Remove
+          </button>
+        )}
+      </span>
 
       {src && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/60 p-4">
