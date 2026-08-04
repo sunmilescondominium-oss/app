@@ -1,13 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireModule } from "@/lib/auth/dal";
+import { requireModule, requireAuth } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
 import { logAudit } from "@/lib/audit";
 import { LEAVE_TYPES } from "@/lib/config";
 import { todayManila } from "@/lib/collections/summary";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
+export type AccountResult = { ok: true; message?: string } | { ok: false; error: string };
 
 const LEAVE_SET: readonly string[] = LEAVE_TYPES;
 
@@ -143,4 +144,34 @@ export async function cancelLeave(id: string): Promise<ActionResult> {
   if (error) return { ok: false, error: error.message };
   revalidatePath("/me");
   return { ok: true };
+}
+
+/** Change my own password (requires an active session). */
+export async function changeMyPassword(_prev: AccountResult | undefined, formData: FormData): Promise<AccountResult> {
+  const user = await requireAuth();
+  const pw = String(formData.get("new_password") ?? "");
+  const confirm = String(formData.get("confirm_password") ?? "");
+  if (pw.length < 8) return { ok: false, error: "Use at least 8 characters." };
+  if (pw !== confirm) return { ok: false, error: "The two passwords do not match." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.updateUser({ password: pw });
+  if (error) return { ok: false, error: error.message };
+
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "update", entity: "auth.users", entityId: user.userId, diff: { password_changed: true } });
+  return { ok: true, message: "Password updated. Use it next time you sign in." };
+}
+
+/** Request an email-address change (Supabase emails a confirmation link). */
+export async function changeMyEmail(_prev: AccountResult | undefined, formData: FormData): Promise<AccountResult> {
+  const user = await requireAuth();
+  const email = String(formData.get("new_email") ?? "").trim().toLowerCase();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return { ok: false, error: "Enter a valid email address." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.updateUser({ email });
+  if (error) return { ok: false, error: error.message };
+
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "update", entity: "auth.users", entityId: user.userId, diff: { email_change_requested: email } });
+  return { ok: true, message: `Confirmation sent. Open the link emailed to ${email} (and your current address) to finish the change.` };
 }

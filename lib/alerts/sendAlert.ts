@@ -18,11 +18,36 @@ export type AlertResult = { ok: boolean; skipped?: boolean; error?: string };
 export async function sendAlert(input: AlertInput): Promise<AlertResult> {
   try {
     if (serverEnv.alertDriver === "n8n") return await sendViaN8n(input);
+    if (serverEnv.alertDriver === "smtp") return await sendViaSmtp(input);
     return await sendViaResend(input);
   } catch (e) {
     console.error("sendAlert failed:", e);
     return { ok: false, error: e instanceof Error ? e.message : "unknown error" };
   }
+}
+
+/** Gmail / SMTP transport — sends FROM the configured account (e.g. the Sun
+ *  Miles Gmail). Requires a Gmail App Password (not the normal password). */
+async function sendViaSmtp(input: AlertInput): Promise<AlertResult> {
+  const to = input.to || serverEnv.alertEmailTo;
+  if (!serverEnv.smtpUser || !serverEnv.smtpPass || !to) {
+    console.warn("sendAlert(smtp): SMTP_USER / SMTP_PASS / ALERT_EMAIL_TO not set — skipping.");
+    return { ok: false, skipped: true };
+  }
+  const { default: nodemailer } = await import("nodemailer");
+  const transport = nodemailer.createTransport({
+    host: serverEnv.smtpHost,
+    port: serverEnv.smtpPort,
+    secure: serverEnv.smtpPort === 465,
+    auth: { user: serverEnv.smtpUser, pass: serverEnv.smtpPass },
+  });
+  await transport.sendMail({
+    from: serverEnv.smtpFrom || serverEnv.smtpUser,
+    to: to.split(",").map((s) => s.trim()).filter(Boolean),
+    subject: input.subject,
+    text: input.body,
+  });
+  return { ok: true };
 }
 
 async function sendViaResend(input: AlertInput): Promise<AlertResult> {

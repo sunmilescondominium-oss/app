@@ -34,9 +34,29 @@ export const serverEnv = {
   get resendApiKey() {
     return process.env.RESEND_API_KEY ?? "";
   },
-  /** resend (default) | n8n — flip the alert transport with no redeploy. */
-  get alertDriver(): "resend" | "n8n" {
-    return process.env.ALERT_EMAIL_DRIVER === "n8n" ? "n8n" : "resend";
+  /** smtp | resend (default) | n8n — flip the alert transport with no redeploy. */
+  get alertDriver(): "resend" | "n8n" | "smtp" {
+    const d = process.env.ALERT_EMAIL_DRIVER;
+    if (d === "n8n") return "n8n";
+    if (d === "smtp") return "smtp";
+    return "resend";
+  },
+  /** Gmail / SMTP settings (used when ALERT_EMAIL_DRIVER=smtp). */
+  get smtpHost() {
+    return process.env.SMTP_HOST ?? "smtp.gmail.com";
+  },
+  get smtpPort() {
+    return Number(process.env.SMTP_PORT ?? "465");
+  },
+  get smtpUser() {
+    return process.env.SMTP_USER ?? "";
+  },
+  get smtpPass() {
+    return process.env.SMTP_PASS ?? "";
+  },
+  /** From-address for SMTP; defaults to the SMTP user (the Gmail account). */
+  get smtpFrom() {
+    return process.env.SMTP_FROM ?? process.env.SMTP_USER ?? "";
   },
   /** local (default) | n8n — SOA computation source; see lib/computation. */
   get computationDriver(): "local" | "n8n" {

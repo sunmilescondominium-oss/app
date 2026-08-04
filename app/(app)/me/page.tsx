@@ -5,6 +5,7 @@ import { myRecentRecords } from "@/lib/attendance/queries";
 import { todayManila, peso } from "@/lib/collections/summary";
 import { LEAVE_STATUSES } from "@/lib/config";
 import { PageHeader } from "@/components/ui";
+import { AccountPanel } from "@/components/me/account-panel";
 import { Avatar } from "@/components/employees/avatar";
 import { LeaveForm, ObForm, RequestForm, CancelLeave } from "@/components/me/leave-form";
 
@@ -58,6 +59,10 @@ export default async function MyPortalPage() {
           <p className="mt-1 text-xs text-stone-400">A photo can be added by HR/admin from the Employees page.</p>
         </div>
       </div>
+
+      {/* Account & sign-in */}
+      <h2 className="mt-6 mb-2 text-sm font-semibold uppercase tracking-wide text-stone-500">Account &amp; sign-in</h2>
+      <AccountPanel currentEmail={user.email} />
 
       {/* Payslip (this month) */}
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-stone-200 bg-white p-5">
