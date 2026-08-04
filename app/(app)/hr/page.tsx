@@ -82,18 +82,18 @@ export default async function HrPage({
           <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
             <tr>
               <th className="px-3 py-3">Staff</th>
-              <th className="px-3 py-3 text-right">Daily</th>
-              <th className="px-3 py-3 text-right">Days</th>
-              <th className="px-3 py-3 text-right">½</th>
-              <th className="px-3 py-3 text-right">Late (m)</th>
-              <th className="px-3 py-3 text-right">UT (m)</th>
-              <th className="px-3 py-3 text-right">OT (h)</th>
-              <th className="px-3 py-3 text-right">Night (h)</th>
-              <th className="px-3 py-3 text-right">Basic</th>
-              <th className="px-3 py-3 text-right">OT pay</th>
-              <th className="px-3 py-3 text-right">Night</th>
-              <th className="px-3 py-3 text-right">Deduct</th>
-              <th className="px-3 py-3 text-right">Net pay</th>
+              <th className="px-3 py-3 whitespace-nowrap text-right">Daily</th>
+              <th className="px-3 py-3 whitespace-nowrap text-right">Days</th>
+              <th className="px-3 py-3 whitespace-nowrap text-right">½</th>
+              <th className="px-3 py-3 whitespace-nowrap text-right">Late (m)</th>
+              <th className="px-3 py-3 whitespace-nowrap text-right">UT (m)</th>
+              <th className="px-3 py-3 whitespace-nowrap text-right">OT (h)</th>
+              <th className="px-3 py-3 whitespace-nowrap text-right">Night (h)</th>
+              <th className="px-3 py-3 whitespace-nowrap text-right">Basic</th>
+              <th className="px-3 py-3 whitespace-nowrap text-right">OT pay</th>
+              <th className="px-3 py-3 whitespace-nowrap text-right">Night</th>
+              <th className="px-3 py-3 whitespace-nowrap text-right">Deduct</th>
+              <th className="px-3 py-3 whitespace-nowrap text-right">Net pay</th>
             </tr>
           </thead>
           <tbody>
@@ -103,35 +103,35 @@ export default async function HrPage({
               </tr>
             )}
             {report.rows.map((r) => (
-              <tr key={r.userId} className="border-b border-stone-100 last:border-0">
-                <td className="px-3 py-2.5">
+              <tr key={r.userId} className="border-b border-stone-100 align-top last:border-0">
+                <td className="px-3 py-2.5 min-w-[9rem]">
                   <Link href={`/hr/${r.userId}?from=${from}&to=${to}`} className="font-medium text-amber-700 hover:underline">
                     {r.label}
                   </Link>
                 </td>
-                <td className="px-3 py-2.5 text-right tabular-nums">{r.dailyRate ? peso(r.dailyRate) : <span className="text-amber-600">set</span>}</td>
-                <td className="px-3 py-2.5 text-right tabular-nums">{r.daysPresent}</td>
-                <td className="px-3 py-2.5 text-right tabular-nums">{r.halfDays || "—"}</td>
-                <td className="px-3 py-2.5 text-right tabular-nums">{r.lateMinutes || "—"}</td>
-                <td className="px-3 py-2.5 text-right tabular-nums">{r.undertimeMinutes || "—"}</td>
-                <td className="px-3 py-2.5 text-right tabular-nums">{r.otHours || "—"}</td>
-                <td className="px-3 py-2.5 text-right tabular-nums">{r.nightHours || "—"}</td>
-                <td className="px-3 py-2.5 text-right tabular-nums">{peso(r.basicPay)}</td>
-                <td className="px-3 py-2.5 text-right tabular-nums">{r.otPay ? peso(r.otPay) : "—"}</td>
-                <td className="px-3 py-2.5 text-right tabular-nums">{r.nightPay ? peso(r.nightPay) : "—"}</td>
-                <td className="px-3 py-2.5 text-right tabular-nums text-red-700">{r.deductions ? `(${peso(r.deductions)})` : "—"}</td>
-                <td className="px-3 py-2.5 text-right font-semibold tabular-nums">{peso(r.netPay)}</td>
+                <td className="px-3 py-2.5 whitespace-nowrap text-right tabular-nums">{r.dailyRate ? peso(r.dailyRate) : <span className="text-amber-600">set</span>}</td>
+                <td className="px-3 py-2.5 whitespace-nowrap text-right tabular-nums">{r.daysPresent}</td>
+                <td className="px-3 py-2.5 whitespace-nowrap text-right tabular-nums">{r.halfDays || "—"}</td>
+                <td className="px-3 py-2.5 whitespace-nowrap text-right tabular-nums">{r.lateMinutes || "—"}</td>
+                <td className="px-3 py-2.5 whitespace-nowrap text-right tabular-nums">{r.undertimeMinutes || "—"}</td>
+                <td className="px-3 py-2.5 whitespace-nowrap text-right tabular-nums">{r.otHours || "—"}</td>
+                <td className="px-3 py-2.5 whitespace-nowrap text-right tabular-nums">{r.nightHours || "—"}</td>
+                <td className="px-3 py-2.5 whitespace-nowrap text-right tabular-nums">{peso(r.basicPay)}</td>
+                <td className="px-3 py-2.5 whitespace-nowrap text-right tabular-nums">{r.otPay ? peso(r.otPay) : "—"}</td>
+                <td className="px-3 py-2.5 whitespace-nowrap text-right tabular-nums">{r.nightPay ? peso(r.nightPay) : "—"}</td>
+                <td className="px-3 py-2.5 whitespace-nowrap text-right tabular-nums text-red-700">{r.deductions ? `(${peso(r.deductions)})` : "—"}</td>
+                <td className="px-3 py-2.5 whitespace-nowrap text-right font-semibold tabular-nums">{peso(r.netPay)}</td>
               </tr>
             ))}
           </tbody>
           <tfoot>
             <tr className="border-t border-stone-200 font-semibold">
               <td className="px-3 py-3" colSpan={8}>Total</td>
-              <td className="px-3 py-3 text-right tabular-nums">{peso(report.basicTotal)}</td>
-              <td className="px-3 py-3 text-right tabular-nums">{peso(report.otTotal)}</td>
-              <td className="px-3 py-3 text-right tabular-nums">{peso(report.nightTotal)}</td>
-              <td className="px-3 py-3 text-right tabular-nums text-red-700">{report.deductionTotal ? `(${peso(report.deductionTotal)})` : "—"}</td>
-              <td className="px-3 py-3 text-right tabular-nums">{peso(report.netTotal)}</td>
+              <td className="px-3 py-3 whitespace-nowrap text-right tabular-nums">{peso(report.basicTotal)}</td>
+              <td className="px-3 py-3 whitespace-nowrap text-right tabular-nums">{peso(report.otTotal)}</td>
+              <td className="px-3 py-3 whitespace-nowrap text-right tabular-nums">{peso(report.nightTotal)}</td>
+              <td className="px-3 py-3 whitespace-nowrap text-right tabular-nums text-red-700">{report.deductionTotal ? `(${peso(report.deductionTotal)})` : "—"}</td>
+              <td className="px-3 py-3 whitespace-nowrap text-right tabular-nums">{peso(report.netTotal)}</td>
             </tr>
           </tfoot>
         </table>
