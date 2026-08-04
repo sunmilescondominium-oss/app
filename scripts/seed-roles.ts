@@ -37,6 +37,33 @@ function at(date: string, hh: number, mm: number): string {
   return new Date(`${date}T${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}:00+08:00`).toISOString();
 }
 
+/** All demo activity is marked so it can be removed cleanly. */
+type Sql = ReturnType<typeof postgres>;
+
+async function clearDemoActivity(sql: Sql) {
+  await sql`delete from public.collections where remarks like '[DEMO]%'`.catch(() => {});
+  await sql`delete from public.expenses where remarks like '[DEMO]%'`.catch(() => {});
+  await sql`delete from public.repair_requests where ticket_ref like 'DEMO-%'`.catch(() => {});
+  await sql`delete from public.incidents where title like '[DEMO]%'`.catch(() => {});
+}
+
+async function seedActivity(sql: Sql) {
+  await clearDemoActivity(sql); // idempotent — refresh, don't duplicate
+  await sql`
+    insert into public.collections (business_line, amount, payment_type, collected_by_role, collected_on, remarks)
+    values ('hotel', 1500, 'cash', 'hotel_cashier', current_date, '[DEMO] sample room payment'),
+           ('rental', 8000, 'cash', 'hotel_rental_monitoring', current_date, '[DEMO] sample rent')`.catch((e) => console.warn("  ⚠ collections:", e.message));
+  await sql`
+    insert into public.expenses (business_line, category, amount, expense_date, vendor, remarks)
+    values ('hotel', 'Supplies', 350, current_date, 'Demo Supplier', '[DEMO] cleaning supplies')`.catch((e) => console.warn("  ⚠ expenses:", e.message));
+  await sql`
+    insert into public.repair_requests (ticket_ref, requester_type, issue_type, description, urgency, status)
+    values ('DEMO-0001', 'tenant', 'Electrical', '[DEMO] Hallway light flickering on 2F', 'normal', 'submitted')`.catch((e) => console.warn("  ⚠ repairs:", e.message));
+  await sql`
+    insert into public.incidents (title, category, location, description, status, reported_by_role)
+    values ('[DEMO] Perimeter light out', 'safety', 'Gate 2', 'Reported during evening patrol.', 'open', 'guard')`.catch((e) => console.warn("  ⚠ incidents:", e.message));
+}
+
 async function main() {
   const url = requireEnv("NEXT_PUBLIC_SUPABASE_URL");
   const serviceKey = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
@@ -51,9 +78,10 @@ async function main() {
     const byEmail = new Map(list.data.users.map((u) => [u.email?.toLowerCase() ?? "", u.id]));
 
     if (purge) {
+      await clearDemoActivity(sql);
       const demos = list.data.users.filter((u) => (u.email ?? "").endsWith(`@${DEMO_DOMAIN}`));
       for (const u of demos) { await admin.auth.admin.deleteUser(u.id); process.stdout.write(`✗ removed ${u.email}\n`); }
-      console.log(`✔ purged ${demos.length} demo account(s).`);
+      console.log(`✔ purged ${demos.length} demo account(s) + demo activity.`);
       return;
     }
 
@@ -99,8 +127,9 @@ async function main() {
       process.stdout.write(`✔ ${label}  (${email} / ${DEMO_PASSWORD}, ID ${employeeNo}, PIN 0000)\n`);
     }
 
-    console.log(`\n✔ Seeded ${roles.length} demo staff account(s). Sign in as any of them (or use "Sign in as" / "Act as").`);
-    console.log(`  All use password "${DEMO_PASSWORD}". Remove later with:  npm run seed:roles -- --purge`);
+    await seedActivity(sql);
+    console.log(`\n✔ Seeded ${roles.length} demo staff account(s) + a little sample activity per module.`);
+    console.log(`  Accounts use password "${DEMO_PASSWORD}". Remove everything later with:  npm run seed:roles -- --purge`);
   } finally {
     await sql.end({ timeout: 5 });
   }

@@ -4,7 +4,8 @@ import { canReadModule } from "@/lib/rbac/modules";
 import { getDashboard } from "@/lib/dashboard/queries";
 import { peso } from "@/lib/collections/summary";
 import { guidesForRoles } from "@/lib/guides/role-guides";
-import { PageHeader } from "@/components/ui";
+import { myPhotoPath } from "@/lib/employee/queries";
+import { Avatar } from "@/components/employees/avatar";
 import { LaunchPad } from "@/components/guide/launch-pad";
 
 export const metadata = { title: "Dashboard" };
@@ -47,7 +48,7 @@ export default async function DashboardPage() {
   const user = await requireAuth();
   const has = (r: string) => user.roleKeys.includes(r);
   const can = (m: Parameters<typeof canReadModule>[1]) => canReadModule(user.roleKeys, m);
-  const d = await getDashboard();
+  const [d, photoPath] = await Promise.all([getDashboard(), myPhotoPath(user.userId)]);
 
   const cards: React.ReactNode[] = [];
 
@@ -91,11 +92,14 @@ export default async function DashboardPage() {
 
   return (
     <>
-      <PageHeader
-        eyebrow="Dashboard"
-        title={`Welcome, ${user.displayLabel}`}
-        subtitle="The numbers relevant to your role, at a glance."
-      />
+      <div className="mb-6 flex items-center gap-4 border-b border-stone-200/80 pb-4">
+        <Avatar id={user.userId} label={user.displayLabel} photoPath={photoPath} size={56} />
+        <div className="min-w-0">
+          <p className="mb-0.5 text-xs font-semibold uppercase tracking-widest text-amber-700">Dashboard</p>
+          <h1 className="text-2xl font-bold tracking-tight text-stone-900 sm:text-[1.75rem]">Welcome, {user.displayLabel}</h1>
+          <p className="mt-1 text-sm text-stone-500">The numbers relevant to your role, at a glance.</p>
+        </div>
+      </div>
 
       <LaunchPad guides={guidesForRoles(user.roleKeys)} />
       {cards.length === 0 ? (
