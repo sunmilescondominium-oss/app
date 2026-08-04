@@ -11,7 +11,7 @@ export interface RenterResult {
   rent: number;
   billing_cycle: string;
   end_at: string | null;
-  dues: { category: string; amount: number; due_date: string; status: string; ar_no: string | null; remarks: string | null }[];
+  dues: { category: string; amount: number; due_date: string; status: string; ar_no: string | null; paid_on: string | null; remarks: string | null }[];
   totalDue: number;
 }
 
@@ -60,7 +60,7 @@ export async function lookupRenter(_prev: RenterState, formData: FormData): Prom
 
   const { data: dues } = await admin
     .from("rental_dues")
-    .select("category, amount, due_date, status, ar_no, remarks")
+    .select("category, amount, due_date, status, ar_no, paid_on, remarks")
     .eq("unit_id", unit.id)
     .order("due_date", { ascending: false })
     .limit(50);
@@ -71,6 +71,7 @@ export async function lookupRenter(_prev: RenterState, formData: FormData): Prom
     due_date: d.due_date as string,
     status: d.status as string,
     ar_no: (d.ar_no as string | null) ?? null,
+    paid_on: (d.paid_on as string | null) ?? null,
     remarks: (d.remarks as string | null) ?? null,
   }));
   const totalDue = Math.round(rows.filter((r) => r.status === "unpaid").reduce((s, r) => s + r.amount, 0) * 100) / 100;
