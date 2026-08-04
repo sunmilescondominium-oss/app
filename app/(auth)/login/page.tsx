@@ -3,12 +3,14 @@ import { getSessionUser } from "@/lib/auth/dal";
 import { APP_BRAND, APP_BRAND_SHORT } from "@/lib/config";
 import { LoginForm } from "./login-form";
 import { SunMilesMark } from "@/components/brand-logo";
+import { ForgotPassword } from "@/components/auth/forgot-password";
 
 export const metadata = { title: "Sign in" };
 
-export default async function LoginPage() {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ reset?: string }> }) {
   const user = await getSessionUser();
   if (user) redirect("/");
+  const { reset } = await searchParams;
 
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-12">
@@ -41,7 +43,14 @@ export default async function LoginPage() {
             Sign in with your staff account to continue.
           </p>
 
+          {reset && (
+            <p className="mt-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+              Password updated. You can sign in with your new password.
+            </p>
+          )}
+
           <LoginForm />
+          <ForgotPassword />
         </div>
 
         <p className="mt-6 text-center text-xs leading-relaxed text-stone-500">

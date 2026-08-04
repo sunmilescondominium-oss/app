@@ -1,11 +1,49 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { getSessionUser } from "@/lib/auth/dal";
 
 export type LoginState = { error: string } | undefined;
+export type ResetState = { ok?: boolean; sent?: boolean; error?: string } | undefined;
+
+async function siteOrigin(): Promise<string> {
+  if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, "");
+  const h = await headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
+  const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
+  return `${proto}://${host}`;
+}
+
+/** Send a password-reset email (Supabase). Always returns a generic success to
+ *  avoid revealing whether an address exists. */
+export async function requestPasswordReset(_prev: ResetState, formData: FormData): Promise<ResetState> {
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return { error: "Enter a valid email address." };
+
+  const supabase = await createClient();
+  const origin = await siteOrigin();
+  await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${origin}/auth/reset` });
+  return { sent: true };
+}
+
+/** Set a new password after following the reset link (recovery session active). */
+export async function updatePasswordAfterReset(_prev: ResetState, formData: FormData): Promise<ResetState> {
+  const pw = String(formData.get("new_password") ?? "");
+  const confirm = String(formData.get("confirm_password") ?? "");
+  if (pw.length < 8) return { error: "Use at least 8 characters." };
+  if (pw !== confirm) return { error: "The two passwords do not match." };
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Your reset link has expired. Request a new one." };
+
+  const { error } = await supabase.auth.updateUser({ password: pw });
+  if (error) return { error: error.message };
+  await supabase.auth.signOut();
+  redirect("/login?reset=1");
+}
 
 /**
  * Sign in with email + password (Supabase Auth). Used with useActionState, so
