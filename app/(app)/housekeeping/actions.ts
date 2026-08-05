@@ -167,34 +167,51 @@ export async function startTask(taskId: string, shift: string): Promise<ActionRe
   return { ok: true };
 }
 
-export async function recordReplacement(
+/** Record several material replacements at once (default checkboxes + extras). */
+export async function recordReplacements(
   taskId: string,
-  _prev: ActionResult | undefined,
-  formData: FormData,
+  items: { supply_id: string; qty: number }[],
 ): Promise<ActionResult> {
   const user = await requireModuleWrite("housekeeping");
+  const clean = (items ?? [])
+    .map((i) => ({ supply_id: String(i.supply_id ?? "").trim(), qty: Number(i.qty) || 0 }))
+    .filter((i) => i.supply_id && i.qty > 0);
+  if (clean.length === 0) return { ok: false, error: "Tick at least one item with a quantity." };
+
   const supabase = await createClient();
-  const supply_id = String(formData.get("supply_id") ?? "").trim();
-  const qty = Number(String(formData.get("qty") ?? "1")) || 0;
-  if (!supply_id || qty <= 0) return { ok: false, error: "Choose a supply and quantity." };
-
-  // Draw down stock via service role (room_attendant can't write supplies).
   const admin = createAdminClient();
-  const { data: sup } = await admin.from("room_supplies").select("name, stock_qty").eq("id", supply_id).maybeSingle();
-  if (!sup) return { ok: false, error: "Supply not found." };
-  const replBalance = Math.max(0, Number(sup.stock_qty) - qty);
-  await admin.from("room_supplies").update({ stock_qty: replBalance }).eq("id", supply_id);
-  await logMovement(admin, { supplyId: supply_id, delta: -qty, reason: "replacement", balanceAfter: replBalance, userId: user.userId, role: attendantRole(user.roleKeys), note: sup.name as string, refTask: taskId });
+  const role = attendantRole(user.roleKeys);
 
-  await supabase.from("housekeeping_events").insert({
-    task_id: taskId,
-    event_type: "replaced",
-    detail: { supply: sup.name, qty },
-    actor_role: attendantRole(user.roleKeys),
-    actor_user_id: user.userId,
-  });
-  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "update", entity: "room_supplies", entityId: supply_id, diff: { replaced: qty, task: taskId } });
+  for (const it of clean) {
+    const { data: sup } = await admin.from("room_supplies").select("name, stock_qty").eq("id", it.supply_id).maybeSingle();
+    if (!sup) continue;
+    const balanceAfter = Math.max(0, Number(sup.stock_qty) - it.qty);
+    await admin.from("room_supplies").update({ stock_qty: balanceAfter }).eq("id", it.supply_id);
+    await logMovement(admin, { supplyId: it.supply_id, delta: -it.qty, reason: "replacement", balanceAfter, userId: user.userId, role, note: sup.name as string, refTask: taskId });
+    await supabase.from("housekeeping_events").insert({
+      task_id: taskId,
+      event_type: "replaced",
+      detail: { supply: sup.name, qty: it.qty },
+      actor_role: role,
+      actor_user_id: user.userId,
+    });
+  }
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "update", entity: "room_supplies", entityId: taskId, diff: { replaced_items: clean.length, task: taskId } });
   revalidatePath(`/housekeeping/${taskId}`);
+  revalidatePath("/housekeeping");
+  return { ok: true };
+}
+
+/** Flag/unflag a supply as a standard "room material" (default checkbox). */
+export async function setSupplyDefault(supplyId: string, isDefault: boolean): Promise<ActionResult> {
+  const user = await requireAuth();
+  if (!userHasAnyRole(user, ["admin", "operations_manager", "hotel_rental_monitoring"])) {
+    return { ok: false, error: "Only admin, operations, or hotel & rental monitoring can set default items." };
+  }
+  const admin = createAdminClient();
+  const { error } = await admin.from("room_supplies").update({ is_default: isDefault }).eq("id", supplyId);
+  if (error) return { ok: false, error: error.message };
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "update", entity: "room_supplies", entityId: supplyId, diff: { is_default: isDefault } });
   revalidatePath("/housekeeping");
   return { ok: true };
 }

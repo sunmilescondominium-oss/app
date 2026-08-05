@@ -5,6 +5,7 @@ export interface RoomSupply {
   stock_qty: number;
   reorder_level: number;
   is_active: boolean;
+  is_default: boolean;
 }
 
 export interface StockMovement {

@@ -154,6 +154,19 @@ export const DICT: Record<string, Entry> = {
   hk_cleaning_task: { en: "Cleaning task", fil: "Gawaing paglilinis" },
   hk_activity_log: { en: "Activity log", fil: "Talaan ng ginawa" },
   hk_no_activity: { en: "No activity yet.", fil: "Wala pang aktibidad." },
+  hk_standard_items: { en: "Standard room materials", fil: "Karaniwang gamit sa kwarto" },
+  hk_tick_replaced: { en: "Tick the items you replaced.", fil: "Lagyan ng tsek ang mga pinalitan mo." },
+  hk_other_item: { en: "Other item", fil: "Ibang gamit" },
+  hk_add_item: { en: "Add", fil: "Idagdag" },
+  hk_remove: { en: "remove", fil: "alisin" },
+  hk_qty: { en: "Qty", fil: "Dami" },
+  hk_no_defaults: { en: "No standard items set yet. Monitoring can mark defaults in Room supplies.", fil: "Wala pang karaniwang gamit. Puwedeng markahan ng monitoring sa Room supplies." },
+  hk_reminder_checklist: { en: "• The cleaning checklist is not complete.", fil: "• Hindi pa kumpleto ang checklist ng paglilinis." },
+  hk_reminder_materials: { en: "• The standard room materials are not yet recorded.", fil: "• Hindi pa naitala ang karaniwang gamit sa kwarto." },
+  hk_reminder_proceed: { en: "Mark the room ready anyway?", fil: "Markahan pa ring handa ang kwarto?" },
+  // Room supplies panel — default column
+  hk_col_default: { en: "Standard", fil: "Karaniwan" },
+  hk_default_hint: { en: "Standard items appear as checkboxes on the cleaning task.", fil: "Ang karaniwang gamit ay lumalabas bilang checkbox sa gawaing paglilinis." },
 };
 
 /** Translate a key; falls back to English, then the key itself. */

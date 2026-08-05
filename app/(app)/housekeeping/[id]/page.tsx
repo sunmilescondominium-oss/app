@@ -49,6 +49,10 @@ export default async function TaskDetailPage({
 
   const { task, events } = detail;
   const inspectionPhotos = await listDocPhotos("housekeeping_task", task.id);
+  const replacedSupplyNames = events
+    .filter((e) => e.event_type === "replaced")
+    .map((e) => String((e.detail ?? {}).supply ?? ""))
+    .filter(Boolean);
 
   return (
     <>
@@ -66,9 +70,18 @@ export default async function TaskDetailPage({
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-6">
-          <TaskActions detail={detail} canWrite={canWrite} lang={lang} />
-          <CleaningPhotos taskId={task.id} count={task.photos.length} canWrite={canWrite} />
-          <PhotoDocPanel entity="housekeeping_task" entityId={task.id} kind="inspection" title="Inspection photos" label={`Inspection · Room ${task.unit_number ?? ""}`} canWrite={canWrite} canView={canReadModule(user.roleKeys, "media")} photos={inspectionPhotos} />
+          <TaskActions
+            detail={detail}
+            canWrite={canWrite}
+            lang={lang}
+            replacedSupplyNames={replacedSupplyNames}
+            photoPanels={
+              <>
+                <CleaningPhotos taskId={task.id} count={task.photos.length} canWrite={canWrite} />
+                <PhotoDocPanel entity="housekeeping_task" entityId={task.id} kind="inspection" title="Inspection photos" label={`Inspection · Room ${task.unit_number ?? ""}`} canWrite={canWrite} canView={canReadModule(user.roleKeys, "media")} photos={inspectionPhotos} />
+              </>
+            }
+          />
         </div>
 
         <div>

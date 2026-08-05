@@ -65,6 +65,7 @@ function mapSupply(r: Record<string, unknown>): RoomSupply {
     stock_qty: Number(r.stock_qty),
     reorder_level: Number(r.reorder_level),
     is_active: r.is_active as boolean,
+    is_default: Boolean(r.is_default),
   };
 }
 

@@ -28,6 +28,7 @@ export default async function HousekeepingPage() {
   const user = await requireModule("housekeeping");
   const lang = await getLang();
   const canManageSupplies = user.roleKeys.some((r) => ["admin", "operations_manager"].includes(r));
+  const canSetDefaults = user.roleKeys.some((r) => ["admin", "operations_manager", "hotel_rental_monitoring"].includes(r));
 
   const today = todayManila();
   const [tasks, supplies, movements, countPhotos] = await Promise.all([
@@ -99,7 +100,7 @@ export default async function HousekeepingPage() {
         </div>
       )}
 
-      <SuppliesPanel supplies={supplies} canManage={canManageSupplies} />
+      <SuppliesPanel supplies={supplies} canManage={canManageSupplies} canSetDefaults={canSetDefaults} lang={lang} />
 
       <StockMovementsPanel supplies={supplies} movements={movements} canManage={canManageSupplies} />
 

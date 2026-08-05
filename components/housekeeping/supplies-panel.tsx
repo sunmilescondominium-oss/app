@@ -2,17 +2,40 @@
 
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { adjustStock, createSupply, type ActionResult } from "@/app/(app)/housekeeping/actions";
+import { adjustStock, createSupply, setSupplyDefault, type ActionResult } from "@/app/(app)/housekeeping/actions";
 import type { RoomSupply } from "@/lib/housekeeping/types";
+import { t, type Lang } from "@/lib/i18n";
 
 const inputCls =
   "rounded-lg border border-stone-300 px-2 py-1.5 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
 
-export function SuppliesPanel({ supplies, canManage }: { supplies: RoomSupply[]; canManage: boolean }) {
+export function SuppliesPanel({
+  supplies,
+  canManage,
+  canSetDefaults = false,
+  lang = "en",
+}: {
+  supplies: RoomSupply[];
+  canManage: boolean;
+  canSetDefaults?: boolean;
+  lang?: Lang;
+}) {
   const router = useRouter();
+  const tr = (k: string) => t(lang, k);
   const [addState, addAction, addPending] = useActionState<ActionResult | undefined, FormData>(createSupply, undefined);
   const [busy, setBusy] = useState<string | null>(null);
   const [amt, setAmt] = useState<Record<string, string>>({});
+
+  async function toggleDefault(id: string, next: boolean) {
+    setBusy(id);
+    const r = await setSupplyDefault(id, next);
+    setBusy(null);
+    if (!r.ok) {
+      window.alert(r.error);
+      return;
+    }
+    router.refresh();
+  }
 
   useEffect(() => {
     if (addState?.ok) router.refresh();
@@ -41,6 +64,7 @@ export function SuppliesPanel({ supplies, canManage }: { supplies: RoomSupply[];
             <tr>
               <th className="px-4 py-3">Item</th>
               <th className="px-4 py-3 text-right">Stock</th>
+              {canSetDefaults && <th className="px-4 py-3 text-center">{tr("hk_col_default")}</th>}
               {canManage && <th className="px-4 py-3 text-right">Adjust</th>}
             </tr>
           </thead>
@@ -56,6 +80,18 @@ export function SuppliesPanel({ supplies, canManage }: { supplies: RoomSupply[];
                       <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700">low</span>
                     )}
                   </td>
+                  {canSetDefaults && (
+                    <td className="px-4 py-3 text-center">
+                      <input
+                        type="checkbox"
+                        checked={s.is_default}
+                        disabled={busy === s.id}
+                        onChange={(e) => toggleDefault(s.id, e.target.checked)}
+                        className="h-4 w-4 rounded border-stone-300"
+                        aria-label={tr("hk_col_default")}
+                      />
+                    </td>
+                  )}
                   {canManage && (
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
@@ -80,6 +116,7 @@ export function SuppliesPanel({ supplies, canManage }: { supplies: RoomSupply[];
           </tbody>
         </table>
       </div>
+      {canSetDefaults && <p className="mt-2 text-xs text-stone-400">{tr("hk_default_hint")}</p>}
 
       {canManage && (
         <form action={addAction} className="mt-3 flex flex-wrap items-end gap-2">
