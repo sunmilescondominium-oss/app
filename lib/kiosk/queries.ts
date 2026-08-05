@@ -46,6 +46,10 @@ export async function todayBoard(): Promise<{ date: string; items: BoardItem[] }
   const { data: roleDefs } = await admin.from("roles").select("role_key, sort_order");
   const roleOrder = new Map((roleDefs ?? []).map((r) => [r.role_key as string, Number(r.sort_order ?? 100)]));
 
+  // Demo accounts (seeded @demo.sunmiles.local) are always sorted to the bottom.
+  const { data: authList } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+  const demoIds = new Set((authList?.users ?? []).filter((u) => (u.email ?? "").endsWith("@demo.sunmiles.local")).map((u) => u.id));
+
   // Employees only — a user counts as staff if they hold at least one non-external
   // role. Tenants/buyers/guests (external roles) are excluded from the kiosk.
   const staffIds = new Set(
@@ -96,7 +100,12 @@ export async function todayBoard(): Promise<{ date: string; items: BoardItem[] }
         dtrExempt: exempt.has(id),
       };
     })
-    .sort((a, b) => (rankByUser.get(a.id) ?? 999) - (rankByUser.get(b.id) ?? 999) || a.label.localeCompare(b.label));
+    .sort((a, b) => {
+      const da = demoIds.has(a.id) ? 1 : 0;
+      const db = demoIds.has(b.id) ? 1 : 0;
+      if (da !== db) return da - db; // demo accounts last
+      return (rankByUser.get(a.id) ?? 999) - (rankByUser.get(b.id) ?? 999) || a.label.localeCompare(b.label);
+    });
 
   return { date, items };
 }
