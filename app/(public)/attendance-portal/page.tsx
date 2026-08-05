@@ -47,6 +47,13 @@ export default async function AttendanceKioskPage() {
 
   const order: BoardStatus[] = ["checked_in", "checked_out", "on_ob", "on_leave", "absent", "off"];
   const counts = order.map((s) => ({ s, n: items.filter((i) => i.status === s).length }));
+
+  // Expected today = scheduled staff who file a DTR and aren't on leave/OB.
+  const expected = items.filter((i) => i.scheduled && !i.dtrExempt && i.status !== "on_leave" && i.status !== "on_ob");
+  const present = expected.filter((i) => i.status === "checked_in" || i.status === "checked_out");
+  const out = expected.filter((i) => i.status === "checked_out");
+  const notYetIn = expected.filter((i) => i.status === "absent");
+  const pct = (a: number, b: number) => (b > 0 ? Math.round((a / b) * 100) : 0);
   const dateLabel = new Date(`${date}T00:00:00+08:00`).toLocaleDateString("en-PH", {
     timeZone: "Asia/Manila",
     weekday: "long",
@@ -64,13 +71,38 @@ export default async function AttendanceKioskPage() {
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,22rem)_1fr]">
         <div>
-          <KioskClock />
+          <KioskClock
+            cameraSeconds={settings.cameraSeconds}
+            cameraRushSeconds={settings.cameraRushSeconds}
+            rushWindows={settings.rushWindows}
+          />
           <p className="mt-2 text-center text-[11px] text-stone-400">
             Your photo and device IP are recorded with each punch for verification.
           </p>
         </div>
 
         <div>
+          {/* Today's progress vs the expected (scheduled) staff */}
+          <div className="mb-4 rounded-2xl border border-stone-200 bg-white p-4">
+            <div className="mb-1 flex items-baseline justify-between text-sm">
+              <span className="font-semibold text-stone-800">Clocked in</span>
+              <span className="tabular-nums text-stone-500">{present.length} / {expected.length} expected · {notYetIn.length} not yet in</span>
+            </div>
+            <div className="h-3 w-full overflow-hidden rounded-full bg-stone-100">
+              <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${pct(present.length, expected.length)}%` }} />
+            </div>
+            <div className="mb-1 mt-4 flex items-baseline justify-between text-sm">
+              <span className="font-semibold text-stone-800">Clocked out</span>
+              <span className="tabular-nums text-stone-500">{out.length} / {present.length} present</span>
+            </div>
+            <div className="h-3 w-full overflow-hidden rounded-full bg-stone-100">
+              <div className="h-full rounded-full bg-stone-400 transition-all" style={{ width: `${pct(out.length, present.length)}%` }} />
+            </div>
+            <p className="mt-3 text-xs text-stone-400">
+              “Expected” is who the shift schedule calls for today, minus staff on leave/OB and fixed-salary (no-DTR) staff.
+            </p>
+          </div>
+
           {/* Status summary */}
           <div className="mb-4 flex flex-wrap gap-2">
             {counts.map(({ s, n }) => (

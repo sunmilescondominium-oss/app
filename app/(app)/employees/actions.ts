@@ -192,13 +192,22 @@ export async function setEmployeeQrCode(userId: string, code: string): Promise<A
 }
 
 /** Update the public kiosk privacy settings (access code + show photos). */
-export async function setKioskSettings(accessCode: string, showPhotos: boolean): Promise<ActionResult> {
+export async function setKioskSettings(
+  accessCode: string,
+  showPhotos: boolean,
+  camera?: { seconds: number; rushSeconds: number; rushWindows: string },
+): Promise<ActionResult> {
   const user = await requireModuleWrite("employees");
   const supabase = await createClient();
-  const { error } = await supabase
-    .from("kiosk_settings")
-    .update({ access_code: accessCode.trim(), show_photos: showPhotos, updated_at: new Date().toISOString() })
-    .eq("id", 1);
+  const patch: Record<string, unknown> = { access_code: accessCode.trim(), show_photos: showPhotos, updated_at: new Date().toISOString() };
+  if (camera) {
+    const secs = Math.max(5, Math.min(600, Math.round(camera.seconds)));
+    const rush = Math.max(secs, Math.min(1800, Math.round(camera.rushSeconds)));
+    patch.camera_seconds = secs;
+    patch.camera_rush_seconds = rush;
+    patch.rush_windows = camera.rushWindows.trim();
+  }
+  const { error } = await supabase.from("kiosk_settings").update(patch).eq("id", 1);
   if (error) return { ok: false, error: error.message };
   await logAudit({
     actorUserId: user.userId,
@@ -206,7 +215,7 @@ export async function setKioskSettings(accessCode: string, showPhotos: boolean):
     action: "update",
     entity: "kiosk_settings",
     entityId: "1",
-    diff: { access_code_set: Boolean(accessCode.trim()), show_photos: showPhotos },
+    diff: { access_code_set: Boolean(accessCode.trim()), show_photos: showPhotos, camera: Boolean(camera) },
   });
   revalidatePath("/employees");
   return { ok: true };

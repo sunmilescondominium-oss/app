@@ -32,6 +32,29 @@ export async function setStaffPay(userId: string, dailyRate: number): Promise<Ac
   return { ok: true };
 }
 
+/** Mark a staff member as fixed-salary (no DTR) or back to DTR-based pay. */
+export async function setDtrExempt(userId: string, exempt: boolean): Promise<ActionResult> {
+  const user = await requireModuleWrite("hr");
+  if (!userId) return { ok: false, error: "Missing staff." };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("staff_pay")
+    .upsert({ user_id: userId, dtr_exempt: exempt, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
+  if (error) return { ok: false, error: error.message };
+
+  await logAudit({
+    actorUserId: user.userId,
+    actorRoles: user.roleKeys,
+    action: "update",
+    entity: "staff_pay",
+    entityId: userId,
+    diff: { dtr_exempt: exempt },
+  });
+  revalidatePath("/hr");
+  return { ok: true };
+}
+
 /** Update the org-wide payroll schedule / premium settings (accounting / admin). */
 export async function setPayrollSettings(input: PayrollSettings): Promise<ActionResult> {
   const user = await requireModuleWrite("hr");

@@ -56,7 +56,13 @@ export default async function EmployeesPage() {
       {canWrite && (
         <div className="mt-3 space-y-3">
           <AddEmployee roles={staffRoles} />
-          <KioskSettingsPanel accessCode={kiosk.accessCode} showPhotos={kiosk.showPhotos} />
+          <KioskSettingsPanel
+            accessCode={kiosk.accessCode}
+            showPhotos={kiosk.showPhotos}
+            cameraSeconds={kiosk.cameraSeconds}
+            cameraRushSeconds={kiosk.cameraRushSeconds}
+            rushWindows={kiosk.rushWindows}
+          />
         </div>
       )}
 

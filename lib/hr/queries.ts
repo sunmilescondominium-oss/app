@@ -21,6 +21,12 @@ async function rateMap(admin: Admin): Promise<Map<string, number>> {
   return new Map((data ?? []).map((r) => [r.user_id as string, Number(r.daily_rate) || 0]));
 }
 
+/** Fixed-salary staff who are exempt from DTR computation. */
+async function exemptSet(admin: Admin): Promise<Set<string>> {
+  const { data } = await admin.from("staff_pay").select("user_id, dtr_exempt");
+  return new Set((data ?? []).filter((r) => r.dtr_exempt).map((r) => r.user_id as string));
+}
+
 export async function getPayrollSettings(): Promise<PayrollSettings> {
   const admin = createAdminClient();
   const { data } = await admin
@@ -86,9 +92,10 @@ const round = (n: number) => Math.round(n * 100) / 100;
 /** Payroll totals per staff over a date range, Labor-Code itemized. */
 export async function payrollReport(from: string, to: string): Promise<PayrollReport> {
   const admin = createAdminClient();
-  const [labels, rates, settings, recs] = await Promise.all([
+  const [labels, rates, exempt, settings, recs] = await Promise.all([
     labelMap(admin),
     rateMap(admin),
+    exemptSet(admin),
     getPayrollSettings(),
     admin
       .from("time_records")
@@ -101,6 +108,7 @@ export async function payrollReport(from: string, to: string): Promise<PayrollRe
   const byUser = new Map<string, DtrRow>();
   for (const r of recs.data ?? []) {
     const uid = r.user_id as string;
+    if (exempt.has(uid)) continue; // fixed-salary staff: no DTR computed
     const row = byUser.get(uid) ?? emptyRow(uid, labels.get(uid) ?? "Staff", rates.get(uid) ?? 0);
     accumulate(row, computeDay(r as never, settings, row.dailyRate));
     byUser.set(uid, row);
@@ -157,10 +165,10 @@ export async function dtrDetail(
 }
 
 /** Every staff profile with its current daily rate (for the rate editor). */
-export async function staffPayList(): Promise<{ userId: string; label: string; dailyRate: number }[]> {
+export async function staffPayList(): Promise<{ userId: string; label: string; dailyRate: number; dtrExempt: boolean }[]> {
   const admin = createAdminClient();
-  const [labels, rates] = await Promise.all([labelMap(admin), rateMap(admin)]);
+  const [labels, rates, exempt] = await Promise.all([labelMap(admin), rateMap(admin), exemptSet(admin)]);
   return [...labels.entries()]
-    .map(([userId, label]) => ({ userId, label, dailyRate: rates.get(userId) ?? 0 }))
+    .map(([userId, label]) => ({ userId, label, dailyRate: rates.get(userId) ?? 0, dtrExempt: exempt.has(userId) }))
     .sort((a, b) => a.label.localeCompare(b.label));
 }

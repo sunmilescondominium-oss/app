@@ -5,6 +5,12 @@ import { createAdminClient } from "@/lib/supabase/admin";
 export interface KioskSettings {
   accessCode: string;
   showPhotos: boolean;
+  /** Seconds the camera stays on per activation (normal hours). */
+  cameraSeconds: number;
+  /** Seconds the camera stays on during a rush window (arrival/departure). */
+  cameraRushSeconds: number;
+  /** Rush windows as "HH:MM-HH:MM" ranges, comma-separated (Manila time). */
+  rushWindows: string;
 }
 
 export const KIOSK_COOKIE = "kiosk_session";
@@ -16,10 +22,17 @@ export function kioskToken(accessCode: string): string {
 
 export async function getKioskSettings(): Promise<KioskSettings> {
   const admin = createAdminClient();
-  const { data } = await admin.from("kiosk_settings").select("access_code, show_photos").eq("id", 1).maybeSingle();
+  const { data } = await admin
+    .from("kiosk_settings")
+    .select("access_code, show_photos, camera_seconds, camera_rush_seconds, rush_windows")
+    .eq("id", 1)
+    .maybeSingle();
   return {
     accessCode: (data?.access_code as string) ?? "",
     showPhotos: (data?.show_photos as boolean) ?? true,
+    cameraSeconds: Number(data?.camera_seconds ?? 45),
+    cameraRushSeconds: Number(data?.camera_rush_seconds ?? 180),
+    rushWindows: (data?.rush_windows as string) ?? "06:00-09:00,16:00-19:00",
   };
 }
 

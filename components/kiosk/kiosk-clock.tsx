@@ -7,19 +7,50 @@ import { portalCheckIn, portalCheckOut, validateQrToken, type KioskState } from 
 const inputCls =
   "w-full rounded-lg border border-stone-300 px-3 py-2.5 text-stone-900 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
 
-export function KioskClock() {
+type Window = { start: string; end: string };
+
+function parseWindows(raw: string): Window[] {
+  return raw
+    .split(",")
+    .map((w) => w.trim())
+    .filter(Boolean)
+    .map((w) => {
+      const [start, end] = w.split("-").map((x) => x.trim());
+      return { start, end };
+    })
+    .filter((w) => /^\d{2}:\d{2}$/.test(w.start) && /^\d{2}:\d{2}$/.test(w.end));
+}
+
+/** Current Manila time as "HH:MM" for rush-window comparison. */
+function manilaHM(): string {
+  return new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Manila", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date());
+}
+
+export function KioskClock({
+  cameraSeconds = 45,
+  cameraRushSeconds = 180,
+  rushWindows = "",
+}: {
+  cameraSeconds?: number;
+  cameraRushSeconds?: number;
+  rushWindows?: string;
+}) {
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const jsqrRef = useRef<typeof import("jsqr").default | null>(null);
   const scanTimer = useRef<number | null>(null);
+  const countdownTimer = useRef<number | null>(null);
+
+  const windows = parseWindows(rushWindows);
 
   const [mode, setMode] = useState<"in" | "out">("in");
   const [employeeNo, setEmployeeNo] = useState("");
   const [passcode, setPasscode] = useState("");
   const [camReady, setCamReady] = useState(false);
   const [camError, setCamError] = useState<string | null>(null);
+  const [secondsLeft, setSecondsLeft] = useState(0);
   const [busy, setBusy] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [msg, setMsg] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
@@ -28,8 +59,39 @@ export function KioskClock() {
   const [scannedLabel, setScannedLabel] = useState<string | null>(null);
   const pendingQr = useRef<string | undefined>(undefined);
 
+  const isRush = () => {
+    const hm = manilaHM();
+    return windows.some((w) => hm >= w.start && hm <= w.end);
+  };
+
+  const stopCamera = useCallback(() => {
+    if (countdownTimer.current) { clearInterval(countdownTimer.current); countdownTimer.current = null; }
+    if (scanTimer.current) { clearInterval(scanTimer.current); scanTimer.current = null; }
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+    if (videoRef.current) videoRef.current.srcObject = null;
+    setScanning(false);
+    setCamReady(false);
+    setSecondsLeft(0);
+  }, []);
+
+  /** Start (or restart) the auto-off countdown; longer inside a rush window. */
+  const startCountdown = useCallback(() => {
+    if (countdownTimer.current) clearInterval(countdownTimer.current);
+    const total = isRush() ? cameraRushSeconds : cameraSeconds;
+    setSecondsLeft(total);
+    countdownTimer.current = window.setInterval(() => {
+      setSecondsLeft((s) => {
+        if (s <= 1) { stopCamera(); return 0; }
+        return s - 1;
+      });
+    }, 1000);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cameraSeconds, cameraRushSeconds, stopCamera]);
+
   const startCamera = useCallback(async () => {
     setCamError(null);
+    setMsg(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
       streamRef.current = stream;
@@ -38,19 +100,15 @@ export function KioskClock() {
         await videoRef.current.play();
       }
       setCamReady(true);
+      startCountdown();
     } catch {
       setCamError("Camera unavailable. A photo is required to clock in/out — please enable the camera.");
       setCamReady(false);
     }
-  }, []);
+  }, [startCountdown]);
 
-  useEffect(() => {
-    startCamera();
-    return () => {
-      if (scanTimer.current) clearInterval(scanTimer.current);
-      streamRef.current?.getTracks().forEach((t) => t.stop());
-    };
-  }, [startCamera]);
+  // Stop everything on unmount.
+  useEffect(() => () => stopCamera(), [stopCamera]);
 
   /** Grab the current frame as a JPEG blob (the enforced attendance photo). */
   function captureBlob(): Promise<Blob | null> {
@@ -64,10 +122,7 @@ export function KioskClock() {
   }
 
   function stopScan() {
-    if (scanTimer.current) {
-      clearInterval(scanTimer.current);
-      scanTimer.current = null;
-    }
+    if (scanTimer.current) { clearInterval(scanTimer.current); scanTimer.current = null; }
     setScanning(false);
   }
 
@@ -78,7 +133,7 @@ export function KioskClock() {
     const photo = await captureBlob();
     if (!photo) {
       setBusy(false);
-      setMsg({ tone: "err", text: "A photo is required. Please enable the camera and try again." });
+      setMsg({ tone: "err", text: "A photo is required. Please turn on the camera and try again." });
       return;
     }
 
@@ -102,6 +157,7 @@ export function KioskClock() {
       setScannedToken(null);
       setScannedLabel(null);
       pendingQr.current = undefined;
+      startCountdown(); // keep the camera on for the next person; reset the timer
       router.refresh();
       return;
     }
@@ -132,18 +188,14 @@ export function KioskClock() {
   async function startScan() {
     setScanning(true);
     setMsg(null);
-    // Ask the camera to keep the badge in focus while scanning (best-effort).
     const track = streamRef.current?.getVideoTracks()[0];
     try {
       await track?.applyConstraints({ advanced: [{ focusMode: "continuous" }] } as unknown as MediaTrackConstraints);
-    } catch {
-      /* not all cameras support focus control */
-    }
+    } catch { /* not all cameras support focus control */ }
     scanTimer.current = window.setInterval(async () => {
       const token = await decodeFrame();
       if (!token) return;
       stopScan();
-      // Validate (accept) the badge before enabling the clock button.
       const res = await validateQrToken(token);
       if (res.ok) {
         setScannedToken(token);
@@ -176,17 +228,47 @@ export function KioskClock() {
 
       <div className="relative mb-1 aspect-[4/3] w-full overflow-hidden rounded-xl bg-stone-900">
         <video ref={videoRef} playsInline muted className="h-full w-full object-cover" />
+
+        {/* Camera-off overlay with the turn-on button. */}
+        {!camReady && (
+          <div className="absolute inset-0 grid place-items-center bg-stone-900/90 p-4 text-center">
+            <div>
+              <button
+                type="button"
+                onClick={startCamera}
+                className="rounded-xl bg-amber-600 px-5 py-3 text-sm font-semibold text-white hover:bg-amber-700"
+              >
+                📷 Turn on camera
+              </button>
+              <p className="mt-2 text-xs text-stone-400">{camError ?? "The camera stays on only while you clock in/out."}</p>
+            </div>
+          </div>
+        )}
+
+        {camReady && secondsLeft > 0 && (
+          <div className="absolute right-2 top-2 rounded-full bg-black/60 px-2.5 py-1 text-xs font-semibold text-white">
+            Camera on · {secondsLeft}s
+          </div>
+        )}
         {scanning && (
           <div className="absolute inset-0 grid place-items-center bg-black/30 text-sm font-medium text-white">
             <div className="rounded-lg bg-black/50 px-3 py-2">Point the QR badge at the camera…</div>
           </div>
         )}
-        {camError && (
-          <div className="absolute inset-0 grid place-items-center p-4 text-center text-xs text-stone-300">{camError}</div>
-        )}
       </div>
       <canvas ref={canvasRef} className="hidden" />
-      <p className="mb-3 text-center text-[11px] text-stone-400">Your photo is captured automatically when you clock {mode}.</p>
+
+      {camReady ? (
+        <div className="mb-3 mt-1 flex items-center justify-between text-[11px] text-stone-400">
+          <span>Photo captured automatically when you clock {mode}.</span>
+          <span className="flex gap-2">
+            <button type="button" onClick={startCountdown} className="font-medium text-amber-700 hover:underline">Extend</button>
+            <button type="button" onClick={stopCamera} className="font-medium text-stone-500 hover:underline">Turn off</button>
+          </span>
+        </div>
+      ) : (
+        <p className="mb-3 mt-1 text-center text-[11px] text-stone-400">Turn on the camera to clock in or out.</p>
+      )}
 
       <button
         type="button"
@@ -231,6 +313,7 @@ export function KioskClock() {
           type="button"
           onClick={() => run(false, scannedToken ?? undefined)}
           disabled={!canSubmit}
+          title={!camReady ? "Turn on the camera first" : undefined}
           className={`mt-3 w-full rounded-lg px-4 py-2.5 font-semibold text-white disabled:opacity-50 ${
             mode === "in" ? "bg-emerald-600 hover:bg-emerald-700" : "bg-rose-600 hover:bg-rose-700"
           }`}

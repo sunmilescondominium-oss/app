@@ -13,6 +13,7 @@ export interface BoardItem {
   timeOut: string | null;
   scheduled: boolean;
   duration: string | null; // for OB/leave: whole_day | half_day
+  dtrExempt: boolean; // fixed-salary staff who don't file a DTR
 }
 
 /**
@@ -23,7 +24,7 @@ export async function todayBoard(): Promise<{ date: string; items: BoardItem[] }
   const admin = createAdminClient();
   const date = todayManila();
 
-  const [{ data: profiles }, { data: records }, { data: leaves }, { data: shifts }, { data: roleRows }] =
+  const [{ data: profiles }, { data: records }, { data: leaves }, { data: shifts }, { data: roleRows }, { data: pay }] =
     await Promise.all([
       admin.from("profiles").select("id, display_label, full_name, photo_path, is_active"),
       admin.from("time_records").select("user_id, time_in, time_out").eq("work_date", date),
@@ -35,7 +36,10 @@ export async function todayBoard(): Promise<{ date: string; items: BoardItem[] }
         .gte("end_date", date),
       admin.from("shift_schedules").select("user_id").eq("work_date", date),
       admin.from("user_roles").select("user_id"),
+      admin.from("staff_pay").select("user_id, dtr_exempt"),
     ]);
+
+  const exempt = new Set((pay ?? []).filter((p) => p.dtr_exempt).map((p) => p.user_id as string));
 
   // Only show accounts that hold at least one role (i.e. staff, not portals-only).
   const staffIds = new Set((roleRows ?? []).map((r) => r.user_id as string));
@@ -69,6 +73,7 @@ export async function todayBoard(): Promise<{ date: string; items: BoardItem[] }
         timeOut: rec?.time_out ?? null,
         scheduled: scheduled.has(id),
         duration: lv?.duration ?? null,
+        dtrExempt: exempt.has(id),
       };
     })
     .sort((a, b) => a.label.localeCompare(b.label));
