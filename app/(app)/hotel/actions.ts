@@ -244,7 +244,7 @@ export async function checkOut(stayId: string): Promise<ActionResult> {
   const supabase = await createClient();
   const { error } = await supabase
     .from("stays")
-    .update({ status: "checked_out", check_out_at: new Date().toISOString() })
+    .update({ status: "checked_out", check_out_at: new Date().toISOString(), portal_token: null })
     .eq("id", stayId)
     .eq("status", "active");
   if (error) return { ok: false, error: error.message };
@@ -324,7 +324,9 @@ export async function issueRoomCheck(
     checked_by_role: role,
   });
   if (error) return { ok: false, error: error.message };
-  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "create", entity: "room_checks", entityId: stayId, diff: { gatepass_no } });
+  // Gate pass issued → revoke the guest QR portal (balance is already zero).
+  await supabase.from("stays").update({ portal_token: null }).eq("id", stayId);
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "create", entity: "room_checks", entityId: stayId, diff: { gatepass_no, portal_revoked: true } });
   revalidatePath(`/hotel/${stayId}`);
   return { ok: true };
 }
