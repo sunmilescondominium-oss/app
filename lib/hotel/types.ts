@@ -73,6 +73,10 @@ export interface RoomBoardItem {
   stay: Stay | null;
   /** Room was used and still has an open housekeeping task — not yet vacant. */
   needsHousekeeping: boolean;
+  /** Live folio figures for an active stay (room + orders − paid). */
+  paid?: number;
+  ordersTotal?: number;
+  balance?: number;
 }
 
 export interface StayDetail {

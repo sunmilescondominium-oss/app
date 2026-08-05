@@ -81,8 +81,14 @@ export function RoomCard({
         {rem >= 0 ? `${fmt(rem)} left` : `OVER +${fmt(rem)}`}
       </p>
       <p className="text-xs text-stone-500">
-        {stay.planned_hours}h · {peso(total)}
+        {stay.planned_hours}h · {peso(total)} · +{peso(stay.extra_hour_rate)}/hr ext
       </p>
+      {typeof item.balance === "number" && (
+        <p className={`mt-1 text-sm font-semibold tabular-nums ${item.balance > 0 ? "text-red-700" : "text-emerald-700"}`}>
+          {item.balance > 0 ? `Balance: ${peso(item.balance)}` : "Paid ✓"}
+          {item.ordersTotal ? <span className="ml-1 text-[11px] font-normal text-stone-400">(incl. {peso(item.ordersTotal)} orders)</span> : null}
+        </p>
+      )}
       <Link
         href={`/hotel/${stay.id}`}
         className="mt-3 block w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-center text-sm font-medium text-stone-700 hover:bg-stone-100"

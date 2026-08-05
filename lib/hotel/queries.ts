@@ -1,6 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import { round2 } from "./rates";
+import { round2, stayTotals } from "./rates";
 import type {
   RatePlan,
   Promo,
@@ -111,13 +111,40 @@ export async function listRoomBoard(): Promise<RoomBoardItem[]> {
     supabase.from("housekeeping_tasks").select("unit_id").in("status", ["pending", "in_progress"]),
   ]);
   const stayByUnit = new Map<string, Stay>();
-  for (const s of (stays ?? []).map(mapStay)) if (s.unit_id) stayByUnit.set(s.unit_id, s);
+  const mappedStays = (stays ?? []).map(mapStay);
+  for (const s of mappedStays) if (s.unit_id) stayByUnit.set(s.unit_id, s);
   const dirty = new Set((hk ?? []).map((t) => t.unit_id as string).filter(Boolean));
-  return (units ?? []).map((u: Record<string, unknown>) => ({
-    unit: { id: u.id as string, unit_number: u.unit_number as string, unit_type: (u.unit_type as string) ?? null },
-    stay: stayByUnit.get(u.id as string) ?? null,
-    needsHousekeeping: dirty.has(u.id as string),
-  }));
+
+  // Live folio balance per active stay (room + orders − paid), for the card.
+  const stayIds = mappedStays.map((s) => s.id);
+  const totalsByStay = new Map<string, { paid: number; ordersTotal: number; balance: number }>();
+  if (stayIds.length) {
+    const [{ data: pays }, { data: ords }] = await Promise.all([
+      supabase.from("stay_payments").select("stay_id, amount").in("stay_id", stayIds),
+      supabase.from("stay_orders").select("stay_id, qty, unit_price").in("stay_id", stayIds),
+    ]);
+    const paidBy = new Map<string, number>();
+    for (const p of pays ?? []) paidBy.set(p.stay_id as string, (paidBy.get(p.stay_id as string) ?? 0) + Number(p.amount));
+    const ordersBy = new Map<string, number>();
+    for (const o of ords ?? []) ordersBy.set(o.stay_id as string, (ordersBy.get(o.stay_id as string) ?? 0) + Number(o.qty) * Number(o.unit_price));
+    for (const s of mappedStays) {
+      const paid = paidBy.get(s.id) ?? 0;
+      const ordersTotal = ordersBy.get(s.id) ?? 0;
+      const t = stayTotals(s, paid, ordersTotal);
+      totalsByStay.set(s.id, { paid, ordersTotal, balance: t.balance });
+    }
+  }
+
+  return (units ?? []).map((u: Record<string, unknown>) => {
+    const stay = stayByUnit.get(u.id as string) ?? null;
+    const t = stay ? totalsByStay.get(stay.id) : undefined;
+    return {
+      unit: { id: u.id as string, unit_number: u.unit_number as string, unit_type: (u.unit_type as string) ?? null },
+      stay,
+      needsHousekeeping: dirty.has(u.id as string),
+      paid: t?.paid, ordersTotal: t?.ordersTotal, balance: t?.balance,
+    };
+  });
 }
 
 export async function getStayDetail(id: string): Promise<StayDetail | null> {

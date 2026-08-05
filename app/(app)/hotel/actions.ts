@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireAuth, requireModuleWrite, userHasAnyRole } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
 import { logAudit } from "@/lib/audit";
-import { roomCharge, promoDiscount } from "@/lib/hotel/rates";
+import { roomCharge, promoDiscount, stayTotals } from "@/lib/hotel/rates";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { todayManila } from "@/lib/collections/summary";
 import { HOTEL_PAYMENT_METHODS, CLEANING_CHECKLIST, ROOM_ASSET_CHECKLIST } from "@/lib/config";
@@ -274,6 +274,19 @@ export async function issueRoomCheck(
     expected: a.expected,
     actual: Number(formData.get(`asset_${a.key}`) ?? a.expected),
   }));
+  // Incidentals must be settled before a gate pass — balance has to be zero.
+  const { data: stayFull } = await supabase.from("stays").select("base_rate, extra_hour_rate, base_hours, planned_hours, discount_amount").eq("id", stayId).maybeSingle();
+  const [{ data: pays }, { data: ords }] = await Promise.all([
+    supabase.from("stay_payments").select("amount").eq("stay_id", stayId),
+    supabase.from("stay_orders").select("qty, unit_price").eq("stay_id", stayId),
+  ]);
+  if (stayFull) {
+    const paid = (pays ?? []).reduce((a, p) => a + Number(p.amount), 0);
+    const ordersTotal = (ords ?? []).reduce((a, o) => a + Number(o.qty) * Number(o.unit_price), 0);
+    const { balance } = stayTotals(stayFull as never, paid, ordersTotal);
+    if (balance > 0) return { ok: false, error: `Balance of ₱${balance.toLocaleString("en-PH")} must be paid before the gate pass is issued.` };
+  }
+
   const notes = String(formData.get("notes") ?? "").trim() || null;
   const gatepass_no = `GP-${Date.now().toString(36).toUpperCase()}`;
   const { data: stayRow } = await supabase.from("stays").select("unit_id").eq("id", stayId).maybeSingle();
