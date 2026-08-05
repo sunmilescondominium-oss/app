@@ -30,7 +30,7 @@ export async function occupancyBoard(): Promise<OccupancyRow[]> {
   const guard = ids.length ? ids : ["__none__"];
 
   const [{ data: leases }, { data: dues }, { data: hk }] = await Promise.all([
-    admin.from("leases").select("id, unit_id, tenant_label, contact, end_at, rent_amount, billing_cycle").eq("status", "active").in("unit_id", guard),
+    admin.from("leases").select("id, unit_id, tenant_label, contact, end_at, rent_amount, billing_cycle, checkout_requested").eq("status", "active").in("unit_id", guard),
     admin.from("rental_dues").select("id, unit_id, category, amount, due_date, status").eq("status", "unpaid").in("unit_id", guard).order("due_date", { ascending: true }),
     admin.from("housekeeping_tasks").select("unit_id").in("status", ["pending", "in_progress"]).in("unit_id", guard),
   ]);
@@ -58,7 +58,7 @@ export async function occupancyBoard(): Promise<OccupancyRow[]> {
         businessLine: u.business_line as string,
         unitStatus: u.status as string,
         lease: l
-          ? { id: l.id as string, tenantLabel: l.tenant_label as string, contact: (l.contact as string | null) ?? null, endAt, rentAmount: Number(l.rent_amount), billingCycle: l.billing_cycle as string }
+          ? { id: l.id as string, tenantLabel: l.tenant_label as string, contact: (l.contact as string | null) ?? null, endAt, rentAmount: Number(l.rent_amount), billingCycle: l.billing_cycle as string, checkoutRequested: Boolean(l.checkout_requested) }
           : null,
         checkoutInMins,
         checkoutSoon:

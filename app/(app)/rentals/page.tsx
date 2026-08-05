@@ -3,6 +3,7 @@ import { requireModule } from "@/lib/auth/dal";
 import { occupancyBoard, reminders } from "@/lib/rentals/queries";
 import { peso } from "@/lib/collections/summary";
 import { PageHeader } from "@/components/ui";
+import { CheckoutAlarm } from "@/components/checkout-alarm";
 
 export const metadata = { title: "Rentals & Airbnb" };
 
@@ -42,10 +43,15 @@ export default async function RentalsPage() {
         </div>
       )}
 
+      <CheckoutAlarm count={board.filter((b) => b.lease?.checkoutRequested).length} />
+
       <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         {board.map((b) => {
           const occupied = Boolean(b.lease);
-          const badge = occupied
+          const checkoutReq = Boolean(b.lease?.checkoutRequested);
+          const badge = checkoutReq
+            ? { text: "🔔 Check-out", cls: "bg-rose-600 text-white" }
+            : occupied
             ? { text: "Occupied", cls: "bg-sky-100 text-sky-700" }
             : b.needsHousekeeping
               ? { text: "For Housekeeping", cls: "bg-amber-200 text-amber-900" }
@@ -54,7 +60,7 @@ export default async function RentalsPage() {
             <Link
               key={b.unitId}
               href={`/rentals/${b.unitId}`}
-              className={`rounded-2xl border-2 p-4 transition hover:shadow-sm ${b.checkoutSoon ? "border-amber-300 bg-amber-50" : occupied ? "border-sky-200 bg-white" : "border-stone-200 bg-white"}`}
+              className={`rounded-2xl border-2 p-4 transition hover:shadow-sm ${checkoutReq ? "border-rose-500 bg-rose-100 animate-pulse" : b.checkoutSoon ? "border-amber-300 bg-amber-50" : occupied ? "border-sky-200 bg-white" : "border-stone-200 bg-white"}`}
             >
               <div className="flex items-center justify-between gap-2">
                 <p className="font-semibold text-stone-900">{b.unitNumber}</p>

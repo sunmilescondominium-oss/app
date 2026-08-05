@@ -64,16 +64,18 @@ export function RoomCard({
   const rem = outMs - now;
   const total = stayTotals(stay, 0).total;
 
+  const checkoutRequested = Boolean(stay.checkout_requested);
+
   return (
     <div
       className={`rounded-2xl border-2 p-4 ${
-        rem < 0 ? "border-red-300 bg-red-50" : "border-amber-200 bg-amber-50"
+        checkoutRequested ? "border-rose-500 bg-rose-100 animate-pulse" : rem < 0 ? "border-red-300 bg-red-50" : "border-amber-200 bg-amber-50"
       }`}
     >
       <div className="flex items-center justify-between">
         <p className="font-semibold text-stone-900">{unit.unit_number}</p>
-        <span className="rounded-full bg-amber-200 px-2 py-0.5 text-xs font-medium text-amber-900">
-          Occupied
+        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${checkoutRequested ? "bg-rose-600 text-white" : "bg-amber-200 text-amber-900"}`}>
+          {checkoutRequested ? "🔔 Check-out" : "Occupied"}
         </span>
       </div>
       <p className="mt-1 truncate text-sm text-stone-700">{stay.guest_label}</p>

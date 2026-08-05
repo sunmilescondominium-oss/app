@@ -5,6 +5,7 @@ export interface LeaseInfo {
   endAt: string | null;
   rentAmount: number;
   billingCycle: string;
+  checkoutRequested?: boolean;
 }
 
 export interface DueInfo {

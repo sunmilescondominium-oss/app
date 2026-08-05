@@ -8,6 +8,7 @@ import { CheckInForm } from "./check-in-form";
 import { RatePromoManager } from "./rate-promo-manager";
 import { MenuManager } from "./menu-manager";
 import { TaxSettings } from "./tax-settings";
+import { CheckoutAlarm } from "@/components/checkout-alarm";
 import type { RoomBoardItem, RatePlan, Promo, MenuItem, TaxSetting, RoomTaxRow } from "@/lib/hotel/types";
 
 type Unit = RoomBoardItem["unit"];
@@ -41,9 +42,11 @@ export function HotelBoard({
     router.refresh();
   };
   const units = board.map((b) => b.unit);
+  const pendingCheckouts = board.filter((b) => b.stay?.checkout_requested).length;
 
   return (
     <div>
+      <CheckoutAlarm count={pendingCheckouts} />
       {(isAdmin || canManageTax) && (
         <div className="mb-3">
           <button
