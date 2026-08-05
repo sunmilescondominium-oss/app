@@ -14,9 +14,23 @@ function actingRole(roleKeys: string[], allowed: string[]): string | null {
 }
 
 /** Register a new booklet and materialize every serial in its range. */
+/** Register a BIR business entity (one of the company's registered businesses). */
+export async function createBusinessEntity(input: { name: string; tradeName: string; tin: string; rdo: string; address: string }): Promise<ActionResult> {
+  const user = await requireModuleWrite("accountable_forms");
+  if (!userHasAnyRole(user, FORM_MANAGER_ROLES)) return { ok: false, error: "Not allowed." };
+  if (!input.name.trim()) return { ok: false, error: "Business name is required." };
+  const admin = createAdminClient();
+  const { error } = await admin.from("business_entities").insert({ name: input.name.trim(), trade_name: input.tradeName.trim() || null, tin: input.tin.trim() || null, bir_rdo: input.rdo.trim() || null, registered_address: input.address.trim() || null });
+  if (error) return { ok: false, error: error.message };
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "create", entity: "business_entities", entityId: null, diff: { name: input.name } });
+  revalidatePath("/forms");
+  return { ok: true };
+}
+
 export async function createBooklet(input: {
   formTypeId: string; bookletNo: string; prefix: string; from: number; to: number; padWidth: number;
   custodianUserId: string; custodianRole: string; receivedFrom: string; receivedAt: string; notes: string;
+  businessEntityId?: string; birAtpNo?: string; birAtpDate?: string; printerName?: string; printerAccreditation?: string;
 }): Promise<ActionResult> {
   const user = await requireModuleWrite("accountable_forms");
   if (!userHasAnyRole(user, FORM_MANAGER_ROLES)) return { ok: false, error: "Only accounting / admin / monitoring can register booklets." };
@@ -33,6 +47,9 @@ export async function createBooklet(input: {
     serial_from: from, serial_to: to, pad_width: pad,
     custodian_user_id: input.custodianUserId || null, custodian_role: input.custodianRole || null,
     received_from: input.receivedFrom.trim() || null, received_at: input.receivedAt || null, notes: input.notes.trim() || null,
+    business_entity_id: input.businessEntityId || null,
+    bir_atp_no: input.birAtpNo?.trim() || null, bir_atp_date: input.birAtpDate || null,
+    printer_name: input.printerName?.trim() || null, printer_accreditation: input.printerAccreditation?.trim() || null,
   }).select("id").single();
   if (error || !booklet) return { ok: false, error: error?.message ?? "Could not create the booklet." };
 

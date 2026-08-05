@@ -31,10 +31,24 @@ export default async function BookletDetailPage({ params }: { params: Promise<{ 
       </div>
 
       <div className="mb-4 hidden border-b border-stone-300 pb-3 print:block">
-        <p className="text-lg font-bold">{APP_BRAND_SHORT}</p>
+        <p className="text-lg font-bold">{booklet.entityName ?? APP_BRAND_SHORT}</p>
+        {booklet.entityTin && <p className="text-xs">TIN: {booklet.entityTin}</p>}
         <p className="text-sm">Accountable Form Reconciliation — {booklet.typeName} · {booklet.bookletNo}</p>
         <p className="text-xs">Serials {booklet.prefix}{booklet.from}–{booklet.prefix}{booklet.to} · Custodian: {booklet.custodianLabel ?? "unassigned"}</p>
+        {(booklet.birAtpNo || booklet.printerName) && (
+          <p className="text-xs">BIR ATP: {booklet.birAtpNo ?? "—"}{booklet.birAtpDate ? ` (${booklet.birAtpDate})` : ""}{booklet.printerName ? ` · Printer: ${booklet.printerName}` : ""}</p>
+        )}
       </div>
+
+      {/* On-screen BIR banner */}
+      {(booklet.entityName || booklet.birAtpNo) && (
+        <div className="no-print mb-4 rounded-xl border border-stone-200 bg-stone-50 px-4 py-2 text-xs text-stone-600">
+          <span className="font-medium text-stone-700">{booklet.entityName ?? "No business assigned"}</span>
+          {booklet.entityTin && <span> · TIN {booklet.entityTin}</span>}
+          {booklet.birAtpNo && <span> · BIR ATP {booklet.birAtpNo}{booklet.birAtpDate ? ` (${booklet.birAtpDate})` : ""}</span>}
+          {booklet.printerName && <span> · Printer: {booklet.printerName}</span>}
+        </div>
+      )}
 
       {/* Reconciliation summary */}
       <div className="mb-6 grid grid-cols-3 gap-3 sm:grid-cols-6">

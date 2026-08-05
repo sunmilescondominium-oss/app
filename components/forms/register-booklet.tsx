@@ -3,14 +3,14 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createBooklet } from "@/app/(app)/forms/actions";
-import type { FormType } from "@/lib/forms/types";
+import type { FormType, BusinessEntity } from "@/lib/forms/types";
 
 type Custodian = { userId: string; label: string; role: string | null };
 
-export function RegisterBooklet({ types, custodians }: { types: FormType[]; custodians: Custodian[] }) {
+export function RegisterBooklet({ types, custodians, entities }: { types: FormType[]; custodians: Custodian[]; entities: BusinessEntity[] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [f, setF] = useState({ formTypeId: types[0]?.id ?? "", bookletNo: "", prefix: "", from: "", to: "", padWidth: "6", custodianUserId: "", receivedFrom: "", receivedAt: "", notes: "" });
+  const [f, setF] = useState({ formTypeId: types[0]?.id ?? "", bookletNo: "", prefix: "", from: "", to: "", padWidth: "6", custodianUserId: "", receivedFrom: "", receivedAt: "", notes: "", businessEntityId: entities[0]?.id ?? "", birAtpNo: "", birAtpDate: "", printerName: "" });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -25,11 +25,12 @@ export function RegisterBooklet({ types, custodians }: { types: FormType[]; cust
       from: Number(f.from), to: Number(f.to), padWidth: Number(f.padWidth),
       custodianUserId: f.custodianUserId, custodianRole: cust?.role ?? "",
       receivedFrom: f.receivedFrom, receivedAt: f.receivedAt, notes: f.notes,
+      businessEntityId: f.businessEntityId, birAtpNo: f.birAtpNo, birAtpDate: f.birAtpDate, printerName: f.printerName,
     });
     setBusy(false);
     if (!res.ok) { setErr(res.error); return; }
     setOpen(false);
-    setF({ formTypeId: types[0]?.id ?? "", bookletNo: "", prefix: "", from: "", to: "", padWidth: "6", custodianUserId: "", receivedFrom: "", receivedAt: "", notes: "" });
+    setF({ formTypeId: types[0]?.id ?? "", bookletNo: "", prefix: "", from: "", to: "", padWidth: "6", custodianUserId: "", receivedFrom: "", receivedAt: "", notes: "", businessEntityId: entities[0]?.id ?? "", birAtpNo: "", birAtpDate: "", printerName: "" });
     if (res.id) router.push(`/forms/${res.id}`); else router.refresh();
   }
 
@@ -64,6 +65,21 @@ export function RegisterBooklet({ types, custodians }: { types: FormType[]; cust
         </label>
         <label className="text-sm"><span className="mb-1 block text-stone-600">Serial to *</span>
           <input type="number" value={f.to} onChange={(e) => set("to", e.target.value)} placeholder="50" className={input} />
+        </label>
+        <label className="text-sm sm:col-span-2"><span className="mb-1 block text-stone-600">Registered business (BIR)</span>
+          <select value={f.businessEntityId} onChange={(e) => set("businessEntityId", e.target.value)} className={input}>
+            <option value="">— none —</option>
+            {entities.map((en) => <option key={en.id} value={en.id}>{en.name}{en.tin ? ` · TIN ${en.tin}` : ""}</option>)}
+          </select>
+        </label>
+        <label className="text-sm"><span className="mb-1 block text-stone-600">BIR Authority to Print (ATP) no.</span>
+          <input value={f.birAtpNo} onChange={(e) => set("birAtpNo", e.target.value)} placeholder="ATP / permit no." className={input} />
+        </label>
+        <label className="text-sm"><span className="mb-1 block text-stone-600">ATP date</span>
+          <input type="date" value={f.birAtpDate} onChange={(e) => set("birAtpDate", e.target.value)} className={input} />
+        </label>
+        <label className="text-sm sm:col-span-2"><span className="mb-1 block text-stone-600">Accredited printer</span>
+          <input value={f.printerName} onChange={(e) => set("printerName", e.target.value)} placeholder="printer name / accreditation" className={input} />
         </label>
         <label className="text-sm"><span className="mb-1 block text-stone-600">Custodian (staff)</span>
           <select value={f.custodianUserId} onChange={(e) => set("custodianUserId", e.target.value)} className={input}>

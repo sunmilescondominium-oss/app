@@ -13,11 +13,15 @@ export const SERIAL_TONE: Record<SerialStatus, string> = {
 
 export type FormType = { id: string; code: string; name: string };
 
+export type BusinessEntity = { id: string; name: string; tradeName: string | null; tin: string | null; rdo: string | null; address: string | null };
+
 export type BookletRow = {
   id: string; bookletNo: string; typeCode: string; typeName: string;
   prefix: string; from: number; to: number; total: number;
   custodianLabel: string | null; custodianRole: string | null;
   status: string; counts: Record<SerialStatus, number>; accounted: number;
+  entityId: string | null; entityName: string | null; entityTin: string | null;
+  birAtpNo: string | null; birAtpDate: string | null; printerName: string | null;
 };
 
 export type SerialRow = {
