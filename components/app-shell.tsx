@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { APP_BRAND, APP_BRAND_SHORT } from "@/lib/config";
 import { signOut, setActAsRole } from "@/lib/auth/actions";
+import { LanguageToggle } from "@/components/language-toggle";
 import { exitImpersonation } from "@/app/(app)/users/impersonate-actions";
 import { SunMilesMark } from "@/components/brand-logo";
 
@@ -135,6 +136,7 @@ export function AppShell({
               ))}
             </select>
           )}
+          <LanguageToggle />
           <span className="hidden text-sm font-medium text-stone-700 sm:inline">
             {displayLabel}
           </span>

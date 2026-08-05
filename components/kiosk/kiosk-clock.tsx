@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { portalCheckIn, portalCheckOut, validateQrToken, type KioskState } from "@/app/(public)/attendance-portal/actions";
 import { Celebrate } from "@/components/kiosk/celebrate";
+import { t, type Lang } from "@/lib/i18n";
 
 const inputCls =
   "w-full rounded-lg border border-stone-300 px-3 py-2.5 text-stone-900 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
@@ -31,11 +32,14 @@ export function KioskClock({
   cameraSeconds = 45,
   cameraRushSeconds = 180,
   rushWindows = "",
+  lang = "en",
 }: {
   cameraSeconds?: number;
   cameraRushSeconds?: number;
   rushWindows?: string;
+  lang?: Lang;
 }) {
+  const tr = (k: string) => t(lang, k);
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -225,7 +229,7 @@ export function KioskClock({
               mode === m ? "bg-stone-800 text-white" : "bg-stone-100 text-stone-600 hover:bg-stone-200"
             }`}
           >
-            {m === "in" ? "Clock In" : "Clock Out"}
+            {m === "in" ? tr("clock_in") : tr("clock_out")}
           </button>
         ))}
       </div>
@@ -242,7 +246,7 @@ export function KioskClock({
                 onClick={startCamera}
                 className="rounded-xl bg-amber-600 px-5 py-3 text-sm font-semibold text-white hover:bg-amber-700"
               >
-                📷 Turn on camera
+                📷 {tr("turn_on_camera")}
               </button>
               <p className="mt-2 text-xs text-stone-400">{camError ?? "The camera stays on only while you clock in/out."}</p>
             </div>
@@ -251,7 +255,7 @@ export function KioskClock({
 
         {camReady && secondsLeft > 0 && (
           <div className="absolute right-2 top-2 rounded-full bg-black/60 px-2.5 py-1 text-xs font-semibold text-white">
-            Camera on · {secondsLeft}s
+            {tr("camera_on")} · {secondsLeft}s
           </div>
         )}
         {scanning && (
@@ -266,12 +270,12 @@ export function KioskClock({
         <div className="mb-3 mt-1 flex items-center justify-between text-[11px] text-stone-400">
           <span>Photo captured automatically when you clock {mode}.</span>
           <span className="flex gap-2">
-            <button type="button" onClick={startCountdown} className="font-medium text-amber-700 hover:underline">Extend</button>
-            <button type="button" onClick={stopCamera} className="font-medium text-stone-500 hover:underline">Turn off</button>
+            <button type="button" onClick={startCountdown} className="font-medium text-amber-700 hover:underline">{tr("extend")}</button>
+            <button type="button" onClick={stopCamera} className="font-medium text-stone-500 hover:underline">{tr("turn_off")}</button>
           </span>
         </div>
       ) : (
-        <p className="mb-3 mt-1 text-center text-[11px] text-stone-400">Turn on the camera to clock in or out.</p>
+        <p className="mb-3 mt-1 text-center text-[11px] text-stone-400">{tr("turn_on_to_clock")}</p>
       )}
 
       <button
@@ -280,7 +284,7 @@ export function KioskClock({
         disabled={busy || !camReady}
         className="mb-3 w-full rounded-lg border border-sky-300 bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-700 hover:bg-sky-100 disabled:opacity-50"
       >
-        {scanning ? "Cancel scan" : "📷 Scan QR badge"}
+        {scanning ? tr("cancel_scan") : `📷 ${tr("scan_qr")}`}
       </button>
 
       {scannedToken ? (
@@ -292,10 +296,10 @@ export function KioskClock({
         </div>
       ) : (
         <>
-          <div className="mb-1 text-center text-xs text-stone-400">or enter manually</div>
+          <div className="mb-1 text-center text-xs text-stone-400">{tr("or_enter_manually")}</div>
           <div className="space-y-2">
-            <input value={employeeNo} onChange={(e) => setEmployeeNo(e.target.value)} placeholder="ID number" className={inputCls} autoComplete="off" />
-            <input value={passcode} onChange={(e) => setPasscode(e.target.value)} type="password" inputMode="numeric" placeholder="Passcode" className={inputCls} autoComplete="off" />
+            <input value={employeeNo} onChange={(e) => setEmployeeNo(e.target.value)} placeholder={tr("id_number")} className={inputCls} autoComplete="off" />
+            <input value={passcode} onChange={(e) => setPasscode(e.target.value)} type="password" inputMode="numeric" placeholder={tr("passcode")} className={inputCls} autoComplete="off" />
           </div>
         </>
       )}
@@ -322,7 +326,7 @@ export function KioskClock({
             mode === "in" ? "bg-emerald-600 hover:bg-emerald-700" : "bg-rose-600 hover:bg-rose-700"
           }`}
         >
-          {busy ? "Please wait…" : mode === "in" ? "Clock In" : "Clock Out"}
+          {busy ? tr("please_wait") : mode === "in" ? tr("clock_in") : tr("clock_out")}
         </button>
       )}
 
