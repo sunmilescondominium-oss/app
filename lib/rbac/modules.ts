@@ -47,6 +47,7 @@ export type ModuleKey =
   | "banking"
   | "incidents"
   | "requisitions"
+  | "accountable_forms"
   | "kiosk_fallback"
   | "media"
   | "actas"
@@ -236,6 +237,15 @@ export const MODULES: Record<ModuleKey, ModuleDef> = {
     milestone: "Ops",
     read: ["owner", "consultant", "admin", "managing_officer", "operations_manager", "accounting", "warehouse_timekeeper", "errand_liaison", "room_attendant", "hotel_rental_monitoring"],
     write: ["admin", "managing_officer", "operations_manager", "accounting", "warehouse_timekeeper", "errand_liaison", "room_attendant", "hotel_rental_monitoring"],
+  },
+  accountable_forms: {
+    key: "accountable_forms",
+    path: "/forms",
+    label: "Accountable Forms",
+    blurb: "Serialized OR/AR/checks — custodian, status & reconciliation.",
+    milestone: "Acct",
+    read: ["owner", "consultant", "admin", "managing_officer", "accounting", "hotel_rental_monitoring", "hotel_cashier"],
+    write: ["admin", "managing_officer", "accounting", "hotel_rental_monitoring", "hotel_cashier"],
   },
   kiosk_fallback: {
     key: "kiosk_fallback",

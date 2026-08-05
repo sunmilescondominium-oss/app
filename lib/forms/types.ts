@@ -1,0 +1,29 @@
+// Pure constants + types (safe to import from client components).
+
+export const SERIAL_STATUSES = ["unused", "used", "cancelled", "spoiled", "void"] as const;
+export type SerialStatus = (typeof SERIAL_STATUSES)[number];
+
+export const SERIAL_TONE: Record<SerialStatus, string> = {
+  unused: "bg-stone-100 text-stone-500",
+  used: "bg-emerald-100 text-emerald-700",
+  cancelled: "bg-amber-100 text-amber-800",
+  spoiled: "bg-orange-100 text-orange-800",
+  void: "bg-rose-100 text-rose-700",
+};
+
+export type FormType = { id: string; code: string; name: string };
+
+export type BookletRow = {
+  id: string; bookletNo: string; typeCode: string; typeName: string;
+  prefix: string; from: number; to: number; total: number;
+  custodianLabel: string | null; custodianRole: string | null;
+  status: string; counts: Record<SerialStatus, number>; accounted: number;
+};
+
+export type SerialRow = {
+  id: string; serialNo: number; label: string; status: SerialStatus;
+  issuedTo: string | null; reference: string | null; amount: number | null;
+  usedByRole: string | null; usedAt: string | null; remarks: string | null;
+};
+
+export type CustodyEntry = { fromLabel: string | null; toLabel: string | null; byLabel: string | null; at: string; note: string | null };
