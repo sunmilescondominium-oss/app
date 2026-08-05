@@ -5,6 +5,8 @@ import { requireAuth, requireModuleWrite, userHasAnyRole } from "@/lib/auth/dal"
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit";
+import { CLEANING_CHECKLIST } from "@/lib/config";
+import { getShiftEndToday, canStartBeforeShiftEnd } from "@/lib/housekeeping/shift";
 import type { HKChecklistItem } from "@/lib/housekeeping/types";
 import type { ImportResult } from "@/lib/imports/types";
 
@@ -156,12 +158,50 @@ export async function startTask(taskId: string, shift: string): Promise<ActionRe
   const user = await requireModuleWrite("housekeeping");
   const supabase = await createClient();
   const role = attendantRole(user.roleKeys);
+
+  const { data: task } = await supabase.from("housekeeping_tasks").select("status, cleaning_minutes").eq("id", taskId).maybeSingle();
+  if (!task) return { ok: false, error: "Task not found." };
+  if (task.status !== "pending") return { ok: false, error: "This room is already being cleaned." };
+
+  // Shift-end cutoff: an attendant may only start a room they can finish before
+  // their shift ends (no overtime, no mid-clean handoff). If not, the room is
+  // endorsed to the next team instead of started.
+  const shiftEnd = await getShiftEndToday(user.userId);
+  if (!canStartBeforeShiftEnd(task.cleaning_minutes as number | null, shiftEnd)) {
+    await supabase.from("housekeeping_tasks").update({ endorsed: true, endorsed_at: new Date().toISOString() }).eq("id", taskId);
+    await supabase.from("housekeeping_events").insert({ task_id: taskId, event_type: "endorsed", detail: { reason: "shift_end_cutoff" }, actor_role: role, actor_user_id: user.userId });
+    revalidatePath("/housekeeping");
+    revalidatePath(`/housekeeping/${taskId}`);
+    return { ok: false, error: "Not enough time left in your shift to finish this room — it has been endorsed to the next team." };
+  }
+
   const { error } = await supabase
     .from("housekeeping_tasks")
-    .update({ status: "in_progress", started_at: new Date().toISOString(), assigned_to_role: role, shift: shift || null })
+    .update({ status: "in_progress", started_at: new Date().toISOString(), assigned_to_role: role, shift: shift || null, endorsed: false, endorsed_at: null })
     .eq("id", taskId);
   if (error) return { ok: false, error: error.message };
   await supabase.from("housekeeping_events").insert({ task_id: taskId, event_type: "started", detail: { shift }, actor_role: role, actor_user_id: user.userId });
+  revalidatePath("/housekeeping");
+  revalidatePath(`/housekeeping/${taskId}`);
+  return { ok: true };
+}
+
+/**
+ * Escalate a room the attendant genuinely cannot finish once started (needs a
+ * repair, missing supply, illness). Not a normal turnover — it flags the task
+ * for monitoring/operations to resolve and is fully logged. The room stays
+ * in-progress and does NOT count as ready.
+ */
+export async function escalateTask(taskId: string, _prev: ActionResult | undefined, formData: FormData): Promise<ActionResult> {
+  const user = await requireModuleWrite("housekeeping");
+  const reason = String(formData.get("reason") ?? "").trim();
+  if (!reason) return { ok: false, error: "Please say why the room can't be finished." };
+  const supabase = await createClient();
+  const role = attendantRole(user.roleKeys);
+  const { error } = await supabase.from("housekeeping_tasks").update({ escalated: true, escalation_note: reason }).eq("id", taskId);
+  if (error) return { ok: false, error: error.message };
+  await supabase.from("housekeeping_events").insert({ task_id: taskId, event_type: "escalated", detail: { reason }, actor_role: role, actor_user_id: user.userId });
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "update", entity: "housekeeping_tasks", entityId: taskId, diff: { escalated: true, reason } });
   revalidatePath("/housekeeping");
   revalidatePath(`/housekeeping/${taskId}`);
   return { ok: true };
@@ -262,28 +302,45 @@ export async function completeTask(
   return { ok: true };
 }
 
-export async function turnoverTask(
-  taskId: string,
-  _prev: ActionResult | undefined,
-  formData: FormData,
+// ---- per-room-type cleaning config (admin / operations / monitoring) ------
+const ROOM_TYPE_ROLES = ["admin", "operations_manager", "hotel_rental_monitoring"];
+
+/** Update a room type's timers (buffer + cleaning minutes) and checklist. */
+export async function updateRoomType(
+  id: string,
+  fields: { buffer_minutes: number; cleaning_minutes: number; checklist: { key: string; label: string }[] },
 ): Promise<ActionResult> {
-  const user = await requireModuleWrite("housekeeping");
-  const supabase = await createClient();
-  const note = String(formData.get("note") ?? "").trim();
-  const to_shift = String(formData.get("to_shift") ?? "").trim() || null;
-
-  const { error } = await supabase.from("housekeeping_events").insert({
-    task_id: taskId,
-    event_type: "turned_over",
-    detail: { note, to_shift },
-    actor_role: attendantRole(user.roleKeys),
-    actor_user_id: user.userId,
-  });
+  const user = await requireAuth();
+  if (!userHasAnyRole(user, ROOM_TYPE_ROLES)) return { ok: false, error: "Not allowed to change cleaning timers." };
+  const buffer = Math.max(0, Math.trunc(Number(fields.buffer_minutes) || 0));
+  const cleaning = Math.max(1, Math.trunc(Number(fields.cleaning_minutes) || 0));
+  const checklist = (fields.checklist ?? []).filter((c) => c.label?.trim()).map((c) => ({ key: c.key, label: c.label.trim() }));
+  const admin = createAdminClient();
+  const { error } = await admin.from("housekeeping_room_types").update({ buffer_minutes: buffer, cleaning_minutes: cleaning, checklist }).eq("id", id);
   if (error) return { ok: false, error: error.message };
-  if (to_shift) await supabase.from("housekeeping_tasks").update({ shift: to_shift }).eq("id", taskId);
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "update", entity: "housekeeping_room_types", entityId: id, diff: { buffer, cleaning, items: checklist.length } });
+  revalidatePath("/housekeeping");
+  return { ok: true };
+}
 
-  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "update", entity: "housekeeping_tasks", entityId: taskId, diff: { turnover: true, to_shift } });
-  revalidatePath(`/housekeeping/${taskId}`);
+/** Add a room type (business line + unit type) with default timers/checklist. */
+export async function createRoomType(_prev: ActionResult | undefined, formData: FormData): Promise<ActionResult> {
+  const user = await requireAuth();
+  if (!userHasAnyRole(user, ROOM_TYPE_ROLES)) return { ok: false, error: "Not allowed to add room types." };
+  const business_line = String(formData.get("business_line") ?? "").trim();
+  const unit_type = String(formData.get("unit_type") ?? "").trim() || null;
+  const label = String(formData.get("label") ?? "").trim() || `${business_line} — ${unit_type ?? "default"}`;
+  if (!["hotel", "airbnb"].includes(business_line)) return { ok: false, error: "Choose hotel or airbnb." };
+  const admin = createAdminClient();
+  const { error } = await admin.from("housekeeping_room_types").insert({
+    business_line, unit_type, label,
+    checklist: CLEANING_CHECKLIST.map((c) => ({ key: c.key, label: c.label })),
+  });
+  if (error) {
+    if (/duplicate|unique/i.test(error.message)) return { ok: false, error: "That room type already exists." };
+    return { ok: false, error: error.message };
+  }
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "create", entity: "housekeeping_room_types", entityId: `${business_line}/${unit_type ?? "default"}` });
   revalidatePath("/housekeeping");
   return { ok: true };
 }

@@ -5,7 +5,7 @@ import { requireModuleWrite, requireAuth, userHasAnyRole } from "@/lib/auth/dal"
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit";
 import { todayManila } from "@/lib/collections/summary";
-import { CLEANING_CHECKLIST } from "@/lib/config";
+import { createCleaningTask } from "@/lib/housekeeping/create-task";
 import type { BulkResult } from "@/lib/data/bulk";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
@@ -182,11 +182,33 @@ export async function endLease(id: string): Promise<ActionResult> {
     await admin.from("units").update({ status: "under_maintenance" }).eq("id", lease.unit_id);
     const { data: openHk } = await admin.from("housekeeping_tasks").select("id").eq("unit_id", lease.unit_id).in("status", ["pending", "in_progress"]).maybeSingle();
     if (!openHk) {
-      await admin.from("housekeeping_tasks").insert({ unit_id: lease.unit_id, status: "pending", checklist: CLEANING_CHECKLIST.map((c) => ({ key: c.key, label: c.label, done: false })) });
+      // Airbnb turnovers get the room-type SLA; plain rentals fall back to a
+      // timer-less task (rentals are not attendant-monitored).
+      await createCleaningTask({ unitId: lease.unit_id, actorUserId: user.userId, via: "lease_end" });
     }
   }
   await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "update", entity: "leases", entityId: id, diff: { status: "ended" } });
   revalidatePath("/rentals");
+  return { ok: true };
+}
+
+/**
+ * Request a cleaning for an active rental (typically a long-stay renter of a
+ * month or more). Rentals aren't attendant-monitored, so cleaning is on demand
+ * rather than automatic on checkout. Creates a plain housekeeping task.
+ */
+export async function requestRentalCleaning(leaseId: string): Promise<ActionResult> {
+  const user = await requireModuleWrite("rentals");
+  const admin = createAdminClient();
+  const { data: lease } = await admin.from("leases").select("unit_id, status").eq("id", leaseId).maybeSingle();
+  if (!lease?.unit_id) return { ok: false, error: "Lease not found." };
+  if (lease.status !== "active") return { ok: false, error: "Cleaning can only be requested for an active rental." };
+  const { data: openHk } = await admin.from("housekeeping_tasks").select("id").eq("unit_id", lease.unit_id).in("status", ["pending", "in_progress"]).maybeSingle();
+  if (openHk) return { ok: false, error: "A cleaning task is already open for this unit." };
+  await createCleaningTask({ unitId: lease.unit_id, actorUserId: user.userId, via: "rental_request" });
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "create", entity: "housekeeping_tasks", entityId: leaseId, diff: { rental_cleaning_request: true } });
+  revalidatePath("/rentals");
+  revalidatePath("/housekeeping");
   return { ok: true };
 }
 

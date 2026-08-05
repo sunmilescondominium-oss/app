@@ -7,7 +7,8 @@ import { logAudit } from "@/lib/audit";
 import { roomCharge, promoDiscount, stayTotals, round2 } from "@/lib/hotel/rates";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { todayManila } from "@/lib/collections/summary";
-import { HOTEL_PAYMENT_METHODS, CLEANING_CHECKLIST, ROOM_ASSET_CHECKLIST } from "@/lib/config";
+import { HOTEL_PAYMENT_METHODS, ROOM_ASSET_CHECKLIST } from "@/lib/config";
+import { createCleaningTask } from "@/lib/housekeeping/create-task";
 import type { ImportResult } from "@/lib/imports/types";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
@@ -249,22 +250,11 @@ export async function checkOut(stayId: string): Promise<ActionResult> {
     .eq("status", "active");
   if (error) return { ok: false, error: error.message };
 
-  // Auto-create the post-checkout housekeeping task (service role).
+  // Auto-create the post-checkout housekeeping task with its room-type SLA
+  // (buffer to start + target clean time). The attendant must start it right
+  // away; the board decides from the timers + their shift end what carries over.
   const { data: outStay } = await supabase.from("stays").select("unit_id").eq("id", stayId).maybeSingle();
-  const hkAdmin = createAdminClient();
-  const { data: hkTask } = await hkAdmin
-    .from("housekeeping_tasks")
-    .insert({
-      unit_id: outStay?.unit_id ?? null,
-      stay_id: stayId,
-      status: "pending",
-      checklist: CLEANING_CHECKLIST.map((c) => ({ key: c.key, label: c.label, done: false })),
-    })
-    .select("id")
-    .single();
-  if (hkTask) {
-    await hkAdmin.from("housekeeping_events").insert({ task_id: hkTask.id, event_type: "created", detail: { via: "checkout" }, actor_user_id: user.userId });
-  }
+  await createCleaningTask({ unitId: outStay?.unit_id ?? null, stayId, actorUserId: user.userId, via: "checkout" });
 
   await logAudit({
     actorUserId: user.userId,

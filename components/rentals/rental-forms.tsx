@@ -9,6 +9,7 @@ import {
   addMeterReading,
   createDue,
   markDuePaid,
+  requestRentalCleaning,
   type ActionResult,
 } from "@/app/(app)/rentals/actions";
 import { UTILITY_TYPES, RENTAL_DUE_CATEGORIES, BILLING_CYCLES } from "@/lib/config";
@@ -72,8 +73,18 @@ export function LeaseActions({ leaseId, canExtend }: { leaseId: string; canExten
     if (!r.ok) return window.alert(r.error);
     router.refresh();
   }
+  async function requestCleaning() {
+    if (!window.confirm("Request a housekeeping cleaning for this rental?")) return;
+    setBusy(true);
+    const r = await requestRentalCleaning(leaseId);
+    setBusy(false);
+    if (!r.ok) return window.alert(r.error);
+    window.alert("Cleaning requested — it now appears on the housekeeping board.");
+    router.refresh();
+  }
   return (
     <div className="flex justify-end gap-2">
+      <button type="button" onClick={requestCleaning} disabled={busy} className="text-xs font-medium text-amber-700 hover:underline">request cleaning</button>
       {canExtend && <button type="button" onClick={extend} disabled={busy} className="text-xs font-medium text-sky-700 hover:underline">extend</button>}
       <button type="button" onClick={end} disabled={busy} className="text-xs font-medium text-rose-600 hover:underline">end</button>
     </div>

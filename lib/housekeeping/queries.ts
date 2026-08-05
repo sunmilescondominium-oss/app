@@ -8,6 +8,8 @@ import type {
   HKChecklistItem,
   TaskDetail,
   StockMovement,
+  RoomTypeConfig,
+  OccupiedRoom,
 } from "./types";
 
 /** Recent stock movements (dispensing audit log). SERVICE ROLE; page-gated. */
@@ -54,7 +56,93 @@ function mapTask(r: Record<string, unknown>): HousekeepingTask {
     created_at: r.created_at as string,
     unit_number: u?.unit_number ?? null,
     photos: Array.isArray(r.photos) ? (r.photos as string[]) : [],
+    business_line: (r.business_line as string) ?? null,
+    unit_type: (r.unit_type as string) ?? null,
+    buffer_minutes: r.buffer_minutes != null ? Number(r.buffer_minutes) : null,
+    cleaning_minutes: r.cleaning_minutes != null ? Number(r.cleaning_minutes) : null,
+    start_by: (r.start_by as string) ?? null,
+    endorsed: Boolean(r.endorsed),
+    endorsed_at: (r.endorsed_at as string) ?? null,
+    escalated: Boolean(r.escalated),
+    escalation_note: (r.escalation_note as string) ?? null,
   };
+}
+
+function mapRoomType(r: Record<string, unknown>): RoomTypeConfig {
+  const cl = Array.isArray(r.checklist) ? (r.checklist as { key: string; label: string }[]) : [];
+  return {
+    id: r.id as string,
+    business_line: r.business_line as string,
+    unit_type: (r.unit_type as string) ?? null,
+    label: r.label as string,
+    buffer_minutes: Number(r.buffer_minutes),
+    cleaning_minutes: Number(r.cleaning_minutes),
+    checklist: cl,
+    is_active: Boolean(r.is_active),
+    sort_order: Number(r.sort_order),
+  };
+}
+
+/** All room-type cleaning configs (timers + checklist). */
+export async function listRoomTypes(): Promise<RoomTypeConfig[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("housekeeping_room_types")
+    .select("*")
+    .order("business_line", { ascending: true })
+    .order("sort_order", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []).map(mapRoomType);
+}
+
+/**
+ * Currently-occupied hotel + airbnb rooms, for the attendant's occupancy watch.
+ * Rentals are excluded (not attendant-monitored). Sorted by soonest expected
+ * checkout first so what will free up next is on top.
+ */
+export async function listOccupiedRooms(): Promise<OccupiedRoom[]> {
+  const supabase = await createClient();
+  const [{ data: stays }, { data: leases }] = await Promise.all([
+    supabase
+      .from("stays")
+      .select("id, unit_id, guest_label, check_in_at, planned_hours, units(unit_number)")
+      .eq("status", "active"),
+    supabase
+      .from("leases")
+      .select("id, unit_id, tenant_label, start_date, end_at, units(unit_number)")
+      .eq("status", "active")
+      .eq("business_line", "airbnb"),
+  ]);
+
+  const rooms: OccupiedRoom[] = [];
+  for (const s of stays ?? []) {
+    const u = s.units as { unit_number?: string } | null;
+    const checkIn = s.check_in_at as string;
+    const out = new Date(new Date(checkIn).getTime() + Number(s.planned_hours ?? 0) * 3600_000).toISOString();
+    rooms.push({
+      source: "hotel",
+      ref_id: s.id as string,
+      unit_id: (s.unit_id as string) ?? null,
+      unit_number: u?.unit_number ?? null,
+      guest_label: (s.guest_label as string) ?? "Guest",
+      check_in_at: checkIn,
+      expected_out_at: out,
+    });
+  }
+  for (const l of leases ?? []) {
+    const u = l.units as { unit_number?: string } | null;
+    rooms.push({
+      source: "airbnb",
+      ref_id: l.id as string,
+      unit_id: (l.unit_id as string) ?? null,
+      unit_number: u?.unit_number ?? null,
+      guest_label: (l.tenant_label as string) ?? "Guest",
+      check_in_at: (l.start_date as string) + "T00:00:00Z",
+      expected_out_at: (l.end_at as string) ?? null,
+    });
+  }
+  rooms.sort((a, b) => (a.expected_out_at ?? "9999").localeCompare(b.expected_out_at ?? "9999"));
+  return rooms;
 }
 
 function mapSupply(r: Record<string, unknown>): RoomSupply {

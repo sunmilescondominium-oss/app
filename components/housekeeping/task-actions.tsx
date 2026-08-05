@@ -6,7 +6,7 @@ import {
   startTask,
   completeTask,
   recordReplacements,
-  turnoverTask,
+  escalateTask,
   type ActionResult,
 } from "@/app/(app)/housekeeping/actions";
 import { HOUSEKEEPING_SHIFTS } from "@/lib/config";
@@ -22,6 +22,7 @@ export function TaskActions({
   lang = "en",
   replacedSupplyNames = [],
   hardStop = true,
+  shiftEndIso = null,
   photoPanels,
 }: {
   detail: TaskDetail;
@@ -31,6 +32,8 @@ export function TaskActions({
   replacedSupplyNames?: string[];
   /** When true, block completion until checklist done + standard materials recorded. */
   hardStop?: boolean;
+  /** The signed-in attendant's shift end (ISO) — gates Start against overtime. */
+  shiftEndIso?: string | null;
   /** Cleaning + inspection photo panels — rendered before the final button. */
   photoPanels?: ReactNode;
 }) {
@@ -54,14 +57,18 @@ export function TaskActions({
   const [replBusy, setReplBusy] = useState(false);
   const [replError, setReplError] = useState<string | null>(null);
 
-  const [toState, toAction, toPending] = useActionState<ActionResult | undefined, FormData>(
-    turnoverTask.bind(null, task.id),
+  const [escState, escAction, escPending] = useActionState<ActionResult | undefined, FormData>(
+    escalateTask.bind(null, task.id),
     undefined,
   );
 
   useEffect(() => {
-    if (toState?.ok) router.refresh();
-  }, [toState, router]);
+    if (escState?.ok) router.refresh();
+  }, [escState, router]);
+
+  // Shift-end cutoff: can this attendant still finish this room before shift end?
+  const cleanMins = task.cleaning_minutes && task.cleaning_minutes > 0 ? task.cleaning_minutes : 45;
+  const canStartNow = !shiftEndIso || Date.now() + cleanMins * 60000 <= new Date(shiftEndIso).getTime();
 
   if (!canWrite) return <div className="space-y-6">{photoPanels}</div>;
 
@@ -158,20 +165,28 @@ export function TaskActions({
   if (task.status === "pending") {
     return (
       <div className="space-y-6">
-        <div className="flex flex-wrap items-end gap-2 rounded-2xl border border-stone-200 bg-white p-4">
-          <div>
-            <label className="mb-1 block text-xs font-medium text-stone-600">{tr("hk_shift")}</label>
-            <select value={shift} onChange={(e) => setShift(e.target.value)} className={inputCls}>
-              {HOUSEKEEPING_SHIFTS.map((s) => (
-                <option key={s.key} value={s.key}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <button type="button" onClick={start} disabled={busy} className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-60">
-            {tr("hk_start_cleaning")}
-          </button>
+        <div className="rounded-2xl border border-stone-200 bg-white p-4">
+          {canStartNow ? (
+            <div className="flex flex-wrap items-end gap-2">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-stone-600">{tr("hk_shift")}</label>
+                <select value={shift} onChange={(e) => setShift(e.target.value)} className={inputCls}>
+                  {HOUSEKEEPING_SHIFTS.map((s) => (
+                    <option key={s.key} value={s.key}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <button type="button" onClick={start} disabled={busy} className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-60">
+                {tr("hk_start_cleaning")}
+              </button>
+            </div>
+          ) : (
+            <div className="rounded-lg bg-indigo-50 px-4 py-3 text-sm text-indigo-800">
+              🔁 {tr("hk_cutoff_endorse")}
+            </div>
+          )}
         </div>
         {photoPanels}
       </div>
@@ -285,22 +300,21 @@ export function TaskActions({
         {replError && <p className="mt-2 text-sm text-red-700">{replError}</p>}
       </div>
 
-      {/* 3 · Turn over to next shift */}
-      <form action={toAction} className="flex flex-wrap items-end gap-2 rounded-2xl border border-stone-200 bg-white p-4">
-        <p className="w-full text-sm font-semibold text-stone-700">{tr("hk_turn_over")}</p>
-        <select name="to_shift" className={inputCls} defaultValue="afternoon">
-          {HOUSEKEEPING_SHIFTS.map((s) => (
-            <option key={s.key} value={s.key}>
-              {s.label}
-            </option>
-          ))}
-        </select>
-        <input name="note" placeholder={tr("hk_whats_left")} className={`${inputCls} flex-1`} />
-        <button type="submit" disabled={toPending} className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100 disabled:opacity-60">
-          {tr("hk_hand_over")}
-        </button>
-        {toState && !toState.ok && <p className="w-full text-sm text-red-700">{toState.error}</p>}
-      </form>
+      {/* 3 · Escalate — only when the room genuinely can't be finished */}
+      {task.escalated ? (
+        <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+          ⚠️ {tr("hk_escalated_note")}{task.escalation_note ? ` — “${task.escalation_note}”` : ""}
+        </p>
+      ) : (
+        <form action={escAction} className="flex flex-wrap items-end gap-2 rounded-2xl border border-stone-200 bg-white p-4">
+          <p className="w-full text-sm font-semibold text-stone-700">{tr("hk_escalate")}</p>
+          <input name="reason" required placeholder={tr("hk_escalate_reason")} className={`${inputCls} flex-1`} />
+          <button type="submit" disabled={escPending} className="rounded-lg border border-rose-300 px-4 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50 disabled:opacity-60">
+            {tr("hk_escalate_send")}
+          </button>
+          {escState && !escState.ok && <p className="w-full text-sm text-red-700">{escState.error}</p>}
+        </form>
+      )}
 
       {/* 4 · Cleaning + inspection photos */}
       {photoPanels}

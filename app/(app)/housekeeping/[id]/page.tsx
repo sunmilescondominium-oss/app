@@ -12,6 +12,7 @@ import { PhotoDocPanel } from "@/components/capture/photo-doc-panel";
 import { getLang } from "@/lib/i18n-server";
 import { t as tt } from "@/lib/i18n";
 import { isHousekeepingHardStop } from "@/lib/settings/flags";
+import { getShiftEndToday } from "@/lib/housekeeping/shift";
 
 export const metadata = { title: "Housekeeping task" };
 
@@ -31,6 +32,10 @@ function eventText(type: string, detail: Record<string, unknown> | null): string
       return `Turned over${d.to_shift ? ` to ${d.to_shift} shift` : ""}${d.note ? ` — "${d.note}"` : ""}`;
     case "completed":
       return "Room marked ready";
+    case "endorsed":
+      return "Endorsed to the next team (shift-end cutoff)";
+    case "escalated":
+      return `Escalated to monitoring${d.reason ? ` — "${d.reason}"` : ""}`;
     default:
       return type;
   }
@@ -54,7 +59,7 @@ export default async function TaskDetailPage({
     .filter((e) => e.event_type === "replaced")
     .map((e) => String((e.detail ?? {}).supply ?? ""))
     .filter(Boolean);
-  const hardStop = await isHousekeepingHardStop();
+  const [hardStop, shiftEnd] = await Promise.all([isHousekeepingHardStop(), getShiftEndToday(user.userId)]);
 
   return (
     <>
@@ -78,6 +83,7 @@ export default async function TaskDetailPage({
             lang={lang}
             replacedSupplyNames={replacedSupplyNames}
             hardStop={hardStop}
+            shiftEndIso={shiftEnd}
             photoPanels={
               <>
                 <CleaningPhotos taskId={task.id} count={task.photos.length} canWrite={canWrite} />

@@ -39,6 +39,40 @@ export interface HousekeepingTask {
   created_at: string;
   unit_number: string | null;
   photos: string[];
+  // Shift-change / SLA
+  business_line: string | null;
+  unit_type: string | null;
+  buffer_minutes: number | null;
+  cleaning_minutes: number | null;
+  start_by: string | null;      // ISO — must begin cleaning by this time
+  endorsed: boolean;            // carried over to the next team
+  endorsed_at: string | null;
+  escalated: boolean;
+  escalation_note: string | null;
+}
+
+/** Per-room-type cleaning config (timers + checklist). */
+export interface RoomTypeConfig {
+  id: string;
+  business_line: string;
+  unit_type: string | null;     // null = default for the business line
+  label: string;
+  buffer_minutes: number;
+  cleaning_minutes: number;
+  checklist: { key: string; label: string }[];
+  is_active: boolean;
+  sort_order: number;
+}
+
+/** A currently-occupied room the attendant can watch (hotel stay / airbnb lease). */
+export interface OccupiedRoom {
+  source: "hotel" | "airbnb";
+  ref_id: string;               // stay id or lease id
+  unit_id: string | null;
+  unit_number: string | null;
+  guest_label: string;
+  check_in_at: string;          // ISO
+  expected_out_at: string | null; // ISO — planned checkout / lease end
 }
 
 export interface HousekeepingEvent {
