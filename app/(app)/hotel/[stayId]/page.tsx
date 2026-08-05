@@ -146,6 +146,13 @@ export default async function StayFolioPage({
             </div>
           </div>
 
+          {stay.portal_token && (
+            <div className="mt-3 flex flex-col items-center border-t border-dashed border-stone-300 pt-2">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={`/api/guest/${stay.portal_token}/qr`} alt="Scan for your live bill" className="h-24 w-24" />
+              <p className="mt-1 text-center text-[10px] text-stone-500">Scan to view your bill, countdown &amp; extend</p>
+            </div>
+          )}
           <p className="mt-3 text-center text-[10px] text-stone-400">
             Thank you! · {new Date().toLocaleString()}
           </p>

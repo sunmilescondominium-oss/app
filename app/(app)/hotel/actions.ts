@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireAuth, requireModuleWrite, userHasAnyRole } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
 import { logAudit } from "@/lib/audit";
-import { roomCharge, promoDiscount, stayTotals } from "@/lib/hotel/rates";
+import { roomCharge, promoDiscount, stayTotals, round2 } from "@/lib/hotel/rates";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { todayManila } from "@/lib/collections/summary";
 import { HOTEL_PAYMENT_METHODS, CLEANING_CHECKLIST, ROOM_ASSET_CHECKLIST } from "@/lib/config";
@@ -13,11 +13,13 @@ import type { ImportResult } from "@/lib/imports/types";
 export type ActionResult = { ok: true } | { ok: false; error: string };
 const METHODS: readonly string[] = HOTEL_PAYMENT_METHODS.map((m) => m.key);
 
+export type CheckInResult = { ok: true; stayId: string } | { ok: false; error: string };
+
 export async function checkIn(
   unitId: string,
   _prev: ActionResult | undefined,
   formData: FormData,
-): Promise<ActionResult> {
+): Promise<CheckInResult> {
   const user = await requireModuleWrite("hotel");
   const supabase = await createClient();
 
@@ -66,6 +68,16 @@ export async function checkIn(
     }
   }
 
+  // Pay-before-entry: the full room fee must be collected in advance at check-in.
+  // TODO(client-confirm): per-room base price (small/big/fan/aircon) will come
+  // from Inventory — for now the room fee is the selected rate plan's charge.
+  const requiredAdvance = round2(roomCharge(base_rate, extra_hour_rate, base_hours, planned_hours) - discount_amount);
+  const advanceMethod = String(formData.get("advance_method") ?? "").trim();
+  const advanceAmount = Number(String(formData.get("advance_amount") ?? ""));
+  if (!METHODS.includes(advanceMethod)) return { ok: false, error: "Choose the advance payment method." };
+  if (!Number.isFinite(advanceAmount) || advanceAmount < requiredAdvance)
+    return { ok: false, error: `Advance payment of the full room fee (₱${requiredAdvance.toLocaleString("en-PH")}) is required before entry.` };
+
   // Effective tax = per-room override, else global setting (snapshot onto stay).
   let tax_mode = "none";
   let tax_rate = 0;
@@ -103,16 +115,27 @@ export async function checkIn(
     .single();
   if (error) return { ok: false, error: error.message };
 
+  // Record the advance payment + post to collections (initial receipt).
+  const admin = createAdminClient();
+  const { data: arNo } = await admin.rpc("next_receipt_no", { ctx: "hotel" });
+  const receipt_no = `OR-${Date.now().toString(36).toUpperCase()}`;
+  await admin.from("stay_payments").insert({ stay_id: data.id, method: advanceMethod, amount: advanceAmount, receipt_no, ar_no: (arNo as string | null) ?? null, created_by: user.userId });
+  await admin.from("collections").insert({
+    business_line: "hotel", unit_id: unitId, amount: advanceAmount, or_number: receipt_no,
+    payment_type: advanceMethod, collected_by_role: user.roleKeys.find((r) => ["hotel_cashier", "hotel_rental_monitoring"].includes(r)) ?? "hotel_cashier",
+    collected_on: todayManila(), remarks: "Hotel advance payment (check-in)",
+  });
+
   await logAudit({
     actorUserId: user.userId,
     actorRoles: user.roleKeys,
     action: "create",
     entity: "stays",
     entityId: data.id as string,
-    diff: { unitId, planned_hours },
+    diff: { unitId, planned_hours, advance: advanceAmount },
   });
   revalidatePath("/hotel");
-  return { ok: true };
+  return { ok: true, stayId: data.id as string };
 }
 
 export async function extendStay(stayId: string, addedHours: number): Promise<ActionResult> {

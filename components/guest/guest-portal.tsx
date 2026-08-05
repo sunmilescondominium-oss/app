@@ -31,6 +31,8 @@ export function GuestPortal({ stay }: { stay: GuestStay }) {
   const remaining = Math.round((outMs - now) / 1000);
   const overtime = remaining < 0;
   const active = stay.status === "active";
+  // The Extend option only appears within 15 minutes of checkout (or overtime).
+  const canExtend = active && remaining <= 15 * 60;
 
   async function run(fn: () => Promise<GuestActionState>) {
     setBusy(true);
@@ -67,20 +69,28 @@ export function GuestPortal({ stay }: { stay: GuestStay }) {
           <tr className="text-base font-bold"><td className="py-2">Balance</td><td className="py-2 text-right tabular-nums text-rose-700">{peso(stay.balance)}</td></tr>
         </tbody>
       </table>
+      {stay.balance > 0 && <p className="mt-2 rounded-lg bg-rose-50 px-3 py-2 text-center text-xs font-medium text-rose-700">Please settle {peso(stay.balance)} at the front desk before your gate pass is issued.</p>}
 
       {active ? (
         <div className="mt-5 space-y-3">
-          <div className="flex items-end gap-2">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-stone-600">Request more time</label>
-              <select value={hours} onChange={(e) => setHours(Number(e.target.value))} className="rounded-lg border border-stone-300 px-2.5 py-2 text-sm">
-                {[1, 2, 3, 4, 5, 6].map((h) => <option key={h} value={h}>+{h} hour{h > 1 ? "s" : ""}</option>)}
-              </select>
-            </div>
-            <button type="button" onClick={() => run(() => requestExtension(stay.token, hours))} disabled={busy} className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-60">
-              Request extension
-            </button>
-          </div>
+          {canExtend ? (
+            <>
+              <div className="flex items-end gap-2">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-stone-600">Request more time</label>
+                  <select value={hours} onChange={(e) => setHours(Number(e.target.value))} className="rounded-lg border border-stone-300 px-2.5 py-2 text-sm">
+                    {[1, 2, 3, 4, 5, 6].map((h) => <option key={h} value={h}>+{h} hour{h > 1 ? "s" : ""}</option>)}
+                  </select>
+                </div>
+                <button type="button" onClick={() => run(() => requestExtension(stay.token, hours))} disabled={busy} className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-60">
+                  Extend — call cashier
+                </button>
+              </div>
+              <p className="text-[11px] text-stone-400">Tapping Extend alerts the cashier, who will collect the extension payment.</p>
+            </>
+          ) : (
+            <p className="rounded-lg bg-stone-50 px-3 py-2 text-center text-xs text-stone-500">The extension option appears 15 minutes before checkout.</p>
+          )}
           {stay.extensionRequestedHours != null && <p className="text-xs text-amber-700">Extension requested (+{stay.extensionRequestedHours}h) — awaiting front desk.</p>}
 
           <button

@@ -1,9 +1,11 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { checkIn, type ActionResult } from "@/app/(app)/hotel/actions";
+import { useRouter } from "next/navigation";
+import { checkIn, type CheckInResult } from "@/app/(app)/hotel/actions";
 import { roomCharge, promoDiscount } from "@/lib/hotel/rates";
 import { peso } from "@/lib/collections/summary";
+import { HOTEL_PAYMENT_METHODS } from "@/lib/config";
 import type { RatePlan, Promo } from "@/lib/hotel/types";
 
 const inputCls =
@@ -21,7 +23,8 @@ export function CheckInForm({
   promos: Promo[];
   onDone: () => void;
 }) {
-  const [state, action, pending] = useActionState<ActionResult | undefined, FormData>(
+  const router = useRouter();
+  const [state, action, pending] = useActionState<CheckInResult | undefined, FormData>(
     checkIn.bind(null, unitId),
     undefined,
   );
@@ -31,14 +34,21 @@ export function CheckInForm({
   const [hours, setHours] = useState<number>(ratePlans[0]?.base_hours ?? 3);
   const [promoId, setPromoId] = useState("");
   const promo = promos.find((p) => p.id === promoId);
-
-  useEffect(() => {
-    if (state?.ok) onDone();
-  }, [state, onDone]);
+  const [advanceMethod, setAdvanceMethod] = useState<string>(HOTEL_PAYMENT_METHODS[0]?.key ?? "cash");
 
   const effHours = plan ? Math.max(hours, plan.base_hours) : hours;
   const rc = plan ? roomCharge(plan.base_rate, plan.extra_hour_rate, plan.base_hours, effHours) : 0;
   const disc = promo ? promoDiscount(rc, promo.disc_type, promo.disc_value) : 0;
+  const required = Math.max(0, Math.round((rc - disc) * 100) / 100);
+  const [advanceAmount, setAdvanceAmount] = useState<number>(required);
+
+  // Keep the advance in step with the room fee as the plan/hours/promo change.
+  useEffect(() => { setAdvanceAmount(required); }, [required]);
+
+  // On success, jump to the folio to print the initial receipt (with QR).
+  useEffect(() => {
+    if (state?.ok) { onDone(); router.push(`/hotel/${state.stayId}`); }
+  }, [state, onDone, router]);
 
   return (
     <form action={action} className="space-y-4">
@@ -106,9 +116,26 @@ export function CheckInForm({
           </div>
         )}
         <div className="mt-1 flex justify-between border-t border-stone-200 pt-1 font-semibold">
-          <span>Total</span>
-          <span className="tabular-nums">{peso(Math.max(0, rc - disc))}</span>
+          <span>Room fee — pay in advance</span>
+          <span className="tabular-nums">{peso(required)}</span>
         </div>
+      </div>
+
+      <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3">
+        <p className="mb-2 text-xs font-semibold text-amber-900">Advance payment (required before entry)</p>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className={labelCls}>Method</label>
+            <select name="advance_method" value={advanceMethod} onChange={(e) => setAdvanceMethod(e.target.value)} className={inputCls}>
+              {HOTEL_PAYMENT_METHODS.map((m) => <option key={m.key} value={m.key}>{m.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Amount collected</label>
+            <input name="advance_amount" type="number" step="0.01" min={required} value={advanceAmount} onChange={(e) => setAdvanceAmount(Number(e.target.value))} className={inputCls} />
+          </div>
+        </div>
+        <p className="mt-1 text-[11px] text-amber-800">A thermal receipt with a QR (for the guest&rsquo;s online bill) prints on the folio after check-in.</p>
       </div>
 
       {state && !state.ok && (
