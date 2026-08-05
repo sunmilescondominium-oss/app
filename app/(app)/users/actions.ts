@@ -1,14 +1,53 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireModuleWrite } from "@/lib/auth/dal";
+import { requireModuleWrite, userHasAnyRole } from "@/lib/auth/dal";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { siteOrigin } from "@/lib/site-url";
 import { logAudit } from "@/lib/audit";
 import { ALL_ROLE_KEYS } from "@/lib/rbac/modules";
 import type { ImportResult } from "@/lib/imports/types";
+import type { BulkResult } from "@/lib/data/bulk";
 import { randomBytes } from "node:crypto";
+
+const USER_DELETE_ROLES = ["consultant", "admin"];
+
+/** Bulk deactivate/reactivate users (soft — bans/unbans at the auth level too). */
+export async function bulkSetUsersActive(ids: string[], active: boolean): Promise<BulkResult> {
+  const actor = await requireModuleWrite("users");
+  const list = Array.from(new Set(ids.filter(Boolean))).filter((id) => id !== actor.userId);
+  if (list.length === 0) return { ok: false, error: "No rows selected (you can't deactivate yourself)." };
+  const admin = createAdminClient();
+  await admin.from("profiles").update({ is_active: active }).in("id", list);
+  for (const id of list) {
+    await admin.auth.admin.updateUserById(id, { ban_duration: active ? "none" : "876000h" }).catch(() => {});
+  }
+  await logAudit({ actorUserId: actor.userId, actorRoles: actor.roleKeys, action: active ? "update" : "delete", entity: "profiles", entityId: null, diff: { bulk_active: active, count: list.length } });
+  revalidatePath("/users");
+  return { ok: true, affected: list.length, skipped: [] };
+}
+
+/** Bulk PERMANENT delete users (removes the auth account — cascades profile &
+ *  roles). Consultant/admin only; great for clearing demo accounts. */
+export async function bulkDeleteUsers(ids: string[]): Promise<BulkResult> {
+  const actor = await requireModuleWrite("users");
+  if (!userHasAnyRole(actor, USER_DELETE_ROLES)) return { ok: false, error: "Only a consultant or admin can permanently delete accounts." };
+  const list = Array.from(new Set(ids.filter(Boolean))).filter((id) => id !== actor.userId);
+  if (list.length === 0) return { ok: false, error: "No rows selected (you can't delete yourself)." };
+  if (list.length > 200) return { ok: false, error: "Select 200 or fewer per delete." };
+  const admin = createAdminClient();
+  let affected = 0;
+  const skipped: { id: string; reason: string }[] = [];
+  for (const id of list) {
+    const { error } = await admin.auth.admin.deleteUser(id);
+    if (error) skipped.push({ id, reason: error.message });
+    else affected += 1;
+  }
+  await logAudit({ actorUserId: actor.userId, actorRoles: actor.roleKeys, action: "delete", entity: "auth.users", entityId: null, diff: { hard_delete: true, deleted: affected, skipped: skipped.length } });
+  revalidatePath("/users");
+  return { ok: true, affected, skipped };
+}
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 

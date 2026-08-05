@@ -61,6 +61,7 @@ export default async function UsersPage() {
             canWrite={canWrite}
             currentUserId={user.userId}
             canImpersonate={user.allRoleKeys.includes("consultant")}
+            canHardDelete={["consultant", "admin"].some((r) => user.allRoleKeys.includes(r))}
           />
         </AdjustableColumns>
       </TableSearch>
