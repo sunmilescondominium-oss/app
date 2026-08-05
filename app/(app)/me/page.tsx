@@ -5,6 +5,8 @@ import { myRecentRecords } from "@/lib/attendance/queries";
 import { todayManila, peso } from "@/lib/collections/summary";
 import { LEAVE_STATUSES } from "@/lib/config";
 import { PageHeader } from "@/components/ui";
+import { getLang } from "@/lib/i18n-server";
+import { t as tt } from "@/lib/i18n";
 import { AccountPanel } from "@/components/me/account-panel";
 import { Avatar } from "@/components/employees/avatar";
 import { LeaveForm, ObForm, RequestForm, CancelLeave } from "@/components/me/leave-form";
@@ -26,6 +28,7 @@ function t(iso: string | null): string {
 
 export default async function MyPortalPage() {
   const user = await requireModule("employee");
+  const lang = await getLang();
   const [photoPath, records, leave] = await Promise.all([
     myPhotoPath(user.userId),
     myRecentRecords(user.userId, 8),
@@ -42,7 +45,7 @@ export default async function MyPortalPage() {
   return (
     <>
       <PageHeader
-        backHref="/dashboard" title="My Portal" subtitle="Your attendance, leave, and staff details." />
+        backHref="/dashboard" title={tt(lang, "my_portal")} subtitle={tt(lang, "my_portal_sub")} />
 
       {/* Profile */}
       <div className="mt-4 flex items-center gap-4 rounded-2xl border border-stone-200 bg-white p-5">
@@ -61,18 +64,18 @@ export default async function MyPortalPage() {
       </div>
 
       {/* Account & sign-in */}
-      <h2 className="mt-6 mb-2 text-sm font-semibold uppercase tracking-wide text-stone-500">Account &amp; sign-in</h2>
+      <h2 className="mt-6 mb-2 text-sm font-semibold uppercase tracking-wide text-stone-500">{tt(lang, "account_signin")}</h2>
       <AccountPanel currentEmail={user.email} />
 
       {/* Payslip (this month) */}
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-stone-200 bg-white p-5">
         <div>
-          <p className="text-sm text-stone-500">My pay this month (est.)</p>
+          <p className="text-sm text-stone-500">{tt(lang, "pay_this_month")}</p>
           <p className="mt-1 text-2xl font-bold tabular-nums text-emerald-700">{peso(payslip.net)}</p>
           <p className="mt-0.5 text-xs text-stone-400">Basic {peso(payslip.basic)} · OT {peso(payslip.ot)} · Deductions ({peso(payslip.deductions)})</p>
         </div>
         <Link href="/me/payslip" className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50">
-          View / print payslip →
+          {tt(lang, "view_payslip")}
         </Link>
       </div>
 
@@ -80,31 +83,31 @@ export default async function MyPortalPage() {
         {/* Attendance */}
         <section>
           <div className="mb-2 flex items-center justify-between">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-stone-500">My attendance</h2>
-            <span className="text-xs text-stone-400">Clock in / out at the attendance kiosk</span>
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-stone-500">{tt(lang, "my_attendance")}</h2>
+            <span className="text-xs text-stone-400">{tt(lang, "clock_at_kiosk")}</span>
           </div>
           <div className="rounded-2xl border border-stone-200 bg-white p-4">
             <p className="mb-3 text-sm text-stone-600">
-              This month: <span className="font-semibold tabular-nums text-stone-800">{monthHours.toFixed(2)} h</span>
+              {tt(lang, "this_month")}: <span className="font-semibold tabular-nums text-stone-800">{monthHours.toFixed(2)} h</span>
             </p>
             <table className="w-full text-left text-sm">
               <thead className="text-xs uppercase tracking-wide text-stone-400">
                 <tr>
-                  <th className="py-1">Date</th>
-                  <th className="py-1">In</th>
-                  <th className="py-1">Out</th>
-                  <th className="py-1 text-right">Hrs</th>
+                  <th className="py-1">{tt(lang, "col_date")}</th>
+                  <th className="py-1">{tt(lang, "st_in")}</th>
+                  <th className="py-1">{tt(lang, "st_out")}</th>
+                  <th className="py-1 text-right">{tt(lang, "col_hrs")}</th>
                 </tr>
               </thead>
               <tbody>
                 {records.length === 0 && (
-                  <tr><td colSpan={4} className="py-3 text-center text-stone-400">No records yet.</td></tr>
+                  <tr><td colSpan={4} className="py-3 text-center text-stone-400">{tt(lang, "no_records")}</td></tr>
                 )}
                 {records.map((r) => (
                   <tr key={r.id} className="border-t border-stone-100">
                     <td className="py-1.5">{r.work_date}</td>
                     <td className="py-1.5">{t(r.time_in)}</td>
-                    <td className="py-1.5">{r.time_out ? t(r.time_out) : <span className="text-emerald-600">open</span>}</td>
+                    <td className="py-1.5">{r.time_out ? t(r.time_out) : <span className="text-emerald-600">{tt(lang, "open_rec")}</span>}</td>
                     <td className="py-1.5 text-right tabular-nums">{r.hours != null ? r.hours.toFixed(2) : "—"}</td>
                   </tr>
                 ))}
@@ -115,7 +118,7 @@ export default async function MyPortalPage() {
 
         {/* Leave */}
         <section>
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-stone-500">Requests</h2>
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-stone-500">{tt(lang, "requests")}</h2>
           <div className="space-y-2">
             <LeaveForm />
             <ObForm />
@@ -125,15 +128,15 @@ export default async function MyPortalPage() {
             <table className="w-full text-left text-sm">
               <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
                 <tr>
-                  <th className="px-4 py-2.5">Type</th>
-                  <th className="px-4 py-2.5">Dates</th>
-                  <th className="px-4 py-2.5">Status</th>
+                  <th className="px-4 py-2.5">{tt(lang, "col_type")}</th>
+                  <th className="px-4 py-2.5">{tt(lang, "col_dates")}</th>
+                  <th className="px-4 py-2.5">{tt(lang, "col_status")}</th>
                   <th className="px-4 py-2.5" />
                 </tr>
               </thead>
               <tbody>
                 {leave.length === 0 && (
-                  <tr><td colSpan={4} className="px-4 py-6 text-center text-stone-400">No leave requests yet.</td></tr>
+                  <tr><td colSpan={4} className="px-4 py-6 text-center text-stone-400">{tt(lang, "no_leave")}</td></tr>
                 )}
                 {leave.map((l) => (
                   <tr key={l.id} className="border-b border-stone-100 last:border-0">

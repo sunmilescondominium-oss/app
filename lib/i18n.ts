@@ -45,6 +45,25 @@ export const DICT: Record<string, Entry> = {
   present: { en: "present", fil: "naroroon" },
   // Common
   language: { en: "Language", fil: "Wika" },
+
+  // My Portal (/me)
+  my_portal: { en: "My Portal", fil: "Aking Portal" },
+  my_portal_sub: { en: "Your attendance, leave, and staff details.", fil: "Ang iyong attendance, leave, at mga detalye." },
+  account_signin: { en: "Account & sign-in", fil: "Account at sign-in" },
+  pay_this_month: { en: "My pay this month (est.)", fil: "Sahod ngayong buwan (tantiya)" },
+  view_payslip: { en: "View / print payslip →", fil: "Tingnan / i-print ang payslip →" },
+  my_attendance: { en: "My attendance", fil: "Aking attendance" },
+  clock_at_kiosk: { en: "Clock in / out at the attendance kiosk", fil: "Mag–time in/out sa attendance kiosk" },
+  this_month: { en: "This month", fil: "Ngayong buwan" },
+  col_date: { en: "Date", fil: "Petsa" },
+  col_hrs: { en: "Hrs", fil: "Oras" },
+  no_records: { en: "No records yet.", fil: "Wala pang record." },
+  open_rec: { en: "open", fil: "bukas" },
+  requests: { en: "Requests", fil: "Mga Request" },
+  col_type: { en: "Type", fil: "Uri" },
+  col_dates: { en: "Dates", fil: "Mga Petsa" },
+  col_status: { en: "Status", fil: "Status" },
+  no_leave: { en: "No leave requests yet.", fil: "Wala pang leave request." },
 };
 
 /** Translate a key; falls back to English, then the key itself. */
