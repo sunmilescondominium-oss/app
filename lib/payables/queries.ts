@@ -39,6 +39,25 @@ export async function listPayables(status?: string): Promise<Payable[]> {
   });
 }
 
+export async function getPayableVoucher(id: string): Promise<
+  (Payable & { payeeTin: string | null; payeeContact: string | null; approvedByRole: string | null; releasedByRole: string | null }) | null
+> {
+  const admin = createAdminClient();
+  const { data: r } = await admin.from("payables").select("*").eq("id", id).maybeSingle();
+  if (!r) return null;
+  const { data: pe } = await admin.from("payees").select("name, kind, tin, contact").eq("id", r.payee_id).maybeSingle();
+  return {
+    id: r.id as string, payeeId: r.payee_id as string, payeeName: (pe?.name as string) ?? "—", payeeKind: (pe?.kind as string) ?? "",
+    ptype: r.ptype as PayableType, amount: Number(r.amount), description: (r.description as string) ?? null,
+    businessLine: (r.business_line as string) ?? null, refNo: (r.ref_no as string) ?? null,
+    parentPayableId: (r.parent_payable_id as string) ?? null, status: r.status as string,
+    releaseOrNo: (r.release_or_no as string) ?? null, releaseMethod: (r.release_method as string) ?? null,
+    createdAt: r.created_at as string, releasedAt: (r.released_at as string) ?? null,
+    payeeTin: (pe?.tin as string) ?? null, payeeContact: (pe?.contact as string) ?? null,
+    approvedByRole: null, releasedByRole: null,
+  };
+}
+
 export async function payablesSummary(): Promise<{ pending: number; approved: number; released: number }> {
   const admin = createAdminClient();
   const { data } = await admin.from("payables").select("amount, status").neq("status", "cancelled");

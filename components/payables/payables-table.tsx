@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { approvePayable, releasePayable, cancelPayable } from "@/app/(app)/payables/actions";
 import { PAYABLE_TYPES, PAYABLE_STATUS_TONE, type Payable } from "@/lib/payables/types";
@@ -53,7 +54,7 @@ export function PayablesTable({ payables, canApprove, canRelease }: { payables: 
                   {p.status === "pending" && canApprove && <button type="button" onClick={() => act(p.id, () => approvePayable(p.id))} disabled={busy === p.id} className="rounded-md bg-blue-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50">Approve</button>}
                   {p.status === "approved" && canRelease && <button type="button" onClick={() => release(p.id)} disabled={busy === p.id} className="rounded-md bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">Release</button>}
                   {(p.status === "pending" || p.status === "approved") && canApprove && <button type="button" onClick={() => act(p.id, () => cancelPayable(p.id))} disabled={busy === p.id} className="rounded-md border border-stone-300 px-2.5 py-1 text-xs font-medium text-stone-600 hover:bg-stone-100 disabled:opacity-50">Cancel</button>}
-                  {p.status === "released" && <span className="text-xs text-stone-400">released</span>}
+                  <Link href={`/payables/${p.id}`} className="rounded-md border border-stone-300 px-2.5 py-1 text-xs font-medium text-stone-600 hover:bg-stone-100">Voucher</Link>
                 </div>
               </td>
             </tr>
