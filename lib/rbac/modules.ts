@@ -47,6 +47,7 @@ export type ModuleKey =
   | "banking"
   | "incidents"
   | "requisitions"
+  | "kiosk_fallback"
   | "media"
   | "actas"
   | "hr"
@@ -235,6 +236,15 @@ export const MODULES: Record<ModuleKey, ModuleDef> = {
     milestone: "Ops",
     read: ["owner", "consultant", "admin", "managing_officer", "operations_manager", "accounting", "warehouse_timekeeper", "errand_liaison", "room_attendant", "hotel_rental_monitoring"],
     write: ["admin", "managing_officer", "operations_manager", "accounting", "warehouse_timekeeper", "errand_liaison", "room_attendant", "hotel_rental_monitoring"],
+  },
+  kiosk_fallback: {
+    key: "kiosk_fallback",
+    path: "/kiosk-access",
+    label: "Kiosk fallback access",
+    blurb: "When the kiosk is down: mobile clock-in with approval.",
+    milestone: "Ops",
+    read: ["owner", "consultant", "admin", "managing_officer", "operations_manager", "guard"],
+    write: ["owner", "consultant", "admin", "managing_officer", "operations_manager", "guard"],
   },
   media: {
     key: "media",
