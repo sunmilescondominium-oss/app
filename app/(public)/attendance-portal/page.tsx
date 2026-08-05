@@ -4,6 +4,7 @@ import { getKioskSettings, kioskUnlocked, KIOSK_COOKIE } from "@/lib/kiosk/setti
 import { APP_BRAND_SHORT, APP_BRAND } from "@/lib/config";
 import { KioskClock } from "@/components/kiosk/kiosk-clock";
 import { KioskGate } from "@/components/kiosk/kiosk-gate";
+import { DigitalClock } from "@/components/kiosk/digital-clock";
 
 export const metadata = { title: "Attendance Kiosk" };
 export const dynamic = "force-dynamic";
@@ -66,7 +67,10 @@ export default async function AttendanceKioskPage() {
     <div className="mx-auto max-w-5xl px-4 py-8">
       <header className="mb-6 text-center">
         <h1 className="text-2xl font-bold text-stone-900">{APP_BRAND_SHORT}</h1>
-        <p className="text-stone-600">Attendance Kiosk — {dateLabel}</p>
+        <p className="mb-4 text-stone-600">Attendance Kiosk — {dateLabel}</p>
+        <div className="mx-auto max-w-md">
+          <DigitalClock />
+        </div>
       </header>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,22rem)_1fr]">

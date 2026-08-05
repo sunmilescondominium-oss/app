@@ -8,6 +8,8 @@ import { logAudit } from "@/lib/audit";
 import { sendAlert } from "@/lib/alerts/sendAlert";
 import { todayManila } from "@/lib/collections/summary";
 import { getKioskSettings, kioskToken, KIOSK_COOKIE } from "@/lib/kiosk/settings";
+import { getPayrollSettings } from "@/lib/hr/queries";
+import { EXTERNAL_ROLE_KEYS } from "@/lib/rbac/modules";
 
 /** Unlock the kiosk on this device by entering the access code. */
 export async function unlockKiosk(_prev: { error: string } | undefined, formData: FormData): Promise<{ error: string } | undefined> {
@@ -25,10 +27,26 @@ export async function unlockKiosk(_prev: { error: string } | undefined, formData
 }
 
 export type KioskState =
-  | { ok: true; message: string }
+  | { ok: true; message: string; punctual?: "on_time" | "late" }
   | { ok: false; error: string }
   | { ok: false; needsObConfirm: true; message: string }
   | undefined;
+
+/** The kiosk is for EMPLOYEES only — tenants/buyers/guests use their own
+ *  portals. Returns true if the user holds at least one staff (non-external) role. */
+async function isStaff(userId: string): Promise<boolean> {
+  const admin = createAdminClient();
+  const { data } = await admin.from("user_roles").select("role_key").eq("user_id", userId);
+  const roles = (data ?? []).map((r) => r.role_key as string);
+  return roles.some((r) => !(EXTERNAL_ROLE_KEYS as readonly string[]).includes(r));
+}
+
+/** Manila minutes-since-midnight for a given instant. */
+function manilaMinutes(d: Date): number {
+  const hm = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Manila", hour: "2-digit", minute: "2-digit", hour12: false }).format(d);
+  const [h, m] = hm.split(":").map(Number);
+  return h * 60 + m;
+}
 
 // Best-effort rate limit (per IP). TODO(client-confirm): move to a shared store
 // for multi-instance production.
@@ -126,6 +144,7 @@ export async function portalCheckIn(_prev: KioskState, formData: FormData): Prom
   const confirmObCancel = String(formData.get("confirm_ob_cancel") ?? "") === "true";
   const { staff, error: credErr } = await resolveStaff(formData);
   if (!staff) return { ok: false, error: credErr ?? BAD_CREDS };
+  if (!(await isStaff(staff.id))) return { ok: false, error: "This kiosk is for employees only." };
 
   const admin = createAdminClient();
   const date = todayManila();
@@ -167,13 +186,20 @@ export async function portalCheckIn(_prev: KioskState, formData: FormData): Prom
     }).catch(() => {});
   }
 
+  const now = new Date();
   const photo_path = await uploadPhoto(staff.id, "in", formData.get("photo"));
   const { data: rec, error } = await admin
     .from("time_records")
-    .insert({ user_id: staff.id, time_in: new Date().toISOString(), time_in_photo: photo_path, ip_address: ip, source: "portal" })
+    .insert({ user_id: staff.id, time_in: now.toISOString(), time_in_photo: photo_path, ip_address: ip, source: "portal" })
     .select("id")
     .single();
   if (error) return { ok: false, error: error.message };
+
+  // Punctuality vs the scheduled time-in + grace (just for the kiosk's fun feedback).
+  const settings = await getPayrollSettings();
+  const [sh, sm] = settings.scheduled_time_in.split(":").map(Number);
+  const threshold = sh * 60 + sm + settings.grace_minutes;
+  const punctual: "on_time" | "late" = manilaMinutes(now) > threshold ? "late" : "on_time";
 
   await logAudit({
     actorUserId: staff.id,
@@ -181,10 +207,11 @@ export async function portalCheckIn(_prev: KioskState, formData: FormData): Prom
     action: "create",
     entity: "time_records",
     entityId: rec.id,
-    diff: { event: "portal_check_in", ip, photo: Boolean(photo_path) },
+    diff: { event: "portal_check_in", ip, photo: Boolean(photo_path), punctual },
   });
   revalidatePath("/attendance-portal");
-  return { ok: true, message: `Checked in — welcome, ${staff.display_label}!` };
+  const greet = punctual === "on_time" ? `On time — welcome, ${staff.display_label}!` : `Checked in — welcome, ${staff.display_label}.`;
+  return { ok: true, message: greet, punctual };
 }
 
 export async function portalCheckOut(_prev: KioskState, formData: FormData): Promise<KioskState> {
@@ -195,6 +222,7 @@ export async function portalCheckOut(_prev: KioskState, formData: FormData): Pro
 
   const { staff, error: credErr } = await resolveStaff(formData);
   if (!staff) return { ok: false, error: credErr ?? BAD_CREDS };
+  if (!(await isStaff(staff.id))) return { ok: false, error: "This kiosk is for employees only." };
 
   const admin = createAdminClient();
   const { data: open } = await admin

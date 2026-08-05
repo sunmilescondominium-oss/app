@@ -1,6 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { todayManila } from "@/lib/collections/summary";
+import { EXTERNAL_ROLE_KEYS } from "@/lib/rbac/modules";
 
 export type BoardStatus = "checked_in" | "checked_out" | "on_ob" | "on_leave" | "absent" | "off";
 
@@ -35,14 +36,19 @@ export async function todayBoard(): Promise<{ date: string; items: BoardItem[] }
         .lte("start_date", date)
         .gte("end_date", date),
       admin.from("shift_schedules").select("user_id").eq("work_date", date),
-      admin.from("user_roles").select("user_id"),
+      admin.from("user_roles").select("user_id, role_key"),
       admin.from("staff_pay").select("user_id, dtr_exempt"),
     ]);
 
   const exempt = new Set((pay ?? []).filter((p) => p.dtr_exempt).map((p) => p.user_id as string));
 
-  // Only show accounts that hold at least one role (i.e. staff, not portals-only).
-  const staffIds = new Set((roleRows ?? []).map((r) => r.user_id as string));
+  // Employees only — a user counts as staff if they hold at least one non-external
+  // role. Tenants/buyers/guests (external roles) are excluded from the kiosk.
+  const staffIds = new Set(
+    (roleRows ?? [])
+      .filter((r) => !(EXTERNAL_ROLE_KEYS as readonly string[]).includes(r.role_key as string))
+      .map((r) => r.user_id as string),
+  );
 
   const recByUser = new Map<string, { time_in: string | null; time_out: string | null }>();
   for (const r of records ?? []) recByUser.set(r.user_id as string, { time_in: r.time_in as string | null, time_out: r.time_out as string | null });
