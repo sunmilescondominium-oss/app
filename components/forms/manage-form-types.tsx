@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createFormType } from "@/app/(app)/forms/actions";
+import { createFormType, setFormTypeBir } from "@/app/(app)/forms/actions";
 import type { FormType } from "@/lib/forms/types";
 
 export function ManageFormTypes({ types }: { types: FormType[] }) {
@@ -23,6 +23,12 @@ export function ManageFormTypes({ types }: { types: FormType[] }) {
     router.refresh();
   }
 
+  async function toggleBir(t: FormType) {
+    const res = await setFormTypeBir(t.id, !t.birReportable);
+    if (!res.ok) { window.alert(res.error); return; }
+    router.refresh();
+  }
+
   const input = "rounded-lg border border-stone-300 px-3 py-2 text-sm";
   return (
     <div className="rounded-2xl border border-stone-200 bg-stone-50/60 p-4">
@@ -34,7 +40,7 @@ export function ManageFormTypes({ types }: { types: FormType[] }) {
         {types.map((t) => (
           <span key={t.id} className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-xs text-stone-700 ring-1 ring-stone-200">
             <b>{t.code}</b> · {t.name}
-            <span className={`ml-1 rounded px-1.5 py-0.5 text-[10px] font-semibold ${t.birReportable ? "bg-emerald-100 text-emerald-700" : "bg-stone-100 text-stone-500"}`}>{t.birReportable ? "BIR" : "internal"}</span>
+            <button type="button" onClick={() => toggleBir(t)} title="Click to toggle BIR-reportable / internal" className={`ml-1 rounded px-1.5 py-0.5 text-[10px] font-semibold ${t.birReportable ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200" : "bg-stone-100 text-stone-500 hover:bg-stone-200"}`}>{t.birReportable ? "BIR" : "internal"}</button>
           </span>
         ))}
       </div>

@@ -120,6 +120,18 @@ export async function closeBooklet(bookletId: string): Promise<ActionResult> {
   return { ok: true };
 }
 
+/** Flip an existing form type between BIR-reportable and internal. */
+export async function setFormTypeBir(id: string, birReportable: boolean): Promise<ActionResult> {
+  const user = await requireModuleWrite("accountable_forms");
+  if (!userHasAnyRole(user, FORM_MANAGER_ROLES)) return { ok: false, error: "Not allowed." };
+  const admin = createAdminClient();
+  const { error } = await admin.from("form_types").update({ bir_reportable: birReportable }).eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "update", entity: "form_types", entityId: id, diff: { bir_reportable: birReportable } });
+  revalidatePath("/forms");
+  return { ok: true };
+}
+
 export async function createFormType(code: string, name: string, birReportable = true): Promise<ActionResult> {
   const user = await requireModuleWrite("accountable_forms");
   if (!userHasAnyRole(user, FORM_MANAGER_ROLES)) return { ok: false, error: "Not allowed." };
