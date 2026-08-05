@@ -100,6 +100,20 @@ export async function setUserDisplayLabel(userId: string, label: string): Promis
   return { ok: true };
 }
 
+/** Set the display order of roles (kiosk board + role lists). Lower shows first. */
+export async function reorderRoles(orderedKeys: string[]): Promise<ActionResult> {
+  const actor = await requireModuleWrite("users");
+  if (!Array.isArray(orderedKeys) || orderedKeys.length === 0) return { ok: false, error: "Nothing to save." };
+  const admin = createAdminClient();
+  for (let i = 0; i < orderedKeys.length; i++) {
+    const { error } = await admin.from("roles").update({ sort_order: (i + 1) * 10 }).eq("role_key", orderedKeys[i]);
+    if (error) return { ok: false, error: error.message };
+  }
+  await logAudit({ actorUserId: actor.userId, actorRoles: actor.roleKeys, action: "update", entity: "roles", entityId: null, diff: { order: orderedKeys } });
+  revalidatePath("/users/access");
+  return { ok: true };
+}
+
 export async function setUserRoles(
   userId: string,
   roleKeys: string[],

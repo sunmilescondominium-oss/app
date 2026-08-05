@@ -5,6 +5,7 @@ import { listRoles } from "@/lib/users/queries";
 import { MODULE_LIST, effectivePermission, GRANT_ROLES } from "@/lib/rbac/modules";
 import { PageHeader, Badge } from "@/components/ui";
 import { PermissionEditor, type ModuleRow } from "@/components/users/permission-editor";
+import { RoleOrder } from "@/components/users/role-order";
 
 export const metadata = { title: "Access Control" };
 
@@ -14,7 +15,9 @@ export default async function AccessControlPage({ searchParams }: { searchParams
   const user = await requireAuth();
   if (!userHasAnyRole(user, [...GRANT_ROLES])) redirect("/no-access");
 
-  const roles = (await listRoles()).map((r) => ({ key: r.role_key, label: r.label }));
+  const allRoles = await listRoles();
+  const roles = allRoles.map((r) => ({ key: r.role_key, label: r.label }));
+  const staffRoles = allRoles.filter((r) => r.is_staff).map((r) => ({ key: r.role_key, label: r.label }));
   const { role } = await searchParams;
   const selectedRole = role && roles.some((r) => r.key === role) ? role : roles[0]?.key ?? "";
 
@@ -61,6 +64,10 @@ export default async function AccessControlPage({ searchParams }: { searchParams
       </div>
 
       <PermissionEditor roles={roles} selectedRole={selectedRole} modules={modules} />
+
+      <div className="mt-6">
+        <RoleOrder roles={staffRoles} />
+      </div>
     </>
   );
 }

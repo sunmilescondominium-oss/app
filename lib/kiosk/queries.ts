@@ -42,6 +42,10 @@ export async function todayBoard(): Promise<{ date: string; items: BoardItem[] }
 
   const exempt = new Set((pay ?? []).filter((p) => p.dtr_exempt).map((p) => p.user_id as string));
 
+  // Role display order for the board (lower = shown first, e.g. owner/CEO → 1).
+  const { data: roleDefs } = await admin.from("roles").select("role_key, sort_order");
+  const roleOrder = new Map((roleDefs ?? []).map((r) => [r.role_key as string, Number(r.sort_order ?? 100)]));
+
   // Employees only — a user counts as staff if they hold at least one non-external
   // role. Tenants/buyers/guests (external roles) are excluded from the kiosk.
   const staffIds = new Set(
@@ -49,6 +53,16 @@ export async function todayBoard(): Promise<{ date: string; items: BoardItem[] }
       .filter((r) => !(EXTERNAL_ROLE_KEYS as readonly string[]).includes(r.role_key as string))
       .map((r) => r.user_id as string),
   );
+
+  // Each employee's board rank = the best (lowest sort_order) role they hold.
+  const rankByUser = new Map<string, number>();
+  for (const r of roleRows ?? []) {
+    const key = r.role_key as string;
+    if ((EXTERNAL_ROLE_KEYS as readonly string[]).includes(key)) continue;
+    const uid = r.user_id as string;
+    const rank = roleOrder.get(key) ?? 100;
+    rankByUser.set(uid, Math.min(rankByUser.get(uid) ?? Infinity, rank));
+  }
 
   const recByUser = new Map<string, { time_in: string | null; time_out: string | null }>();
   for (const r of records ?? []) recByUser.set(r.user_id as string, { time_in: r.time_in as string | null, time_out: r.time_out as string | null });
@@ -82,7 +96,7 @@ export async function todayBoard(): Promise<{ date: string; items: BoardItem[] }
         dtrExempt: exempt.has(id),
       };
     })
-    .sort((a, b) => a.label.localeCompare(b.label));
+    .sort((a, b) => (rankByUser.get(a.id) ?? 999) - (rankByUser.get(b.id) ?? 999) || a.label.localeCompare(b.label));
 
   return { date, items };
 }
