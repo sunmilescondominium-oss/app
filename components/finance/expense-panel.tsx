@@ -1,8 +1,8 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createExpense, deleteExpense, type ActionResult } from "@/app/(app)/finance/actions";
+import { createExpense, deleteExpense, bulkDeleteExpenses, type ActionResult } from "@/app/(app)/finance/actions";
 import { COLLECTION_CATEGORIES, EXPENSE_CATEGORIES } from "@/lib/config";
 import { peso, todayManila } from "@/lib/collections/summary";
 import type { Expense } from "@/lib/finance/types";
@@ -18,6 +18,11 @@ export function ExpensePanel({ expenses, canWrite }: { expenses: Expense[]; canW
     if (state?.ok) router.refresh();
   }, [state, router]);
 
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const allSelected = expenses.length > 0 && expenses.every((e) => selected.has(e.id));
+  const toggle = (id: string) => setSelected((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const toggleAll = () => setSelected((s) => (expenses.every((e) => s.has(e.id)) ? new Set() : new Set(expenses.map((e) => e.id))));
+
   async function del(id: string) {
     if (!window.confirm("Delete this expense?")) return;
     const r = await deleteExpense(id);
@@ -25,6 +30,14 @@ export function ExpensePanel({ expenses, canWrite }: { expenses: Expense[]; canW
       window.alert(r.error);
       return;
     }
+    router.refresh();
+  }
+
+  async function bulkDel() {
+    if (!window.confirm(`Delete ${selected.size} expense(s)? This cannot be undone.`)) return;
+    const r = await bulkDeleteExpenses([...selected]);
+    if (!r.ok) { window.alert(r.error); return; }
+    setSelected(new Set());
     router.refresh();
   }
 
@@ -57,10 +70,19 @@ export function ExpensePanel({ expenses, canWrite }: { expenses: Expense[]; canW
         </form>
       )}
 
+      {canWrite && selected.size > 0 && (
+        <div className="no-print mb-3 flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-sm">
+          <span className="font-medium text-amber-900">{selected.size} selected</span>
+          <button type="button" onClick={bulkDel} className="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-700">Delete selected</button>
+          <button type="button" onClick={() => setSelected(new Set())} className="ml-auto text-xs text-stone-500 hover:underline">Clear</button>
+        </div>
+      )}
+
       <div className="table-wrap">
         <table className="w-full min-w-[640px] text-left text-sm">
           <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
             <tr>
+              {canWrite && <th className="no-print px-3 py-3"><input type="checkbox" checked={allSelected} onChange={toggleAll} aria-label="Select all" className="h-4 w-4 accent-amber-600" /></th>}
               <th className="px-4 py-3">Date</th>
               <th className="px-4 py-3">Line</th>
               <th className="px-4 py-3">Category</th>
@@ -72,13 +94,14 @@ export function ExpensePanel({ expenses, canWrite }: { expenses: Expense[]; canW
           <tbody>
             {expenses.length === 0 && (
               <tr>
-                <td colSpan={canWrite ? 6 : 5} className="px-4 py-8 text-center text-stone-500">
+                <td colSpan={canWrite ? 7 : 5} className="px-4 py-8 text-center text-stone-500">
                   No expenses in this range.
                 </td>
               </tr>
             )}
             {expenses.map((e) => (
               <tr key={e.id} className="border-b border-stone-100 last:border-0">
+                {canWrite && <td className="no-print px-3 py-2.5"><input type="checkbox" checked={selected.has(e.id)} onChange={() => toggle(e.id)} aria-label="Select row" className="h-4 w-4 accent-amber-600" /></td>}
                 <td className="px-4 py-2.5">{e.expense_date}</td>
                 <td className="px-4 py-2.5">{LINE[e.business_line] ?? e.business_line}</td>
                 <td className="px-4 py-2.5">{e.category}</td>

@@ -5,6 +5,7 @@ import { TableSearch } from "@/components/table-search";
 import { listBooklets, listFormTypes, custodianOptions, listBusinessEntities, FORM_MANAGER_ROLES } from "@/lib/forms/queries";
 import { RegisterBooklet } from "@/components/forms/register-booklet";
 import { BusinessEntities } from "@/components/forms/business-entities";
+import { ManageFormTypes } from "@/components/forms/manage-form-types";
 
 export const metadata = { title: "Accountable Forms" };
 
@@ -25,7 +26,10 @@ export default async function FormsPage() {
 
       {canManage && (
         <div className="mb-4 space-y-3">
-          <BusinessEntities entities={entities} />
+          <div className="grid gap-3 lg:grid-cols-2">
+            <BusinessEntities entities={entities} />
+            <ManageFormTypes types={types} />
+          </div>
           <RegisterBooklet types={types} custodians={custodians} entities={entities} />
         </div>
       )}

@@ -60,6 +60,19 @@ export async function deleteExpense(id: string): Promise<ActionResult> {
   return { ok: true };
 }
 
+/** Bulk-delete expenses (accounting/admin). */
+export async function bulkDeleteExpenses(ids: string[]): Promise<import("@/lib/data/bulk").BulkResult> {
+  const user = await requireModuleWrite("finance");
+  const list = Array.from(new Set(ids.filter(Boolean)));
+  if (list.length === 0) return { ok: false, error: "No rows selected." };
+  const supabase = await createClient();
+  const { error } = await supabase.from("expenses").delete().in("id", list);
+  if (error) return { ok: false, error: error.message };
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "delete", entity: "expenses", entityId: null, diff: { bulk_delete: list.length } });
+  revalidatePath("/finance");
+  return { ok: true, affected: list.length, skipped: [] };
+}
+
 export async function setFinanceVat(vat_mode: string, vat_rate: number): Promise<ActionResult> {
   const user = await requireModuleWrite("finance");
   if (!VALID_VAT.includes(vat_mode)) return { ok: false, error: "Invalid VAT mode." };
