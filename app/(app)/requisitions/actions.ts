@@ -11,6 +11,40 @@ import {
 
 export type ActionResult = { ok: true; id?: string } | { ok: false; error: string };
 
+const HARD_DELETE_ROLES = ["admin", "managing_officer", "consultant"];
+
+/** Bulk cancel requisitions (soft). */
+export async function bulkCancelRequisitions(ids: string[]): Promise<import("@/lib/data/bulk").BulkResult> {
+  const actor = await requireModuleWrite("requisitions");
+  const list = Array.from(new Set(ids.filter(Boolean)));
+  if (list.length === 0) return { ok: false, error: "No rows selected." };
+  const admin = createAdminClient();
+  const { error } = await admin.from("requisitions").update({ status: "cancelled" }).in("id", list).neq("status", "received");
+  if (error) return { ok: false, error: error.message };
+  await logAudit({ actorUserId: actor.userId, actorRoles: actor.roleKeys, action: "update", entity: "requisitions", entityId: null, diff: { bulk_cancel: list.length } });
+  revalidatePath("/requisitions");
+  return { ok: true, affected: list.length, skipped: [] };
+}
+
+/** Bulk PERMANENT delete requisitions (cascades line items). */
+export async function bulkDeleteRequisitions(ids: string[]): Promise<import("@/lib/data/bulk").BulkResult> {
+  const actor = await requireModule("requisitions");
+  if (!userHasAnyRole(actor, HARD_DELETE_ROLES)) return { ok: false, error: "Only an admin or managing officer can permanently delete." };
+  const list = Array.from(new Set(ids.filter(Boolean)));
+  if (list.length === 0) return { ok: false, error: "No rows selected." };
+  const admin = createAdminClient();
+  let affected = 0;
+  const skipped: { id: string; reason: string }[] = [];
+  for (const id of list) {
+    const { error } = await admin.from("requisitions").delete().eq("id", id);
+    if (error) skipped.push({ id, reason: /foreign key|violates/i.test(error.message) ? "referenced by other records (cancel instead)" : error.message });
+    else affected += 1;
+  }
+  await logAudit({ actorUserId: actor.userId, actorRoles: actor.roleKeys, action: "delete", entity: "requisitions", entityId: null, diff: { hard_delete: true, deleted: affected, skipped: skipped.length } });
+  revalidatePath("/requisitions");
+  return { ok: true, affected, skipped };
+}
+
 type LineInput = {
   itemId: string | null; itemName: string; category: string; unitLabel: string;
   qty: number; estUnitCost: number; target: "room_supplies" | "materials";
