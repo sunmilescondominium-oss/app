@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireModule, userHasAnyRole } from "@/lib/auth/dal";
 import { canWriteModule } from "@/lib/rbac/modules";
-import { payrollReport, staffPayList, getPayrollSettings } from "@/lib/hr/queries";
+import { payrollReport, staffPayList, getPayrollSettings, listDtrAdjustments } from "@/lib/hr/queries";
 import { todayManila, peso } from "@/lib/collections/summary";
 import { APP_BRAND_SHORT } from "@/lib/config";
 import { PageHeader } from "@/components/ui";
@@ -9,6 +9,7 @@ import { PrintButton } from "@/components/print-button";
 import { PayPanel } from "@/components/hr/pay-panel";
 import { PayrollSettingsPanel } from "@/components/hr/settings-panel";
 import { DtrImport } from "@/components/hr/dtr-import";
+import { DtrAdjustments } from "@/components/hr/dtr-adjustments";
 
 export const metadata = { title: "HR / Payroll" };
 
@@ -31,10 +32,12 @@ export default async function HrPage({
   const from = (typeof sp.from === "string" && sp.from) || monthStart();
   const to = (typeof sp.to === "string" && sp.to) || todayManila();
 
-  const [report, payList, settings] = await Promise.all([
+  const canApproveDtr = userHasAnyRole(user, ["owner", "admin", "consultant"]);
+  const [report, payList, settings, adjustments] = await Promise.all([
     payrollReport(from, to),
     canWrite ? staffPayList() : Promise.resolve([]),
     getPayrollSettings(),
+    listDtrAdjustments(from, to),
   ]);
 
   const inputCls =
@@ -148,6 +151,8 @@ export default async function HrPage({
       <p className="mb-6 text-xs text-stone-400">
         Hourly = daily ÷ {settings.standard_hours}. OT = hourly × {settings.ot_multiplier}. Night diff = {Math.round(settings.night_diff_rate * 100)}% ({settings.night_start.slice(0, 5)}–{settings.night_end.slice(0, 5)}). Undertime is not offset by OT (Art. 88). Click a name for the daily DTR.
       </p>
+
+      <DtrAdjustments adjustments={adjustments} canApprove={canApproveDtr} />
 
       {canWrite && (
         <>

@@ -14,6 +14,7 @@ export function DtrImport({ canOverwrite }: { canOverwrite: boolean }) {
   const [fileName, setFileName] = useState("");
   const [err, setErr] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<DtrImportResult | null>(null);
 
@@ -45,7 +46,7 @@ export function DtrImport({ canOverwrite }: { canOverwrite: boolean }) {
   async function run(overwrite: boolean) {
     if (!rows) return;
     setBusy(true);
-    const res = await bulkImportDtr(rows, overwrite ? { overwrite: true, confirm } : {});
+    const res = await bulkImportDtr(rows, overwrite ? { overwrite: true, confirm, reason } : {});
     setBusy(false);
     setResult(res);
     if (res.ok && !res.needsOverwrite) { router.refresh(); }
@@ -106,12 +107,16 @@ export function DtrImport({ canOverwrite }: { canOverwrite: boolean }) {
                 {result.conflicts.map((e, i) => <li key={i}>Row {e.row}: {e.error}</li>)}
               </ul>
               {result.canOverwrite ? (
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <span className="text-xs text-amber-900">Type <b>OVERWRITE</b> to apply these changes (accounting/admin):</span>
-                  <input value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="OVERWRITE" className="w-32 rounded-lg border border-amber-300 px-2 py-1 text-sm" />
-                  <button type="button" onClick={() => run(true)} disabled={busy || confirm.trim().toUpperCase() !== "OVERWRITE"} className="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-700 disabled:opacity-50">
-                    Overwrite {result.conflicts.length} record(s)
-                  </button>
+                <div className="mt-2 space-y-2">
+                  <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Reason for the correction (required — appears on the signed payroll)" className="w-full rounded-lg border border-amber-300 px-2 py-1.5 text-sm" />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs text-amber-900">Type <b>OVERWRITE</b> to apply (accounting/admin):</span>
+                    <input value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="OVERWRITE" className="w-32 rounded-lg border border-amber-300 px-2 py-1 text-sm" />
+                    <button type="button" onClick={() => run(true)} disabled={busy || confirm.trim().toUpperCase() !== "OVERWRITE" || !reason.trim()} className="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-700 disabled:opacity-50">
+                      Overwrite {result.conflicts.length} record(s)
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-amber-800">Corrections are applied now but flagged <b>pending owner/CEO approval</b> and printed on the payroll for sign-off.</p>
                 </div>
               ) : (
                 <p className="mt-2 text-xs text-amber-900">These conflict with existing punches — ask accounting/admin to review and overwrite.</p>

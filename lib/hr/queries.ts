@@ -165,6 +165,36 @@ export async function dtrDetail(
 }
 
 /** Every staff profile with its current daily rate (for the rate editor). */
+export type DtrAdjustment = {
+  id: string; userId: string; label: string; workDate: string; action: string;
+  oldIn: string | null; oldOut: string | null; newIn: string | null; newOut: string | null;
+  reason: string | null; changedByRole: string | null; status: "pending" | "approved" | "rejected";
+  approvedByRole: string | null; approvedAt: string | null; decisionNote: string | null; createdAt: string;
+};
+
+function hm(iso: string | null): string | null {
+  if (!iso) return null;
+  return new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Manila", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(iso));
+}
+
+/** DTR corrections in a date range (for the payroll the owner signs). */
+export async function listDtrAdjustments(from: string, to: string): Promise<DtrAdjustment[]> {
+  const admin = createAdminClient();
+  const [labels, { data }] = await Promise.all([
+    labelMap(admin),
+    admin.from("dtr_adjustments").select("*").gte("work_date", from).lte("work_date", to).order("created_at", { ascending: false }),
+  ]);
+  return (data ?? []).map((a) => ({
+    id: a.id as string, userId: a.user_id as string, label: labels.get(a.user_id as string) ?? "Staff",
+    workDate: a.work_date as string, action: a.action as string,
+    oldIn: hm(a.old_time_in as string | null), oldOut: hm(a.old_time_out as string | null),
+    newIn: hm(a.new_time_in as string | null), newOut: hm(a.new_time_out as string | null),
+    reason: (a.reason as string) ?? null, changedByRole: (a.changed_by_role as string) ?? null,
+    status: a.status as "pending" | "approved" | "rejected", approvedByRole: (a.approved_by_role as string) ?? null,
+    approvedAt: (a.approved_at as string) ?? null, decisionNote: (a.decision_note as string) ?? null, createdAt: a.created_at as string,
+  }));
+}
+
 export async function staffPayList(): Promise<{ userId: string; label: string; dailyRate: number; dtrExempt: boolean }[]> {
   const admin = createAdminClient();
   const [labels, rates, exempt] = await Promise.all([labelMap(admin), rateMap(admin), exemptSet(admin)]);

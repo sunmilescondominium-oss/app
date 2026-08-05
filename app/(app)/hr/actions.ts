@@ -28,7 +28,7 @@ function manilaHM(iso: string | null): string {
  */
 export async function bulkImportDtr(
   rows: Record<string, string>[],
-  opts: { overwrite?: boolean; confirm?: string } = {},
+  opts: { overwrite?: boolean; confirm?: string; reason?: string } = {},
 ): Promise<DtrImportResult> {
   const user = await requireModule("hr");
   if (!userHasAnyRole(user, DTR_IMPORT_ROLES)) return { ok: false, error: "Your role can't upload a DTR." };
@@ -96,6 +96,14 @@ export async function bulkImportDtr(
       continue;
     }
     await admin.from("time_records").update({ time_in, time_out, hours, source: "import", note: "DTR import (overwrite)", updated_at: new Date().toISOString() }).eq("id", existing.id);
+    // Record the correction as an adjustment pending owner/CEO approval.
+    await admin.from("dtr_adjustments").insert({
+      time_record_id: existing.id, user_id: uid, work_date: date, action: "overwrite",
+      old_time_in: existing.time_in, old_time_out: existing.time_out, new_time_in: time_in, new_time_out: time_out,
+      reason: (opts.reason ?? "").trim() || "DTR import correction",
+      changed_by: user.userId, changed_by_role: user.roleKeys.find((r) => DTR_OVERWRITE_ROLES.includes(r)) ?? user.roleKeys[0] ?? null,
+      status: "pending",
+    });
     await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "update", entity: "time_records", entityId: existing.id as string, diff: { dtr_overwrite: true, empNo, date, from: `${manilaHM(existing.time_in as string)}-${manilaHM(existing.time_out as string)}`, to: `${tin}-${tout}` } });
     overwritten += 1;
   }
@@ -148,6 +156,37 @@ export async function setDtrExempt(userId: string, exempt: boolean): Promise<Act
     entityId: userId,
     diff: { dtr_exempt: exempt },
   });
+  revalidatePath("/hr");
+  return { ok: true };
+}
+
+/** Roles that may APPROVE a DTR discrepancy — the owner/CEO signs these off. */
+const DTR_APPROVER_ROLES = ["owner", "admin", "consultant"];
+
+/** Owner/CEO approves or rejects a DTR adjustment. Rejecting reverts the record. */
+export async function decideDtrAdjustment(id: string, decision: "approved" | "rejected", note?: string): Promise<ActionResult> {
+  const user = await requireModule("hr");
+  if (!userHasAnyRole(user, DTR_APPROVER_ROLES)) return { ok: false, error: "Only the owner/CEO (or admin) can approve DTR discrepancies." };
+  if (decision !== "approved" && decision !== "rejected") return { ok: false, error: "Invalid decision." };
+  const admin = createAdminClient();
+
+  const { data: adj } = await admin.from("dtr_adjustments").select("*").eq("id", id).maybeSingle();
+  if (!adj) return { ok: false, error: "Adjustment not found." };
+  if (adj.status !== "pending") return { ok: false, error: `Already ${adj.status}.` };
+
+  // Rejecting restores the record to its previous values.
+  if (decision === "rejected" && adj.time_record_id) {
+    const oin = adj.old_time_in as string | null;
+    const oout = adj.old_time_out as string | null;
+    const hours = oin && oout ? Math.round(((new Date(oout).getTime() - new Date(oin).getTime()) / 3_600_000) * 100) / 100 : null;
+    await admin.from("time_records").update({ time_in: oin, time_out: oout, hours, note: "DTR correction rejected — reverted", updated_at: new Date().toISOString() }).eq("id", adj.time_record_id);
+  }
+
+  const role = user.roleKeys.find((r) => DTR_APPROVER_ROLES.includes(r)) ?? user.roleKeys[0] ?? null;
+  const { error } = await admin.from("dtr_adjustments").update({ status: decision, approved_by: user.userId, approved_by_role: role, approved_at: new Date().toISOString(), decision_note: note?.trim() || null }).eq("id", id);
+  if (error) return { ok: false, error: error.message };
+
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "update", entity: "dtr_adjustments", entityId: id, diff: { decision, reverted: decision === "rejected" } });
   revalidatePath("/hr");
   return { ok: true };
 }
