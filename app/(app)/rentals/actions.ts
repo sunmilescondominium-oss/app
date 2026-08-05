@@ -19,7 +19,7 @@ export async function bulkEndLeases(ids: string[]): Promise<BulkResult> {
   if (list.length === 0) return { ok: false, error: "No rows selected." };
   const admin = createAdminClient();
   const { data: rows } = await admin.from("leases").select("unit_id").in("id", list).eq("status", "active");
-  const { error } = await admin.from("leases").update({ status: "ended", end_at: new Date().toISOString() }).in("id", list);
+  const { error } = await admin.from("leases").update({ status: "ended", end_at: new Date().toISOString(), portal_token: null }).in("id", list);
   if (error) return { ok: false, error: error.message };
   const unitIds = Array.from(new Set((rows ?? []).map((r) => r.unit_id as string)));
   if (unitIds.length) await admin.from("units").update({ status: "available" }).in("id", unitIds);
@@ -174,7 +174,8 @@ export async function endLease(id: string): Promise<ActionResult> {
   const user = await requireModuleWrite("rentals");
   const admin = createAdminClient();
   const { data: lease } = await admin.from("leases").select("unit_id").eq("id", id).maybeSingle();
-  const { error } = await admin.from("leases").update({ status: "ended" }).eq("id", id);
+  // End of stay → revoke the Airbnb guest QR portal (same as hotel checkout).
+  const { error } = await admin.from("leases").update({ status: "ended", portal_token: null }).eq("id", id);
   if (error) return { ok: false, error: error.message };
   if (lease?.unit_id) {
     // Room stays "For Housekeeping" (not vacant) until cleaning is done.
