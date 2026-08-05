@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type Kind = "on_time" | "late";
 
@@ -81,14 +81,20 @@ function runParticles(canvas: HTMLCanvasElement, kind: Kind): () => void {
   return () => cancelAnimationFrame(raf);
 }
 
+// Minimum time the message must stay on screen; hard cap so it never lingers.
+const MIN_MS = 5000;
+const MAX_MS = 6500;
+
 export function Celebrate({ kind, onDone }: { kind: Kind; onDone: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [canClose, setCanClose] = useState(false);
 
   useEffect(() => {
     playChime(kind);
     const stop = canvasRef.current ? runParticles(canvasRef.current, kind) : () => {};
-    const done = setTimeout(onDone, kind === "on_time" ? 2400 : 2000);
-    return () => { stop(); clearTimeout(done); };
+    const openBtn = setTimeout(() => setCanClose(true), MIN_MS); // enable close after 5s
+    const auto = setTimeout(onDone, MAX_MS);                     // auto-dismiss so it never lingers
+    return () => { stop(); clearTimeout(openBtn); clearTimeout(auto); };
   }, [kind, onDone]);
 
   return (
@@ -104,6 +110,14 @@ export function Celebrate({ kind, onDone }: { kind: Kind; onDone: () => void }) 
           <div className="mt-1 text-base font-medium opacity-90">
             {kind === "on_time" ? "Have a great shift!" : "Please try to be earlier tomorrow."}
           </div>
+          <button
+            type="button"
+            onClick={onDone}
+            disabled={!canClose}
+            className={`pointer-events-auto mt-3 rounded-lg bg-white/20 px-4 py-1.5 text-sm font-semibold text-white transition hover:bg-white/30 ${canClose ? "opacity-100" : "cursor-default opacity-40"}`}
+          >
+            {canClose ? "Close" : "Please wait…"}
+          </button>
         </div>
       </div>
       <style>{`
