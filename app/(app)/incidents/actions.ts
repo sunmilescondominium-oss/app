@@ -44,3 +44,19 @@ export async function resolveIncident(id: string, resolved: boolean): Promise<Ac
   revalidatePath("/incidents");
   return { ok: true };
 }
+
+/** Bulk delete incidents (admin/managing/operations). */
+export async function bulkDeleteIncidents(ids: string[]): Promise<import("@/lib/data/bulk").BulkResult> {
+  const { userHasAnyRole } = await import("@/lib/auth/dal");
+  const user = await requireModuleWrite("incidents");
+  if (!userHasAnyRole(user, ["admin", "managing_officer", "operations_manager", "consultant"])) return { ok: false, error: "Only admin / managing officer / operations can bulk-delete." };
+  const list = Array.from(new Set(ids.filter(Boolean)));
+  if (list.length === 0) return { ok: false, error: "No rows selected." };
+  const { createAdminClient } = await import("@/lib/supabase/admin");
+  const admin = createAdminClient();
+  const { error } = await admin.from("incidents").delete().in("id", list);
+  if (error) return { ok: false, error: error.message };
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "delete", entity: "incidents", entityId: null, diff: { bulk_delete: list.length } });
+  revalidatePath("/incidents");
+  return { ok: true, affected: list.length, skipped: [] };
+}

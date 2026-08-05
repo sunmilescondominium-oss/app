@@ -1,11 +1,39 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireModuleWrite } from "@/lib/auth/dal";
+import { requireModuleWrite, userHasAnyRole } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit";
 import { COLLECTION_CATEGORIES, PAYMENT_TYPES } from "@/lib/config";
+import type { BulkResult } from "@/lib/data/bulk";
+
+const HARD_DELETE_ROLES = ["admin", "managing_officer", "consultant", "accounting"];
+
+/** Bulk delete collections. Entries already in a transmittal are skipped. */
+export async function bulkDeleteCollections(ids: string[]): Promise<BulkResult> {
+  const user = await requireModuleWrite("collections");
+  if (!userHasAnyRole(user, HARD_DELETE_ROLES)) return { ok: false, error: "Only accounting / admin can bulk-delete collections." };
+  const list = Array.from(new Set(ids.filter(Boolean)));
+  if (list.length === 0) return { ok: false, error: "No rows selected." };
+  const admin = createAdminClient();
+  const { data: rows } = await admin.from("collections").select("id, transmittal_id").in("id", list);
+  const skipped: { id: string; reason: string }[] = [];
+  const deletable: string[] = [];
+  for (const r of rows ?? []) {
+    if (r.transmittal_id) skipped.push({ id: r.id as string, reason: "part of a transmittal" });
+    else deletable.push(r.id as string);
+  }
+  let affected = 0;
+  if (deletable.length) {
+    const { error } = await admin.from("collections").delete().in("id", deletable);
+    if (error) return { ok: false, error: error.message };
+    affected = deletable.length;
+  }
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "delete", entity: "collections", entityId: null, diff: { bulk_delete: affected, skipped: skipped.length } });
+  revalidatePath("/collections");
+  return { ok: true, affected, skipped };
+}
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 

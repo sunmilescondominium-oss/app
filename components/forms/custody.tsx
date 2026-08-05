@@ -32,13 +32,13 @@ export function CustodyPanel({ bookletId, custodians, custody, canManage }: { bo
     <div className="rounded-2xl border border-stone-200 bg-white p-4">
       <h3 className="mb-2 font-semibold text-stone-800">Custody</h3>
       {canManage && (
-        <div className="no-print mb-3 flex flex-wrap items-center gap-2">
-          <select value={to} onChange={(e) => setTo(e.target.value)} className="rounded-lg border border-stone-300 px-2 py-1.5 text-sm">
+        <div className="no-print mb-3 space-y-2">
+          <select value={to} onChange={(e) => setTo(e.target.value)} className="w-full rounded-lg border border-stone-300 px-2 py-1.5 text-sm">
             <option value="">Hand over to…</option>
             {custodians.map((c) => <option key={c.userId} value={c.userId}>{c.label}{c.role ? ` (${c.role.replace(/_/g, " ")})` : ""}</option>)}
           </select>
-          <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="note" className="rounded-lg border border-stone-300 px-2 py-1.5 text-sm" />
-          <button type="button" onClick={submit} disabled={busy || !to} className="rounded-lg bg-amber-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-50">Reassign</button>
+          <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="note" className="w-full rounded-lg border border-stone-300 px-2 py-1.5 text-sm" />
+          <button type="button" onClick={submit} disabled={busy || !to} className="w-full rounded-lg bg-amber-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-50">Reassign</button>
         </div>
       )}
       <ol className="space-y-1.5 text-sm">

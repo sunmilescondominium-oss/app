@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Modal } from "@/components/modal";
 import { CollectionForm } from "./collection-form";
-import { deleteCollection } from "@/app/(app)/collections/actions";
+import { deleteCollection, bulkDeleteCollections } from "@/app/(app)/collections/actions";
 import { peso } from "@/lib/collections/summary";
 import { COLLECTION_CATEGORIES, PAYMENT_TYPES } from "@/lib/config";
 import type { Collection, UnitOption } from "@/lib/collections/types";
@@ -35,6 +35,22 @@ export function CollectionsPanel({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const deletable = collections.filter((c) => !c.transmittal_id);
+  const allSelected = deletable.length > 0 && deletable.every((c) => selected.has(c.id));
+  const toggleSel = (id: string) => setSelected((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const toggleAllSel = () => setSelected((s) => (deletable.every((c) => s.has(c.id)) ? new Set() : new Set(deletable.map((c) => c.id))));
+  async function bulkDelete() {
+    if (!window.confirm(`Delete ${selected.size} collection(s)? Entries already transmitted are skipped.`)) return;
+    setBulkBusy(true);
+    const res = await bulkDeleteCollections([...selected]);
+    setBulkBusy(false);
+    if (!res.ok) { window.alert(res.error); return; }
+    if (res.skipped.length) window.alert(`Deleted ${res.affected}, skipped ${res.skipped.length} (already transmitted).`);
+    setSelected(new Set());
+    router.refresh();
+  }
 
   const done = () => {
     setOpen(false);
@@ -74,10 +90,19 @@ export function CollectionsPanel({
         </button>
       </div>
 
+      {canWrite && selected.size > 0 && (
+        <div className="no-print mb-3 flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-sm">
+          <span className="font-medium text-amber-900">{selected.size} selected</span>
+          <button type="button" onClick={bulkDelete} disabled={bulkBusy} className="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-700 disabled:opacity-50">Delete selected</button>
+          <button type="button" onClick={() => setSelected(new Set())} className="ml-auto text-xs text-stone-500 hover:underline">Clear</button>
+        </div>
+      )}
+
       <div className="table-wrap">
         <table className="w-full min-w-[760px] text-left text-sm">
           <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
             <tr>
+              {canWrite && <th className="no-print px-3 py-3"><input type="checkbox" checked={allSelected} onChange={toggleAllSel} aria-label="Select all" className="h-4 w-4 accent-amber-600" /></th>}
               <th className="px-4 py-3">OR #</th>
               <th className="px-4 py-3">Category</th>
               <th className="px-4 py-3">Unit</th>
@@ -90,13 +115,14 @@ export function CollectionsPanel({
           <tbody>
             {collections.length === 0 && (
               <tr>
-                <td colSpan={canWrite ? 7 : 6} className="px-4 py-10 text-center text-stone-500">
+                <td colSpan={canWrite ? 8 : 6} className="px-4 py-10 text-center text-stone-500">
                   No collections recorded for {date}.
                 </td>
               </tr>
             )}
             {collections.map((c) => (
               <tr key={c.id} className="border-b border-stone-100 last:border-0">
+                {canWrite && <td className="no-print px-3 py-3">{!c.transmittal_id && <input type="checkbox" checked={selected.has(c.id)} onChange={() => toggleSel(c.id)} aria-label="Select" className="h-4 w-4 accent-amber-600" />}</td>}
                 <td className="px-4 py-3 font-medium text-stone-900">{c.or_number ?? "—"}</td>
                 <td className="px-4 py-3">{CAT_LABEL[c.business_line] ?? c.business_line}</td>
                 <td className="px-4 py-3">{c.unit?.unit_number ?? "—"}</td>

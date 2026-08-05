@@ -78,3 +78,18 @@ export async function updateDispute(
   revalidatePath("/disputes");
   return { ok: true };
 }
+
+/** Bulk delete disputes (admin/managing/consultant). */
+export async function bulkDeleteDisputes(ids: string[]): Promise<import("@/lib/data/bulk").BulkResult> {
+  const user = await requireModuleWrite("disputes");
+  if (!userHasAnyRole(user, ["admin", "managing_officer", "consultant"])) return { ok: false, error: "Only admin / managing officer / consultant can bulk-delete." };
+  const list = Array.from(new Set(ids.filter(Boolean)));
+  if (list.length === 0) return { ok: false, error: "No rows selected." };
+  const { createAdminClient } = await import("@/lib/supabase/admin");
+  const admin = createAdminClient();
+  const { error } = await admin.from("disputes").delete().in("id", list);
+  if (error) return { ok: false, error: error.message };
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "delete", entity: "disputes", entityId: null, diff: { bulk_delete: list.length } });
+  revalidatePath("/disputes");
+  return { ok: true, affected: list.length, skipped: [] };
+}

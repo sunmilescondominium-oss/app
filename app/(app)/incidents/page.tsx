@@ -1,9 +1,10 @@
-import { requireModule } from "@/lib/auth/dal";
+import { requireModule, userHasAnyRole } from "@/lib/auth/dal";
 import { canWriteModule, canReadModule } from "@/lib/rbac/modules";
 import { listIncidents } from "@/lib/incidents/queries";
 import { PageHeader, Badge } from "@/components/ui";
 import { HelpPanel } from "@/components/guide/help";
 import { IncidentForm, ResolveToggle } from "@/components/incidents/incident-form";
+import { IncidentBulkDelete } from "@/components/incidents/incident-bulk";
 import { PhotoDocPanel } from "@/components/capture/photo-doc-panel";
 
 export const metadata = { title: "Incident Reports" };
@@ -15,6 +16,7 @@ const CAT_TONE: Record<string, "rose" | "amber" | "indigo" | "slate"> = {
 export default async function IncidentsPage() {
   const user = await requireModule("incidents");
   const canWrite = canWriteModule(user.roleKeys, "incidents");
+  const canHardDelete = userHasAnyRole(user, ["admin", "managing_officer", "operations_manager", "consultant"]);
   const incidents = await listIncidents();
   const open = incidents.filter((i) => i.status === "open").length;
 
@@ -37,6 +39,8 @@ export default async function IncidentsPage() {
       />
 
       {canWrite && <IncidentForm />}
+
+      {canHardDelete && <IncidentBulkDelete items={incidents.map((i) => ({ id: i.id, title: i.title, category: i.category, createdAt: i.created_at }))} />}
 
       <div className="space-y-4">
         {incidents.length === 0 && <p className="text-sm text-stone-500">No incidents reported.</p>}

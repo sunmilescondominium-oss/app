@@ -32,6 +32,7 @@ export default async function DisputesPage() {
         unitOptions={unitOptions}
         canWrite={canWrite}
         canSeeLawyerNotes={canSeeLawyerNotes}
+        canHardDelete={["admin", "managing_officer", "consultant"].some((r) => user.roleKeys.includes(r))}
       />
       {!canWrite && (
         <p className="mt-4 text-xs text-stone-400">You have view-only access to disputes.</p>
