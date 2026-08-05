@@ -12,6 +12,42 @@ import { logAudit } from "@/lib/audit";
 import { computeSOA } from "@/lib/computation";
 import { todayManila } from "@/lib/collections/summary";
 import type { ImportResult } from "@/lib/imports/types";
+import type { BulkResult } from "@/lib/data/bulk";
+
+const HARD_DELETE_ROLES = ["admin", "managing_officer", "consultant"];
+
+/** Bulk deactivate buyers (soft — keeps SOA history). */
+export async function bulkSetBuyersActive(ids: string[], active: boolean): Promise<BulkResult> {
+  const user = await requireModuleWrite("buyers");
+  const list = Array.from(new Set(ids.filter(Boolean)));
+  if (list.length === 0) return { ok: false, error: "No rows selected." };
+  const admin = createAdminClient();
+  const { error } = await admin.from("buyers").update({ is_active: active }).in("id", list);
+  if (error) return { ok: false, error: error.message };
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: active ? "update" : "delete", entity: "buyers", entityId: null, diff: { bulk_active: active, count: list.length } });
+  revalidatePath("/buyers");
+  return { ok: true, affected: list.length, skipped: [] };
+}
+
+/** Bulk PERMANENT delete buyers (cascades their SOA/payments/documents). */
+export async function bulkDeleteBuyers(ids: string[]): Promise<BulkResult> {
+  const user = await requireAuth();
+  if (!userHasAnyRole(user, HARD_DELETE_ROLES)) return { ok: false, error: "Only an admin or managing officer can permanently delete." };
+  const list = Array.from(new Set(ids.filter(Boolean)));
+  if (list.length === 0) return { ok: false, error: "No rows selected." };
+  if (list.length > 500) return { ok: false, error: "Select 500 or fewer rows per delete." };
+  const admin = createAdminClient();
+  let affected = 0;
+  const skipped: { id: string; reason: string }[] = [];
+  for (const id of list) {
+    const { error } = await admin.from("buyers").delete().eq("id", id);
+    if (error) skipped.push({ id, reason: /foreign key|violates/i.test(error.message) ? "referenced by other records (deactivate instead)" : error.message });
+    else affected += 1;
+  }
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "delete", entity: "buyers", entityId: null, diff: { hard_delete: true, deleted: affected, skipped: skipped.length } });
+  revalidatePath("/buyers");
+  return { ok: true, affected, skipped };
+}
 
 /** Bulk-import buyers from a CSV (unit resolved by unit_number). */
 export async function bulkImportBuyers(rows: Record<string, string>[]): Promise<ImportResult> {

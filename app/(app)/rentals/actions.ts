@@ -1,13 +1,53 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireModuleWrite } from "@/lib/auth/dal";
+import { requireModuleWrite, requireAuth, userHasAnyRole } from "@/lib/auth/dal";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit";
 import { todayManila } from "@/lib/collections/summary";
 import { CLEANING_CHECKLIST } from "@/lib/config";
+import type { BulkResult } from "@/lib/data/bulk";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
+
+const HARD_DELETE_ROLES = ["admin", "managing_officer", "consultant"];
+
+/** Bulk end leases (soft — marks ended, frees the unit). */
+export async function bulkEndLeases(ids: string[]): Promise<BulkResult> {
+  const user = await requireModuleWrite("rentals");
+  const list = Array.from(new Set(ids.filter(Boolean)));
+  if (list.length === 0) return { ok: false, error: "No rows selected." };
+  const admin = createAdminClient();
+  const { data: rows } = await admin.from("leases").select("unit_id").in("id", list).eq("status", "active");
+  const { error } = await admin.from("leases").update({ status: "ended", end_at: new Date().toISOString() }).in("id", list);
+  if (error) return { ok: false, error: error.message };
+  const unitIds = Array.from(new Set((rows ?? []).map((r) => r.unit_id as string)));
+  if (unitIds.length) await admin.from("units").update({ status: "available" }).in("id", unitIds);
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "delete", entity: "leases", entityId: null, diff: { bulk_end: list.length } });
+  revalidatePath("/rentals");
+  revalidatePath("/rentals/tenants");
+  return { ok: true, affected: list.length, skipped: [] };
+}
+
+/** Bulk PERMANENT delete leases (cascades lease documents; keeps dues). */
+export async function bulkDeleteLeases(ids: string[]): Promise<BulkResult> {
+  const user = await requireAuth();
+  if (!userHasAnyRole(user, HARD_DELETE_ROLES)) return { ok: false, error: "Only an admin or managing officer can permanently delete." };
+  const list = Array.from(new Set(ids.filter(Boolean)));
+  if (list.length === 0) return { ok: false, error: "No rows selected." };
+  if (list.length > 500) return { ok: false, error: "Select 500 or fewer rows per delete." };
+  const admin = createAdminClient();
+  let affected = 0;
+  const skipped: { id: string; reason: string }[] = [];
+  for (const id of list) {
+    const { error } = await admin.from("leases").delete().eq("id", id);
+    if (error) skipped.push({ id, reason: /foreign key|violates/i.test(error.message) ? "referenced by other records (end lease instead)" : error.message });
+    else affected += 1;
+  }
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "delete", entity: "leases", entityId: null, diff: { hard_delete: true, deleted: affected, skipped: skipped.length } });
+  revalidatePath("/rentals/tenants");
+  return { ok: true, affected, skipped };
+}
 
 /** Bulk-import current tenants (leases) from CSV, resolving unit by number. */
 export async function bulkImportLeases(rows: Record<string, string>[]): Promise<import("@/lib/imports/types").ImportResult> {

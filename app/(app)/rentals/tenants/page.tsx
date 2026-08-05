@@ -6,8 +6,9 @@ import { canWriteModule } from "@/lib/rbac/modules";
 import { PageHeader, Badge, Breadcrumb } from "@/components/ui";
 import { TableSearch } from "@/components/table-search";
 import { AdjustableColumns } from "@/components/adjustable-columns";
+import { BulkTable } from "@/components/data/bulk-table";
 import { CsvImporter } from "@/components/data/csv-importer";
-import { bulkImportLeases } from "@/app/(app)/rentals/actions";
+import { bulkImportLeases, bulkEndLeases, bulkDeleteLeases } from "@/app/(app)/rentals/actions";
 import { TENANTS_TEMPLATE } from "@/lib/imports/tenants";
 
 export const metadata = { title: "Tenants" };
@@ -17,6 +18,7 @@ const LINE_TONE: Record<string, "blue" | "indigo"> = { rental: "blue", airbnb: "
 export default async function TenantsPage() {
   const user = await requireModule("rentals");
   const canWrite = canWriteModule(user.roleKeys, "rentals");
+  const canHardDelete = ["admin", "managing_officer", "consultant"].some((r) => user.roleKeys.includes(r));
   const tenants = await listTenants();
 
   return (
@@ -42,40 +44,28 @@ export default async function TenantsPage() {
 
       <TableSearch placeholder="Search tenants by name, unit, contact…">
       <AdjustableColumns storageKey="tenants">
-      <div className="table-wrap">
-        <table className="w-full min-w-[760px] text-left text-sm">
-          <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
-            <tr>
-              <th className="px-4 py-3">Tenant</th>
-              <th className="px-4 py-3">Unit</th>
-              <th className="px-4 py-3">Type</th>
-              <th className="px-4 py-3">Contact</th>
-              <th className="px-4 py-3 text-right">Rent</th>
-              <th className="px-4 py-3">Since</th>
-              <th className="px-4 py-3">Portal</th>
-            </tr>
-          </thead>
-          <tbody>
-            {tenants.length === 0 && (
-              <tr><td colSpan={7} className="px-4 py-8 text-center text-stone-500">No active tenants. Start a lease from a unit in Rentals & Airbnb.</td></tr>
-            )}
-            {tenants.map((t) => (
-              <tr key={t.leaseId} className="border-b border-stone-100 last:border-0">
-                <td className="px-4 py-2.5 font-medium text-stone-800">{t.tenantLabel}</td>
-                <td className="px-4 py-2.5">
-                  <Link href={`/rentals/${t.unitId}`} className="text-amber-700 hover:underline">{t.unitNumber}</Link>
-                  {t.propertyName && <span className="block text-xs text-stone-400">{t.propertyName}</span>}
-                </td>
-                <td className="px-4 py-2.5"><Badge tone={LINE_TONE[t.businessLine] ?? "slate"}>{t.businessLine}</Badge></td>
-                <td className="px-4 py-2.5 text-stone-500">{t.contact ?? "—"}</td>
-                <td className="px-4 py-2.5 text-right tabular-nums">{peso(t.rentAmount)}<span className="text-xs text-stone-400">/{t.billingCycle === "nightly" ? "night" : "mo"}</span></td>
-                <td className="px-4 py-2.5 text-stone-500">{t.startDate}</td>
-                <td className="px-4 py-2.5">{t.hasPin ? <span className="text-emerald-700">PIN set ✓</span> : <span className="text-stone-400">no PIN</span>}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <BulkTable
+        canWrite={canWrite}
+        canHardDelete={canHardDelete}
+        deactivate={bulkEndLeases}
+        deactivateLabel="End lease"
+        hardDelete={bulkDeleteLeases}
+        entityLabel="lease(s)"
+        emptyText="No active tenants. Start a lease from a unit in Rentals & Airbnb."
+        columns={[{ header: "Tenant" }, { header: "Unit" }, { header: "Type" }, { header: "Contact" }, { header: "Rent", align: "right" }, { header: "Since" }, { header: "Portal" }]}
+        rows={tenants.map((t) => ({
+          id: t.leaseId,
+          cells: [
+            <span key="t" className="font-medium text-stone-800">{t.tenantLabel}</span>,
+            <span key="u"><Link href={`/rentals/${t.unitId}`} className="text-amber-700 hover:underline">{t.unitNumber}</Link>{t.propertyName && <span className="block text-xs text-stone-400">{t.propertyName}</span>}</span>,
+            <Badge key="ty" tone={LINE_TONE[t.businessLine] ?? "slate"}>{t.businessLine}</Badge>,
+            t.contact ?? "—",
+            <span key="r">{peso(t.rentAmount)}<span className="text-xs text-stone-400">/{t.billingCycle === "nightly" ? "night" : "mo"}</span></span>,
+            t.startDate,
+            t.hasPin ? <span key="p" className="text-emerald-700">PIN set ✓</span> : <span key="p" className="text-stone-400">no PIN</span>,
+          ],
+        }))}
+      />
       </AdjustableColumns>
       </TableSearch>
       <p className="mt-3 text-xs text-stone-400">Whoever is entered on a rental/Airbnb unit is a tenant. They view their bills through the renter portal using their unit # + PIN (set the PIN on the unit&rsquo;s detail page).</p>
