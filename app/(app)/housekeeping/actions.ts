@@ -202,6 +202,23 @@ export async function recordReplacements(
   return { ok: true };
 }
 
+/** Turn the "Mark room ready" hard stop on/off. */
+export async function setHousekeepingHardStop(enabled: boolean): Promise<ActionResult> {
+  const user = await requireAuth();
+  if (!userHasAnyRole(user, ["admin", "operations_manager", "hotel_rental_monitoring"])) {
+    return { ok: false, error: "Only admin, operations, or hotel & rental monitoring can change this." };
+  }
+  const admin = createAdminClient();
+  const { error } = await admin.from("feature_flags").upsert(
+    { key: "housekeeping_hard_stop", label: "Housekeeping — block Mark room ready until complete", enabled, updated_by_role: firstStaffRole(user.roleKeys), updated_at: new Date().toISOString() },
+    { onConflict: "key" },
+  );
+  if (error) return { ok: false, error: error.message };
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "update", entity: "feature_flags", entityId: "housekeeping_hard_stop", diff: { enabled } });
+  revalidatePath("/housekeeping");
+  return { ok: true };
+}
+
 /** Flag/unflag a supply as a standard "room material" (default checkbox). */
 export async function setSupplyDefault(supplyId: string, isDefault: boolean): Promise<ActionResult> {
   const user = await requireAuth();

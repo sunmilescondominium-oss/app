@@ -45,6 +45,13 @@ export const DICT: Record<string, Entry> = {
   present: { en: "present", fil: "naroroon" },
   // Common
   language: { en: "Language", fil: "Wika" },
+  sign_out: { en: "Sign out", fil: "Mag-sign out" },
+  all_roles: { en: "All roles", fil: "Lahat ng role" },
+  act_as: { en: "Act as", fil: "Bilang" },
+  no_modules: { en: "No modules available for your role yet.", fil: "Wala pang module para sa role mo." },
+  signed_in_as: { en: "Signed in as", fil: "Naka-sign in bilang" },
+  impersonating: { en: "impersonating for testing", fil: "impersonating para sa testing" },
+  exit_to_account: { en: "Exit to my account", fil: "Bumalik sa aking account" },
 
   // My Portal (/me)
   my_portal: { en: "My Portal", fil: "Aking Portal" },
@@ -164,9 +171,60 @@ export const DICT: Record<string, Entry> = {
   hk_reminder_checklist: { en: "• The cleaning checklist is not complete.", fil: "• Hindi pa kumpleto ang checklist ng paglilinis." },
   hk_reminder_materials: { en: "• The standard room materials are not yet recorded.", fil: "• Hindi pa naitala ang karaniwang gamit sa kwarto." },
   hk_reminder_proceed: { en: "Mark the room ready anyway?", fil: "Markahan pa ring handa ang kwarto?" },
+  hk_reminder_blocked: { en: "Can't mark ready yet — please finish these first:", fil: "Hindi pa puwedeng i-ready — tapusin muna ito:" },
+  hk_hard_stop_label: { en: "Require checklist + standard materials before Mark room ready", fil: "Kailanganin ang checklist + standard na gamit bago i-Mark room ready" },
+  hk_hard_stop_on: { en: "Hard stop ON", fil: "Naka-ON ang hard stop" },
+  hk_hard_stop_off: { en: "Hard stop OFF (reminder only)", fil: "Naka-OFF ang hard stop (paalala lang)" },
   // Room supplies panel — default column
   hk_col_default: { en: "Standard", fil: "Karaniwan" },
   hk_default_hint: { en: "Standard items appear as checkboxes on the cleaning task.", fil: "Ang karaniwang gamit ay lumalabas bilang checkbox sa gawaing paglilinis." },
+  // Cleaning checklist items (process/tasks — proper nouns kept as-is)
+  ck_linens: { en: "Change bed linens", fil: "Palitan ang bed linen" },
+  ck_bathroom: { en: "Sanitize bathroom", fil: "I-sanitize ang banyo" },
+  ck_trash: { en: "Empty trash", fil: "Alisin ang basura" },
+  ck_restock: { en: "Restock supplies", fil: "I-restock ang supplies" },
+  ck_floor: { en: "Sweep & mop floor", fil: "Walisin at i-mop ang sahig" },
+  ck_aircon: { en: "Wipe aircon & vents", fil: "Punasan ang aircon at vents" },
+
+  // Dashboard shell
+  db_eyebrow: { en: "Dashboard", fil: "Dashboard" },
+  db_welcome: { en: "Welcome", fil: "Maligayang pagdating" },
+  db_subtitle: { en: "The numbers relevant to your role, at a glance.", fil: "Ang mga numerong mahalaga sa iyong role, sa isang tingin." },
+  db_open: { en: "Open", fil: "Buksan" },
+  db_no_widgets: { en: "No dashboard widgets for your role yet — use the menu to open a module.", fil: "Wala pang dashboard widget para sa role mo — gamitin ang menu para magbukas ng module." },
+  lp_how_to: { en: "How to get started in your role", fil: "Paano magsimula sa iyong role" },
+
+  // Dashboard cards (label + sub)
+  dc_owner: { en: "Owner overview", fil: "Owner overview" },
+  dc_owner_sub: { en: "Weekly summary & decisions", fil: "Lingguhang buod at desisyon" },
+  dc_col: { en: "Collected today", fil: "Nakolekta ngayon" },
+  dc_col_sub: { en: "All business lines", fil: "Lahat ng negosyo" },
+  dc_tx: { en: "Transmittals to process", fil: "Transmittal na aasikasuhin" },
+  dc_tx_sub: { en: "submitted / deposited", fil: "naisumite / na-deposito" },
+  dc_bank: { en: "Bank & reconciliation", fil: "Bank at reconciliation" },
+  dc_bank_sub: { en: "Accounts, deposits & checks", fil: "Account, deposito at tseke" },
+  dc_hotel: { en: "Hotel rooms", fil: "Mga kwarto sa hotel" },
+  dc_rent: { en: "Rentals & Airbnb", fil: "Rentals at Airbnb" },
+  dc_condo: { en: "Condo dues", fil: "Condo dues" },
+  dc_condo_sub: { en: "Association dues per unit", fil: "Association dues bawat unit" },
+  dc_hk: { en: "Housekeeping tasks", fil: "Mga gawaing housekeeping" },
+  dc_hk_sub: { en: "pending / in progress", fil: "naghihintay / ginagawa" },
+  dc_att: { en: "Attendance today", fil: "Attendance ngayon" },
+  dc_req: { en: "Pending requests", fil: "Mga request na nakabinbin" },
+  dc_req_sub: { en: "leave / OB to approve", fil: "leave / OB na aaprubahan" },
+  dc_rep: { en: "Open repairs", fil: "Mga bukas na repair" },
+  dc_rep_sub: { en: "not yet completed", fil: "hindi pa tapos" },
+  dc_emp: { en: "Employees / 201 files", fil: "Mga empleyado / 201 files" },
+  dc_emp_sub: { en: "Roster, 201 records & documents", fil: "Roster, 201 record at dokumento" },
+  dc_fin: { en: "P&L / Reports", fil: "P&L / Reports" },
+  dc_fin_sub: { en: "Sales, expenses & profit", fil: "Benta, gastos at kita" },
+  // Dynamic sub-phrase words
+  dw_vacant: { en: "vacant", fil: "bakante" },
+  dw_for_hk: { en: "for housekeeping", fil: "lilinisin" },
+  dw_occupied: { en: "occupied", fil: "naka-check-in" },
+  dw_dues_flagged: { en: "dues due/overdue", fil: "dues na due/overdue" },
+  dw_in: { en: "in", fil: "pasok" },
+  dw_clocked_out: { en: "clocked out", fil: "naka-time out" },
 };
 
 /** Translate a key; falls back to English, then the key itself. */
@@ -174,4 +232,47 @@ export function t(lang: Lang, key: string): string {
   const e = DICT[key];
   if (!e) return key;
   return e[lang] ?? e.en ?? key;
+}
+
+// ---------------------------------------------------------------------------
+// Navigation (sidebar) — Filipino / Taglish labels + blurbs keyed by module.
+// English comes from lib/rbac/modules.ts; only the Filipino side lives here.
+// ---------------------------------------------------------------------------
+export const NAV_FIL: Record<string, { label: string; blurb: string }> = {
+  dashboard: { label: "🏠 Dashboard", blurb: "Buod ng iyong role" },
+  inventory: { label: "Imbentaryo", blurb: "Rehistro ng property at unit/kwarto." },
+  collections: { label: "Koleksyon", blurb: "Araw-araw na koleksyon at cash transmittal." },
+  transmittals: { label: "Transmittal", blurb: "Cash transmittal at bank deposit." },
+  buyers: { label: "Mga Buyer", blurb: "Buyer account, SOA at payment history." },
+  documents: { label: "Mga Dokumento", blurb: "Document tracker bawat buyer." },
+  disputes: { label: "Mga Dispute", blurb: "Case log bawat unit." },
+  repair: { label: "Mga Repair Request", blurb: "Repair ticket ng tenant at guest." },
+  hotel: { label: "Hotel Ops", blurb: "Room board, stays at resibo." },
+  rentals: { label: "Rentals at Airbnb", blurb: "Okupasyon, dues at meter reading." },
+  condo: { label: "Condo Dues", blurb: "Association dues, utilities at billing." },
+  housekeeping: { label: "Housekeeping", blurb: "Paglilinis ng kwarto, supplies at turnover." },
+  owner: { label: "Owner Dashboard", blurb: "Simpleng lingguhang overview." },
+  finance: { label: "P&L / Reports", blurb: "Benta, gastos at kita." },
+  banking: { label: "Bank at Reconciliation", blurb: "Bank account, deposito, tseke at reconciliation." },
+  incidents: { label: "Incident Reports", blurb: "Security, safety at damage report na may litrato." },
+  requisitions: { label: "Requisitions at Purchasing", blurb: "Mag-request, mag-approve at bumili ng materyales, gamit at supplies." },
+  accountable_forms: { label: "Accountable Forms", blurb: "Serialized OR/AR/tseke — custodian, status at reconciliation." },
+  payables: { label: "Commissions at Payables", blurb: "Allowance, referral fee, broker commission at override, incentive." },
+  kiosk_fallback: { label: "Kiosk fallback access", blurb: "Kapag sira ang kiosk: mobile clock-in na may approval." },
+  media: { label: "Photo/Video evidence access", blurb: "Sino ang puwedeng MAKAKITA ng litrato/video." },
+  actas: { label: "“Act as / view as” ibang role", blurb: "Sino ang puwedeng mag-preview bilang ibang role." },
+  hr: { label: "HR / Payroll", blurb: "DTR at payroll summary." },
+  employee: { label: "Aking Portal", blurb: "Aking attendance, payslip at leave." },
+  employees: { label: "Mga Empleyado", blurb: "Staff roster, litrato at leave approval." },
+  advances: { label: "Cash Advance", blurb: "Request, approval at liquidation." },
+  scheduling: { label: "Shift Schedule", blurb: "Italaga ang shift ng staff bawat araw." },
+  users: { label: "Users at Roles", blurb: "Staff account at access." },
+};
+
+/** Sidebar label for a module — Filipino when available, else the English one. */
+export function navLabel(lang: Lang, key: string, en: string): string {
+  return lang === "fil" ? NAV_FIL[key]?.label ?? en : en;
+}
+export function navBlurb(lang: Lang, key: string, en: string): string {
+  return lang === "fil" ? NAV_FIL[key]?.blurb ?? en : en;
 }

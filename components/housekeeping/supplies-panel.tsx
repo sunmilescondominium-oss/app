@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { adjustStock, createSupply, setSupplyDefault, type ActionResult } from "@/app/(app)/housekeeping/actions";
+import { adjustStock, createSupply, setSupplyDefault, setHousekeepingHardStop, type ActionResult } from "@/app/(app)/housekeeping/actions";
 import type { RoomSupply } from "@/lib/housekeeping/types";
 import { t, type Lang } from "@/lib/i18n";
 
@@ -13,11 +13,13 @@ export function SuppliesPanel({
   supplies,
   canManage,
   canSetDefaults = false,
+  hardStop = true,
   lang = "en",
 }: {
   supplies: RoomSupply[];
   canManage: boolean;
   canSetDefaults?: boolean;
+  hardStop?: boolean;
   lang?: Lang;
 }) {
   const router = useRouter();
@@ -25,6 +27,18 @@ export function SuppliesPanel({
   const [addState, addAction, addPending] = useActionState<ActionResult | undefined, FormData>(createSupply, undefined);
   const [busy, setBusy] = useState<string | null>(null);
   const [amt, setAmt] = useState<Record<string, string>>({});
+  const [hardStopBusy, setHardStopBusy] = useState(false);
+
+  async function toggleHardStop(next: boolean) {
+    setHardStopBusy(true);
+    const r = await setHousekeepingHardStop(next);
+    setHardStopBusy(false);
+    if (!r.ok) {
+      window.alert(r.error);
+      return;
+    }
+    router.refresh();
+  }
 
   async function toggleDefault(id: string, next: boolean) {
     setBusy(id);
@@ -117,6 +131,22 @@ export function SuppliesPanel({
         </table>
       </div>
       {canSetDefaults && <p className="mt-2 text-xs text-stone-400">{tr("hk_default_hint")}</p>}
+
+      {canSetDefaults && (
+        <label className="mt-3 flex cursor-pointer items-center gap-2 rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm">
+          <input
+            type="checkbox"
+            checked={hardStop}
+            disabled={hardStopBusy}
+            onChange={(e) => toggleHardStop(e.target.checked)}
+            className="h-4 w-4 rounded border-stone-300"
+          />
+          <span className="text-stone-700">{tr("hk_hard_stop_label")}</span>
+          <span className={`ml-auto rounded-full px-2 py-0.5 text-[11px] font-semibold ${hardStop ? "bg-emerald-100 text-emerald-700" : "bg-stone-100 text-stone-500"}`}>
+            {tr(hardStop ? "hk_hard_stop_on" : "hk_hard_stop_off")}
+          </span>
+        </label>
+      )}
 
       {canManage && (
         <form action={addAction} className="mt-3 flex flex-wrap items-end gap-2">

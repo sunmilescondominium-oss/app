@@ -14,6 +14,7 @@ import { PhotoDocPanel } from "@/components/capture/photo-doc-panel";
 import { todayManila } from "@/lib/collections/summary";
 import { getLang } from "@/lib/i18n-server";
 import { t as tt } from "@/lib/i18n";
+import { isHousekeepingHardStop } from "@/lib/settings/flags";
 
 export const metadata = { title: "Housekeeping" };
 
@@ -31,8 +32,8 @@ export default async function HousekeepingPage() {
   const canSetDefaults = user.roleKeys.some((r) => ["admin", "operations_manager", "hotel_rental_monitoring"].includes(r));
 
   const today = todayManila();
-  const [tasks, supplies, movements, countPhotos] = await Promise.all([
-    listHousekeepingTasks(), listSupplies(), listStockMovements(), listDocPhotos("stock_count", today),
+  const [tasks, supplies, movements, countPhotos, hardStop] = await Promise.all([
+    listHousekeepingTasks(), listSupplies(), listStockMovements(), listDocPhotos("stock_count", today), isHousekeepingHardStop(),
   ]);
   const toClean = tasks.filter((t) => t.status !== "done").length;
 
@@ -100,7 +101,7 @@ export default async function HousekeepingPage() {
         </div>
       )}
 
-      <SuppliesPanel supplies={supplies} canManage={canManageSupplies} canSetDefaults={canSetDefaults} lang={lang} />
+      <SuppliesPanel supplies={supplies} canManage={canManageSupplies} canSetDefaults={canSetDefaults} hardStop={hardStop} lang={lang} />
 
       <StockMovementsPanel supplies={supplies} movements={movements} canManage={canManageSupplies} />
 

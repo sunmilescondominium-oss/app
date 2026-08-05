@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { accessibleModules, SUPER_ROLES } from "@/lib/rbac/modules";
 import { getFeatureFlags, MODULE_FLAG } from "@/lib/settings/flags";
 import { AppShell, type NavModule, type RoleOption } from "@/components/app-shell";
+import { getLang } from "@/lib/i18n-server";
+import { navLabel, navBlurb } from "@/lib/i18n";
 
 /**
  * Authenticated app shell. requireAuth() is the authoritative gate; the nav is
@@ -14,6 +16,7 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   const user = await requireAuth();
+  const lang = await getLang();
 
   const flags = await getFeatureFlags();
   const superUser = user.roleKeys.some((r) => SUPER_ROLES.includes(r));
@@ -25,8 +28,8 @@ export default async function AppLayout({
     .map((m) => ({
       key: m.key,
       path: m.path,
-      label: m.label,
-      blurb: m.blurb,
+      label: navLabel(lang, m.key, m.label),
+      blurb: navBlurb(lang, m.key, m.blurb),
       milestone: m.milestone,
     }));
 
@@ -50,6 +53,7 @@ export default async function AppLayout({
       allRoleOptions={allRoleOptions}
       actingAs={user.actingAs}
       impersonating={user.impersonating}
+      lang={lang}
     >
       {children}
     </AppShell>

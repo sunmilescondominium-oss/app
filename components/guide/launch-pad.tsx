@@ -2,16 +2,18 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import type { RoleGuide } from "@/lib/guides/role-guides";
+import { localizeGuide, type RoleGuide } from "@/lib/guides/role-guides";
+import { t, type Lang } from "@/lib/i18n";
 
 /**
  * Role Launch Pad — the "what do I do" panel at the top of the dashboard.
  * Collapsible and remembers the choice per browser, so it guides new staff
  * without nagging power users.
  */
-export function LaunchPad({ guides }: { guides: RoleGuide[] }) {
+export function LaunchPad({ guides, lang = "en" }: { guides: RoleGuide[]; lang?: Lang }) {
   const [open, setOpen] = useState(true);
   const [ready, setReady] = useState(false);
+  const localized = guides.map((g) => localizeGuide(g, lang));
 
   useEffect(() => {
     setOpen(localStorage.getItem("launchpad_collapsed") !== "1");
@@ -37,14 +39,14 @@ export function LaunchPad({ guides }: { guides: RoleGuide[] }) {
         aria-expanded={open}
       >
         <span className="flex items-center gap-2 text-sm font-semibold text-amber-900">
-          <span aria-hidden>🧭</span> How to get started in your role
+          <span aria-hidden>🧭</span> {t(lang, "lp_how_to")}
         </span>
         <span className={`text-amber-700 transition-transform ${open ? "rotate-180" : ""}`}>⌄</span>
       </button>
 
       {open && (
         <div className="grid gap-4 px-5 pb-5 sm:grid-cols-2">
-          {guides.map((g) => (
+          {localized.map((g) => (
             <div key={g.role} className="rounded-xl border border-amber-100 bg-white/80 p-4">
               <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-stone-800">
                 <span aria-hidden className="text-base">{g.icon}</span> {g.headline}

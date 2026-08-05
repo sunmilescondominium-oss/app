@@ -8,6 +8,7 @@ import { signOut, setActAsRole } from "@/lib/auth/actions";
 import { LanguageToggle } from "@/components/language-toggle";
 import { exitImpersonation } from "@/app/(app)/users/impersonate-actions";
 import { SunMilesMark } from "@/components/brand-logo";
+import { t, navLabel, navBlurb, type Lang } from "@/lib/i18n";
 
 export interface NavModule {
   key: string;
@@ -28,6 +29,7 @@ export function AppShell({
   allRoleOptions,
   actingAs,
   impersonating = false,
+  lang = "en",
   children,
 }: {
   modules: NavModule[];
@@ -35,11 +37,13 @@ export function AppShell({
   allRoleOptions: RoleOption[];
   actingAs: string | null;
   impersonating?: boolean;
+  lang?: Lang;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const tr = (k: string) => t(lang, k);
 
   const linkCls = (active: boolean) =>
     `group relative block rounded-xl px-3 py-2.5 transition ${
@@ -52,11 +56,11 @@ export function AppShell({
     <nav className="flex flex-col gap-0.5">
       <Link href="/dashboard" onClick={() => setOpen(false)} className={linkCls(pathname === "/dashboard")}>
         {pathname === "/dashboard" && <span className="absolute inset-y-2 left-0 w-1 rounded-full bg-amber-500" />}
-        <span className="font-semibold">🏠 Dashboard</span>
-        <span className="mt-0.5 block text-xs text-stone-400">Your role overview</span>
+        <span className="font-semibold">{navLabel(lang, "dashboard", "🏠 Dashboard")}</span>
+        <span className="mt-0.5 block text-xs text-stone-400">{navBlurb(lang, "dashboard", "Your role overview")}</span>
       </Link>
       {modules.length === 0 && (
-        <p className="px-3 py-2 text-sm text-stone-500">No modules available for your role yet.</p>
+        <p className="px-3 py-2 text-sm text-stone-500">{tr("no_modules")}</p>
       )}
       {modules.map((m) => {
         const active = pathname === m.path || pathname.startsWith(m.path + "/");
@@ -92,10 +96,10 @@ export function AppShell({
     <div className="flex min-h-screen flex-col">
       {impersonating && (
         <div className="no-print sticky top-0 z-40 flex flex-wrap items-center justify-center gap-3 bg-rose-600 px-4 py-2 text-center text-sm font-medium text-white">
-          <span>👁️ Signed in as <strong>{displayLabel}</strong> (impersonating for testing)</span>
+          <span>👁️ {tr("signed_in_as")} <strong>{displayLabel}</strong> ({tr("impersonating")})</span>
           <form action={exitImpersonation}>
             <button type="submit" className="rounded-md bg-white/20 px-3 py-1 text-xs font-semibold text-white ring-1 ring-white/40 hover:bg-white/30">
-              Exit to my account
+              {tr("exit_to_account")}
             </button>
           </form>
         </div>
@@ -128,10 +132,10 @@ export function AppShell({
                   : "border-stone-300 text-stone-700 hover:bg-stone-50"
               }`}
             >
-              <option value="__all__">All roles</option>
+              <option value="__all__">{tr("all_roles")}</option>
               {allRoleOptions.map((r) => (
                 <option key={r.key} value={r.key}>
-                  Act as: {r.label}
+                  {tr("act_as")}: {r.label}
                 </option>
               ))}
             </select>
@@ -145,7 +149,7 @@ export function AppShell({
               type="submit"
               className="rounded-lg border border-stone-300 px-3 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-100 active:scale-[0.98]"
             >
-              Sign out
+              {tr("sign_out")}
             </button>
           </form>
         </div>

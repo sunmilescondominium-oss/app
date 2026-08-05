@@ -11,6 +11,7 @@ import { listDocPhotos } from "@/lib/docs/photos";
 import { PhotoDocPanel } from "@/components/capture/photo-doc-panel";
 import { getLang } from "@/lib/i18n-server";
 import { t as tt } from "@/lib/i18n";
+import { isHousekeepingHardStop } from "@/lib/settings/flags";
 
 export const metadata = { title: "Housekeeping task" };
 
@@ -53,6 +54,7 @@ export default async function TaskDetailPage({
     .filter((e) => e.event_type === "replaced")
     .map((e) => String((e.detail ?? {}).supply ?? ""))
     .filter(Boolean);
+  const hardStop = await isHousekeepingHardStop();
 
   return (
     <>
@@ -75,6 +77,7 @@ export default async function TaskDetailPage({
             canWrite={canWrite}
             lang={lang}
             replacedSupplyNames={replacedSupplyNames}
+            hardStop={hardStop}
             photoPanels={
               <>
                 <CleaningPhotos taskId={task.id} count={task.photos.length} canWrite={canWrite} />

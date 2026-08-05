@@ -21,6 +21,7 @@ export function TaskActions({
   canWrite,
   lang = "en",
   replacedSupplyNames = [],
+  hardStop = true,
   photoPanels,
 }: {
   detail: TaskDetail;
@@ -28,6 +29,8 @@ export function TaskActions({
   lang?: Lang;
   /** Names of supplies already recorded as replaced on this task (from events). */
   replacedSupplyNames?: string[];
+  /** When true, block completion until checklist done + standard materials recorded. */
+  hardStop?: boolean;
   /** Cleaning + inspection photo panels — rendered before the final button. */
   photoPanels?: ReactNode;
 }) {
@@ -78,6 +81,12 @@ export function TaskActions({
   }
 
   const getQty = (id: string) => Number(qty[id] ?? "1") || 1;
+  // Translate a checklist item's task label; keep the stored label if unknown.
+  const ckLabel = (item: HKChecklistItem) => {
+    const key = `ck_${item.key}`;
+    const out = tr(key);
+    return out === key ? item.label : out;
+  };
 
   function addOther() {
     if (!pickOther || extraIds.includes(pickOther)) {
@@ -118,6 +127,11 @@ export function TaskActions({
     if (checklistIncomplete) warnings.push(tr("hk_reminder_checklist"));
     if (standardMissing) warnings.push(tr("hk_reminder_materials"));
     if (warnings.length > 0) {
+      if (hardStop) {
+        // Hard stop — cannot complete until everything is done.
+        window.alert(`${tr("hk_reminder_blocked")}\n\n${warnings.join("\n")}`);
+        return;
+      }
       const proceed = window.confirm(`${warnings.join("\n")}\n\n${tr("hk_reminder_proceed")}`);
       if (!proceed) return;
     }
@@ -174,7 +188,7 @@ export function TaskActions({
           {checklist.map((i) => (
             <label key={i.key} className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={i.done} onChange={() => toggle(i.key)} className="h-4 w-4 rounded border-stone-300" />
-              {i.label}
+              {ckLabel(i)}
             </label>
           ))}
         </div>

@@ -29,6 +29,14 @@ export async function isFeatureEnabled(key: string): Promise<boolean> {
   return (await getFeatureFlags()).get(key) ?? false;
 }
 
+/**
+ * Housekeeping hard-stop: block "Mark room ready" until the checklist is done
+ * and standard materials are recorded. Defaults ON (hard stop) when unset.
+ */
+export async function isHousekeepingHardStop(): Promise<boolean> {
+  return (await getFeatureFlags()).get("housekeeping_hard_stop") ?? true;
+}
+
 /** True when a module is either not gated, or gated by an enabled flag. */
 export async function isModuleEnabled(key: ModuleKey): Promise<boolean> {
   const flag = MODULE_FLAG[key];
