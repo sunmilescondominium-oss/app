@@ -32,6 +32,7 @@ export function FallbackConsole({ outages, canApprove, mobileUrl }: { outages: O
     setErr(null);
     const list = ids.split(/[\n,]/).map((s) => s.trim()).filter(Boolean);
     if (list.length === 0) { setErr("Enter at least one employee ID."); return; }
+    if (!reason.trim()) { setErr("A reason/note is required — no code is generated without it."); return; }
     setBusy(true);
     const res = await requestKioskFallback({ employeeNos: list, punchKind: kind, reason });
     setBusy(false);

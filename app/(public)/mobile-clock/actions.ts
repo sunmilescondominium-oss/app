@@ -65,12 +65,13 @@ async function activeOutage(code: string): Promise<{ id: string; punchKind: "in"
   return { id: data.id as string, punchKind: data.punch_kind as "in" | "out" };
 }
 
-/** Validate a code (no punch) so the mobile page can unlock. */
-export async function validateFallbackCode(code: string): Promise<{ ok: true } | { ok: false; error: string }> {
+/** Validate a code (no punch) so the mobile page can unlock — returns the punch
+ *  kind (in/out) the code was issued for, so only that action is offered. */
+export async function validateFallbackCode(code: string): Promise<{ ok: true; punchKind: "in" | "out" } | { ok: false; error: string }> {
   const ip = await clientIp();
   if (rateLimited(ip)) return { ok: false, error: "Too many attempts. Please wait a minute." };
   const o = await activeOutage(code);
-  return o ? { ok: true } : { ok: false, error: "Code is invalid, expired, or the access was closed." };
+  return o ? { ok: true, punchKind: o.punchKind } : { ok: false, error: "Code is invalid, expired, or the access was closed." };
 }
 
 function requirePhoto(fd: FormData): boolean {
@@ -99,24 +100,28 @@ async function markGrantAndMaybeClose(outageId: string, userId: string): Promise
   if (allDone) await admin.from("kiosk_outages").update({ status: "closed", closed_at: new Date().toISOString() }).eq("id", outageId).eq("status", "active");
 }
 
-async function common(fd: FormData): Promise<{ outageId: string; staff: Staff; ip: string } | { error: string }> {
+async function common(fd: FormData, kind: "in" | "out"): Promise<{ outageId: string; staff: Staff; ip: string } | { error: string }> {
   const ip = await clientIp();
   if (rateLimited(ip)) return { error: "Too many attempts. Please wait a minute." };
   if (!requirePhoto(fd)) return { error: "A photo is required — take your photo, then submit." };
   const code = String(fd.get("code") ?? "");
   const outage = await activeOutage(code);
   if (!outage) return { error: "Code is invalid, expired, or the access was closed." };
+  // A code issued for clock-IN can't be used for clock-OUT and vice versa.
+  if (outage.punchKind !== kind) return { error: `This code is for clock-${outage.punchKind === "in" ? "IN" : "OUT"} only.` };
   const staff = await resolveStaff(fd);
   if (!staff) return { error: "ID/passcode is incorrect, or QR not recognized." };
   if (!(await isStaff(staff.id))) return { error: "This is for employees only." };
   const admin = createAdminClient();
-  const { data: grant } = await admin.from("kiosk_outage_grants").select("id").eq("outage_id", outage.id).eq("user_id", staff.id).maybeSingle();
+  // One-time per employee: a used grant can't be reused / transferred.
+  const { data: grant } = await admin.from("kiosk_outage_grants").select("id, used_at").eq("outage_id", outage.id).eq("user_id", staff.id).maybeSingle();
   if (!grant) return { error: "You are not on the authorized list for this instance. Ask the guard to include your ID." };
+  if (grant.used_at) return { error: "This code has already been used for your ID." };
   return { outageId: outage.id, staff, ip };
 }
 
 export async function mobileCheckIn(_prev: MobileState, fd: FormData): Promise<MobileState> {
-  const c = await common(fd);
+  const c = await common(fd, "in");
   if ("error" in c) return { ok: false, error: c.error };
   const admin = createAdminClient();
   const { data: open } = await admin.from("time_records").select("id").eq("user_id", c.staff.id).is("time_out", null).maybeSingle();
@@ -144,7 +149,7 @@ export async function mobileCheckIn(_prev: MobileState, fd: FormData): Promise<M
 }
 
 export async function mobileCheckOut(_prev: MobileState, fd: FormData): Promise<MobileState> {
-  const c = await common(fd);
+  const c = await common(fd, "out");
   if ("error" in c) return { ok: false, error: c.error };
   const admin = createAdminClient();
   const { data: open } = await admin.from("time_records").select("id, time_in").eq("user_id", c.staff.id).is("time_out", null).order("time_in", { ascending: false }).maybeSingle();

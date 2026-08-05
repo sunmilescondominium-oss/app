@@ -1,5 +1,6 @@
-import { requireModule } from "@/lib/auth/dal";
-import { dtrDetail } from "@/lib/hr/queries";
+import { notFound } from "next/navigation";
+import { requireModule, userHasAnyRole } from "@/lib/auth/dal";
+import { dtrDetail, consultantUserIds } from "@/lib/hr/queries";
 import { staffActivityBreakdown } from "@/lib/hr/performance";
 import { todayManila, peso } from "@/lib/collections/summary";
 import { APP_BRAND_SHORT } from "@/lib/config";
@@ -32,8 +33,10 @@ export default async function DtrDetailPage({
   params: Promise<{ userId: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await requireModule("hr");
+  const viewer = await requireModule("hr");
   const { userId } = await params;
+  // The consultant's payslip is off-limits to everyone except consultant + accounting.
+  if (!userHasAnyRole(viewer, ["consultant", "accounting"]) && (await consultantUserIds()).has(userId)) notFound();
   const sp = await searchParams;
   const from = (typeof sp.from === "string" && sp.from) || monthStart();
   const to = (typeof sp.to === "string" && sp.to) || todayManila();

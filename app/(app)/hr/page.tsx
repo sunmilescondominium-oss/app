@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireModule, userHasAnyRole } from "@/lib/auth/dal";
 import { canWriteModule } from "@/lib/rbac/modules";
-import { payrollReport, staffPayList, getPayrollSettings, listDtrAdjustments } from "@/lib/hr/queries";
+import { payrollReport, staffPayList, getPayrollSettings, listDtrAdjustments, consultantUserIds } from "@/lib/hr/queries";
 import { todayManila, peso } from "@/lib/collections/summary";
 import { APP_BRAND_SHORT } from "@/lib/config";
 import { PageHeader } from "@/components/ui";
@@ -33,12 +33,28 @@ export default async function HrPage({
   const to = (typeof sp.to === "string" && sp.to) || todayManila();
 
   const canApproveDtr = userHasAnyRole(user, ["owner", "admin", "consultant"]);
-  const [report, payList, settings, adjustments] = await Promise.all([
+  const [reportRaw, payListRaw, settings, adjustments] = await Promise.all([
     payrollReport(from, to),
     canWrite ? staffPayList() : Promise.resolve([]),
     getPayrollSettings(),
     listDtrAdjustments(from, to),
   ]);
+
+  // The consultant's pay is hidden from everyone except consultant + accounting.
+  const canSeeConsultant = userHasAnyRole(user, ["consultant", "accounting"]);
+  const hidden = canSeeConsultant ? new Set<string>() : await consultantUserIds();
+  const round = (n: number) => Math.round(n * 100) / 100;
+  const rows = reportRaw.rows.filter((r) => !hidden.has(r.userId));
+  const report = {
+    ...reportRaw,
+    rows,
+    basicTotal: round(rows.reduce((s, r) => s + r.basicPay, 0)),
+    otTotal: round(rows.reduce((s, r) => s + r.otPay, 0)),
+    nightTotal: round(rows.reduce((s, r) => s + r.nightPay, 0)),
+    deductionTotal: round(rows.reduce((s, r) => s + r.deductions, 0)),
+    netTotal: round(rows.reduce((s, r) => s + r.netPay, 0)),
+  };
+  const payList = payListRaw.filter((p) => !hidden.has(p.userId));
 
   const inputCls =
     "rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
@@ -152,7 +168,7 @@ export default async function HrPage({
         Hourly = daily ÷ {settings.standard_hours}. OT = hourly × {settings.ot_multiplier}. Night diff = {Math.round(settings.night_diff_rate * 100)}% ({settings.night_start.slice(0, 5)}–{settings.night_end.slice(0, 5)}). Undertime is not offset by OT (Art. 88). Click a name for the daily DTR.
       </p>
 
-      <DtrAdjustments adjustments={adjustments} canApprove={canApproveDtr} />
+      <DtrAdjustments adjustments={adjustments.filter((a) => !hidden.has(a.userId))} canApprove={canApproveDtr} />
 
       {canWrite && (
         <>

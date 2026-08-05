@@ -195,6 +195,13 @@ export async function listDtrAdjustments(from: string, to: string): Promise<DtrA
   }));
 }
 
+/** User ids holding the consultant role (whose pay is hidden from most staff). */
+export async function consultantUserIds(): Promise<Set<string>> {
+  const admin = createAdminClient();
+  const { data } = await admin.from("user_roles").select("user_id").eq("role_key", "consultant");
+  return new Set((data ?? []).map((r) => r.user_id as string));
+}
+
 export async function staffPayList(): Promise<{ userId: string; label: string; dailyRate: number; dtrExempt: boolean }[]> {
   const admin = createAdminClient();
   const [labels, rates, exempt] = await Promise.all([labelMap(admin), rateMap(admin), exemptSet(admin)]);

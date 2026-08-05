@@ -26,6 +26,7 @@ export function MobileClock() {
   const [unlocked, setUnlocked] = useState(false);
   const [code, setCode] = useState("");
   const [mode, setMode] = useState<"in" | "out">("in");
+  const [lockedKind, setLockedKind] = useState<"in" | "out" | null>(null);
   const [employeeNo, setEmployeeNo] = useState("");
   const [passcode, setPasscode] = useState("");
   const [camReady, setCamReady] = useState(false);
@@ -47,7 +48,7 @@ export function MobileClock() {
     setMsg(null);
     const res = await validateFallbackCode(code);
     setBusy(false);
-    if (res.ok) { setUnlocked(true); setMsg(null); }
+    if (res.ok) { setUnlocked(true); setLockedKind(res.punchKind); setMode(res.punchKind); setMsg(null); }
     else setMsg({ tone: "err", text: res.error });
   }
 
@@ -114,12 +115,9 @@ export function MobileClock() {
     <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
       {celebrate && <Celebrate kind={celebrate} onDone={() => setCelebrate(null)} />}
 
-      <div className="mb-4 grid grid-cols-2 gap-2">
-        {(["in", "out"] as const).map((m) => (
-          <button key={m} type="button" onClick={() => { setMode(m); setMsg(null); }} className={`rounded-lg px-3 py-2 text-sm font-semibold ${mode === m ? "bg-stone-800 text-white" : "bg-stone-100 text-stone-600 hover:bg-stone-200"}`}>
-            {m === "in" ? "Clock In" : "Clock Out"}
-          </button>
-        ))}
+      <div className="mb-4 rounded-lg bg-stone-800 px-3 py-2 text-center text-sm font-semibold text-white">
+        {mode === "in" ? "Clock In" : "Clock Out"}
+        <span className="ml-1 text-xs font-normal text-stone-300">(this code is for clock-{lockedKind === "out" ? "out" : "in"} only)</span>
       </div>
 
       <div className="relative mb-1 aspect-[3/4] w-full overflow-hidden rounded-xl bg-stone-900">

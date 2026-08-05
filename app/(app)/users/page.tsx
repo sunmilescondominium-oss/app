@@ -17,7 +17,10 @@ export default async function UsersPage() {
   const user = await requireModule("users");
   const canWrite = canWriteModule(user.roleKeys, "users");
 
-  const [users, roles, flags] = await Promise.all([listUsersWithRoles(), listRoles(), listFeatureFlags()]);
+  const [allUsers, roles, flags] = await Promise.all([listUsersWithRoles(), listRoles(), listFeatureFlags()]);
+  // The consultant is hidden from everyone except the consultant + accounting.
+  const canSeeConsultant = user.allRoleKeys.some((r) => ["consultant", "accounting"].includes(r));
+  const users = canSeeConsultant ? allUsers : allUsers.filter((u) => !u.roleKeys.includes("consultant"));
 
   return (
     <>

@@ -26,7 +26,10 @@ export default async function EmployeesPage() {
   const canWrite = canWriteModule(user.roleKeys, "employees");
   const canDecide = userHasAnyRole(user, LEAVE_APPROVER_ROLES);
 
-  const [employees, pending, kiosk, allRoles] = await Promise.all([employeeList(), listLeave("pending"), getKioskSettings(), canWrite ? listRoles() : Promise.resolve([])]);
+  const [allEmployees, pending, kiosk, allRoles] = await Promise.all([employeeList(), listLeave("pending"), getKioskSettings(), canWrite ? listRoles() : Promise.resolve([])]);
+  // The consultant is hidden from the roster for everyone except consultant + accounting.
+  const canSeeConsultant = user.allRoleKeys.some((r) => ["consultant", "accounting"].includes(r));
+  const employees = canSeeConsultant ? allEmployees : allEmployees.filter((e) => !e.roleKeys.includes("consultant"));
   const staffRoles = allRoles.filter((r) => r.is_staff).map((r) => ({ key: r.role_key, label: r.label }));
   const items = await Promise.all(
     pending.map(async (req) => ({

@@ -25,6 +25,7 @@ export async function requestKioskFallback(input: {
   reason: string;
 }): Promise<ActionResult> {
   const actor = await requireModuleWrite("kiosk_fallback");
+  if (!input.reason.trim()) return { ok: false, error: "A reason/note is required — no code is generated without it." };
   const nos = Array.from(new Set(input.employeeNos.map((n) => n.trim()).filter(Boolean)));
   if (nos.length === 0) return { ok: false, error: "Enter at least one employee ID." };
   if (nos.length > 100) return { ok: false, error: "Too many IDs in one request." };

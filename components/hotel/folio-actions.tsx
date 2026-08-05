@@ -36,7 +36,11 @@ export function FolioActions({
     if (payState?.ok) router.refresh();
   }, [payState, router]);
 
-  if (status !== "active") return null;
+  const active = status === "active";
+  // Keep the payment card available while the guest still owes a balance, even
+  // after check-out and until the gate pass is issued/printed.
+  const showPayment = active || balance > 0;
+  if (!showPayment) return null;
 
   async function extend() {
     if (hours <= 0) return;
@@ -66,28 +70,36 @@ export function FolioActions({
 
   return (
     <div className="no-print space-y-4 rounded-2xl border border-stone-200 bg-white p-4">
-      <div className="flex flex-wrap items-end gap-2">
-        <div>
-          <label className={labelCls}>Extend by (hours)</label>
-          <input
-            type="number"
-            min={1}
-            value={hours}
-            onChange={(e) => setHours(parseInt(e.target.value, 10) || 1)}
-            className={`${inputCls} w-24`}
-          />
-        </div>
-        <button
-          type="button"
-          onClick={extend}
-          disabled={busy}
-          className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100 disabled:opacity-50"
-        >
-          Extend
-        </button>
-      </div>
+      {!active && balance > 0 && (
+        <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700">
+          Guest checked out — collect the remaining {peso(balance)} to complete before the gate pass is printed.
+        </p>
+      )}
 
-      <form action={payAction} className="flex flex-wrap items-end gap-2 border-t border-stone-100 pt-4">
+      {active && (
+        <div className="flex flex-wrap items-end gap-2">
+          <div>
+            <label className={labelCls}>Extend by (hours)</label>
+            <input
+              type="number"
+              min={1}
+              value={hours}
+              onChange={(e) => setHours(parseInt(e.target.value, 10) || 1)}
+              className={`${inputCls} w-24`}
+            />
+          </div>
+          <button
+            type="button"
+            onClick={extend}
+            disabled={busy}
+            className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100 disabled:opacity-50"
+          >
+            Extend
+          </button>
+        </div>
+      )}
+
+      <form action={payAction} className={`flex flex-wrap items-end gap-2 ${active ? "border-t border-stone-100 pt-4" : ""}`}>
         <div>
           <label className={labelCls}>Method</label>
           <select name="method" defaultValue="cash" className={inputCls}>
@@ -116,14 +128,16 @@ export function FolioActions({
         {payState && !payState.ok && <p className="w-full text-sm text-red-700">{payState.error}</p>}
       </form>
 
-      <button
-        type="button"
-        onClick={doCheckout}
-        disabled={busy}
-        className="w-full rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
-      >
-        Check out
-      </button>
+      {active && (
+        <button
+          type="button"
+          onClick={doCheckout}
+          disabled={busy}
+          className="w-full rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+        >
+          Check out
+        </button>
+      )}
     </div>
   );
 }

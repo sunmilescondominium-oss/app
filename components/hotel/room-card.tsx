@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { stayTotals } from "@/lib/hotel/rates";
+import { roomCharge } from "@/lib/hotel/rates";
 import { peso } from "@/lib/collections/summary";
 import type { RoomBoardItem } from "@/lib/hotel/types";
 
@@ -62,7 +62,17 @@ export function RoomCard({
 
   const outMs = new Date(stay.check_in_at).getTime() + stay.planned_hours * 3600000;
   const rem = outMs - now;
-  const total = stayTotals(stay, 0).total;
+
+  // Live billing: if the guest stays past checkout WITHOUT an extension, bill the
+  // overtime automatically (per started hour at the extension rate).
+  const elapsedH = (now - new Date(stay.check_in_at).getTime()) / 3_600_000;
+  const effHours = Math.max(stay.planned_hours, Math.ceil(elapsedH));
+  const overtimeHours = effHours - stay.planned_hours;
+  const liveCharge = roomCharge(stay.base_rate, stay.extra_hour_rate, stay.base_hours, effHours);
+  const paid = item.paid ?? 0;
+  const ordersTotal = item.ordersTotal ?? 0;
+  const liveTotal = Math.max(0, liveCharge - Math.min(liveCharge, stay.discount_amount) + ordersTotal);
+  const liveBalance = Math.max(0, Math.round((liveTotal - paid) * 100) / 100);
 
   const checkoutRequested = Boolean(stay.checkout_requested);
 
@@ -83,14 +93,15 @@ export function RoomCard({
         {rem >= 0 ? `${fmt(rem)} left` : `OVER +${fmt(rem)}`}
       </p>
       <p className="text-xs text-stone-500">
-        {stay.planned_hours}h · {peso(total)} · +{peso(stay.extra_hour_rate)}/hr ext
+        {stay.planned_hours}h · {peso(liveTotal)} · +{peso(stay.extra_hour_rate)}/hr ext
       </p>
-      {typeof item.balance === "number" && (
-        <p className={`mt-1 text-sm font-semibold tabular-nums ${item.balance > 0 ? "text-red-700" : "text-emerald-700"}`}>
-          {item.balance > 0 ? `Balance: ${peso(item.balance)}` : "Paid ✓"}
-          {item.ordersTotal ? <span className="ml-1 text-[11px] font-normal text-stone-400">(incl. {peso(item.ordersTotal)} orders)</span> : null}
-        </p>
+      {overtimeHours > 0 && (
+        <p className="mt-0.5 text-[11px] font-semibold text-rose-600">Overtime +{overtimeHours}h auto-billed</p>
       )}
+      <p className={`mt-1 text-sm font-semibold tabular-nums ${liveBalance > 0 ? "text-red-700" : "text-emerald-700"}`}>
+        {liveBalance > 0 ? `Balance: ${peso(liveBalance)}` : "Paid ✓"}
+        {ordersTotal ? <span className="ml-1 text-[11px] font-normal text-stone-400">(incl. {peso(ordersTotal)} orders)</span> : null}
+      </p>
       <Link
         href={`/hotel/${stay.id}`}
         className="mt-3 block w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-center text-sm font-medium text-stone-700 hover:bg-stone-100"
