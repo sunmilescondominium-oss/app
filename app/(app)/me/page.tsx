@@ -120,9 +120,9 @@ export default async function MyPortalPage() {
         <section>
           <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-stone-500">{tt(lang, "requests")}</h2>
           <div className="space-y-2">
-            <LeaveForm />
-            <ObForm />
-            <RequestForm />
+            <LeaveForm lang={lang} />
+            <ObForm lang={lang} />
+            <RequestForm lang={lang} />
           </div>
           <div className="mt-3 rounded-2xl border border-stone-200 bg-white">
             <table className="w-full text-left text-sm">
@@ -150,7 +150,7 @@ export default async function MyPortalPage() {
                       </span>
                       {l.decision_note && <span className="ml-1 text-[11px] text-stone-400">· {l.decision_note}</span>}
                     </td>
-                    <td className="px-4 py-2.5 text-right">{l.status === "pending" && <CancelLeave id={l.id} />}</td>
+                    <td className="px-4 py-2.5 text-right">{l.status === "pending" && <CancelLeave id={l.id} lang={lang} />}</td>
                   </tr>
                 ))}
               </tbody>

@@ -3,11 +3,14 @@ import { canWriteModule } from "@/lib/rbac/modules";
 import { listRepairRequests } from "@/lib/repairs/queries";
 import { PageHeader, Badge } from "@/components/ui";
 import { RepairsBoard } from "@/components/repairs/repairs-board";
+import { getLang } from "@/lib/i18n-server";
+import { t as tt } from "@/lib/i18n";
 
 export const metadata = { title: "Repair Requests" };
 
 export default async function RepairsPage() {
   const user = await requireModule("repair");
+  const lang = await getLang();
   const canWrite = canWriteModule(user.roleKeys, "repair");
   const requests = await listRepairRequests();
 
@@ -17,9 +20,9 @@ export default async function RepairsPage() {
     <>
       <PageHeader
         backHref="/dashboard"
-        title="Repair Requests"
-        subtitle="Tenant & guest tickets — triage, assign, and track to completion"
-        badge={<Badge tone={open > 0 ? "amber" : "green"}>{open} open</Badge>}
+        title={tt(lang, "rp_title")}
+        subtitle={tt(lang, "rp_sub")}
+        badge={<Badge tone={open > 0 ? "amber" : "green"}>{open} {tt(lang, "rp_open")}</Badge>}
       />
       <RepairsBoard requests={requests} canWrite={canWrite} />
       <p className="mt-4 text-xs text-stone-400">
