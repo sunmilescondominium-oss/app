@@ -30,6 +30,7 @@ export async function createBusinessEntity(input: { name: string; tradeName: str
 export async function createBooklet(input: {
   formTypeId: string; bookletNo: string; prefix: string; from: number; to: number; padWidth: number;
   custodianUserId: string; custodianRole: string; receivedFrom: string; receivedAt: string; notes: string;
+  businessLine?: string; issuedToRole?: string; issuedToLabel?: string;
   businessEntityId?: string; birAtpNo?: string; birAtpDate?: string; printerName?: string; printerAccreditation?: string;
 }): Promise<ActionResult> {
   const user = await requireModuleWrite("accountable_forms");
@@ -41,11 +42,20 @@ export async function createBooklet(input: {
   if (to - from + 1 > 1000) return { ok: false, error: "Range too large (max 1000 serials per booklet)." };
 
   const admin = createAdminClient();
+
+  // BIR-reportable forms MUST carry the registered business + ATP number.
+  const { data: ftype } = await admin.from("form_types").select("bir_reportable").eq("id", input.formTypeId).maybeSingle();
+  if (ftype?.bir_reportable) {
+    if (!input.businessEntityId) return { ok: false, error: "This is a BIR form — choose the registered business." };
+    if (!input.birAtpNo?.trim()) return { ok: false, error: "This is a BIR form — enter the BIR Authority-to-Print (ATP) number." };
+  }
+
   const pad = Math.max(0, Math.min(12, Math.trunc(input.padWidth)));
   const { data: booklet, error } = await admin.from("form_booklets").insert({
     form_type_id: input.formTypeId, booklet_no: input.bookletNo.trim(), prefix: input.prefix.trim(),
     serial_from: from, serial_to: to, pad_width: pad,
     custodian_user_id: input.custodianUserId || null, custodian_role: input.custodianRole || null,
+    business_line: input.businessLine?.trim() || null, issued_to_role: input.issuedToRole || null, issued_to_label: input.issuedToLabel?.trim() || null,
     received_from: input.receivedFrom.trim() || null, received_at: input.receivedAt || null, notes: input.notes.trim() || null,
     business_entity_id: input.businessEntityId || null,
     bir_atp_no: input.birAtpNo?.trim() || null, bir_atp_date: input.birAtpDate || null,
@@ -129,6 +139,21 @@ export async function setFormTypeBir(id: string, birReportable: boolean): Promis
   if (error) return { ok: false, error: error.message };
   await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "update", entity: "form_types", entityId: id, diff: { bir_reportable: birReportable } });
   revalidatePath("/forms");
+  return { ok: true };
+}
+
+/** Flag a booklet for reprint (serials running low / exhausted) + alert. */
+export async function requestReprint(bookletId: string, note: string): Promise<ActionResult> {
+  const user = await requireModuleWrite("accountable_forms");
+  const admin = createAdminClient();
+  const { data: b } = await admin.from("form_booklets").select("booklet_no, form_type_id").eq("id", bookletId).maybeSingle();
+  const { error } = await admin.from("form_booklets").update({ reprint_requested_at: new Date().toISOString(), reprint_requested_by: user.userId, reprint_note: note.trim() || null }).eq("id", bookletId);
+  if (error) return { ok: false, error: error.message };
+  const { sendAlert } = await import("@/lib/alerts/sendAlert");
+  await sendAlert({ subject: `Reprint requested: booklet ${b?.booklet_no ?? bookletId}`, body: `A reprint was requested for accountable-form booklet ${b?.booklet_no ?? bookletId}. ${note.trim()}` }).catch(() => {});
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "update", entity: "form_booklets", entityId: bookletId, diff: { reprint_requested: true } });
+  revalidatePath("/forms");
+  revalidatePath(`/forms/${bookletId}`);
   return { ok: true };
 }
 

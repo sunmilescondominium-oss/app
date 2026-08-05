@@ -31,7 +31,7 @@ export async function listBooklets(): Promise<BookletRow[]> {
   const admin = createAdminClient();
   const [{ data: booklets }, { data: types }, { data: serials }, { data: entities }, lbl] = await Promise.all([
     admin.from("form_booklets").select("*").order("created_at", { ascending: false }),
-    admin.from("form_types").select("id, code, name"),
+    admin.from("form_types").select("id, code, name, bir_reportable"),
     admin.from("form_serials").select("booklet_id, status"),
     admin.from("business_entities").select("id, name, tin"),
     labels(createAdminClient()),
@@ -51,14 +51,16 @@ export async function listBooklets(): Promise<BookletRow[]> {
     const total = Number(b.serial_to) - Number(b.serial_from) + 1;
     return {
       id: b.id as string, bookletNo: b.booklet_no as string,
-      typeCode: (t?.code as string) ?? "—", typeName: (t?.name as string) ?? "—",
+      typeCode: (t?.code as string) ?? "—", typeName: (t?.name as string) ?? "—", typeBir: (t?.bir_reportable as boolean) ?? true,
       prefix: (b.prefix as string) ?? "", from: Number(b.serial_from), to: Number(b.serial_to), total,
       custodianLabel: b.custodian_user_id ? lbl.get(b.custodian_user_id as string) ?? null : null,
       custodianRole: (b.custodian_role as string) ?? null,
+      businessLine: (b.business_line as string) ?? null, issuedToRole: (b.issued_to_role as string) ?? null, issuedToLabel: (b.issued_to_label as string) ?? null,
       status: b.status as string, counts,
       accounted: counts.used + counts.cancelled + counts.spoiled + counts.void,
       entityId: (b.business_entity_id as string) ?? null, entityName: (e?.name as string) ?? null, entityTin: (e?.tin as string) ?? null,
       birAtpNo: (b.bir_atp_no as string) ?? null, birAtpDate: (b.bir_atp_date as string) ?? null, printerName: (b.printer_name as string) ?? null,
+      reprintRequestedAt: (b.reprint_requested_at as string) ?? null,
     };
   });
 }
@@ -68,7 +70,7 @@ export async function bookletDetail(id: string): Promise<{ booklet: BookletRow; 
   const { data: b } = await admin.from("form_booklets").select("*").eq("id", id).maybeSingle();
   if (!b) return null;
   const [{ data: type }, { data: serials }, { data: custody }, { data: entity }, lbl] = await Promise.all([
-    admin.from("form_types").select("code, name").eq("id", b.form_type_id).maybeSingle(),
+    admin.from("form_types").select("code, name, bir_reportable").eq("id", b.form_type_id).maybeSingle(),
     admin.from("form_serials").select("*").eq("booklet_id", id).order("serial_no"),
     admin.from("form_custody").select("*").eq("booklet_id", id).order("changed_at", { ascending: false }),
     b.business_entity_id ? admin.from("business_entities").select("name, tin").eq("id", b.business_entity_id).maybeSingle() : Promise.resolve({ data: null }),
@@ -80,13 +82,16 @@ export async function bookletDetail(id: string): Promise<{ booklet: BookletRow; 
   return {
     booklet: {
       id: b.id as string, bookletNo: b.booklet_no as string,
-      typeCode: (type?.code as string) ?? "—", typeName: (type?.name as string) ?? "—",
+      typeCode: (type?.code as string) ?? "—", typeName: (type?.name as string) ?? "—", typeBir: (type?.bir_reportable as boolean) ?? true,
       prefix: (b.prefix as string) ?? "", from: Number(b.serial_from), to: Number(b.serial_to), total,
       custodianLabel: b.custodian_user_id ? lbl.get(b.custodian_user_id as string) ?? null : null,
-      custodianRole: (b.custodian_role as string) ?? null, status: b.status as string, counts,
+      custodianRole: (b.custodian_role as string) ?? null,
+      businessLine: (b.business_line as string) ?? null, issuedToRole: (b.issued_to_role as string) ?? null, issuedToLabel: (b.issued_to_label as string) ?? null,
+      status: b.status as string, counts,
       accounted: counts.used + counts.cancelled + counts.spoiled + counts.void,
       entityId: (b.business_entity_id as string) ?? null, entityName: (entity?.name as string) ?? null, entityTin: (entity?.tin as string) ?? null,
       birAtpNo: (b.bir_atp_no as string) ?? null, birAtpDate: (b.bir_atp_date as string) ?? null, printerName: (b.printer_name as string) ?? null,
+      reprintRequestedAt: (b.reprint_requested_at as string) ?? null,
     },
     serials: (serials ?? []).map((s) => ({
       id: s.id as string, serialNo: Number(s.serial_no), label: s.serial_label as string, status: s.status as SerialStatus,

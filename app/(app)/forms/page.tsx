@@ -3,6 +3,8 @@ import { requireModule, userHasAnyRole } from "@/lib/auth/dal";
 import { PageHeader, Badge, Breadcrumb } from "@/components/ui";
 import { TableSearch } from "@/components/table-search";
 import { listBooklets, listFormTypes, custodianOptions, listBusinessEntities, FORM_MANAGER_ROLES } from "@/lib/forms/queries";
+import { LOW_STOCK_THRESHOLD } from "@/lib/forms/types";
+import { listRoles } from "@/lib/users/queries";
 import { RegisterBooklet } from "@/components/forms/register-booklet";
 import { BusinessEntities } from "@/components/forms/business-entities";
 import { ManageFormTypes } from "@/components/forms/manage-form-types";
@@ -12,7 +14,8 @@ export const metadata = { title: "Accountable Forms" };
 export default async function FormsPage() {
   const user = await requireModule("accountable_forms");
   const canManage = userHasAnyRole(user, FORM_MANAGER_ROLES);
-  const [booklets, types, custodians, entities] = await Promise.all([listBooklets(), listFormTypes(), canManage ? custodianOptions() : Promise.resolve([]), listBusinessEntities()]);
+  const [booklets, types, custodians, entities, allRoles] = await Promise.all([listBooklets(), listFormTypes(), canManage ? custodianOptions() : Promise.resolve([]), listBusinessEntities(), canManage ? listRoles() : Promise.resolve([])]);
+  const staffRoles = allRoles.filter((r) => r.is_staff).map((r) => ({ key: r.role_key, label: r.label }));
   const openBooklets = booklets.filter((b) => b.status === "active").length;
 
   return (
@@ -30,7 +33,7 @@ export default async function FormsPage() {
             <BusinessEntities entities={entities} />
             <ManageFormTypes types={types} />
           </div>
-          <RegisterBooklet types={types} custodians={custodians} entities={entities} />
+          <RegisterBooklet types={types} custodians={custodians} entities={entities} roles={staffRoles} />
         </div>
       )}
 
@@ -56,9 +59,16 @@ export default async function FormsPage() {
                   <td className="px-4 py-2.5"><Badge tone="slate">{b.typeCode}</Badge> <span className="text-xs text-stone-500">{b.typeName}</span></td>
                   <td className="px-4 py-2.5 text-xs text-stone-600">{b.entityName ?? <span className="text-stone-400">—</span>}{b.birAtpNo && <span className="block text-[11px] text-stone-400">ATP {b.birAtpNo}</span>}</td>
                   <td className="px-4 py-2.5 font-mono text-xs text-stone-600">{b.prefix}{b.from}–{b.prefix}{b.to} <span className="text-stone-400">({b.total})</span></td>
-                  <td className="px-4 py-2.5 text-stone-600">{b.custodianLabel ?? <span className="text-stone-400">unassigned</span>}{b.custodianRole && <span className="block text-[11px] text-stone-400">{b.custodianRole.replace(/_/g, " ")}</span>}</td>
+                  <td className="px-4 py-2.5 text-stone-600">
+                    {b.custodianLabel ?? <span className="text-stone-400">unassigned</span>}{b.custodianRole && <span className="block text-[11px] text-stone-400">{b.custodianRole.replace(/_/g, " ")}</span>}
+                    {(b.issuedToRole || b.issuedToLabel || b.businessLine) && <span className="block text-[11px] text-stone-400">↳ {b.issuedToLabel || b.issuedToRole?.replace(/_/g, " ")}{b.businessLine ? ` · ${b.businessLine}` : ""}</span>}
+                  </td>
                   <td className="px-4 py-2.5 text-right tabular-nums">{b.accounted}/{b.total}<span className="block text-[11px] text-stone-400">{b.counts.unused} unused</span></td>
-                  <td className="px-4 py-2.5"><Badge tone={b.status === "active" ? "green" : "slate"}>{b.status}</Badge></td>
+                  <td className="px-4 py-2.5">
+                    <Badge tone={b.status === "active" ? "green" : "slate"}>{b.status}</Badge>
+                    {b.reprintRequestedAt ? <span className="mt-0.5 block text-[10px] font-semibold text-rose-600">reprint requested</span>
+                      : b.status === "active" && b.counts.unused <= LOW_STOCK_THRESHOLD && <span className="mt-0.5 block text-[10px] font-semibold text-amber-600">low — {b.counts.unused} left</span>}
+                  </td>
                 </tr>
               ))}
             </tbody>

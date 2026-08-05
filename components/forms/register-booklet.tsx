@@ -3,14 +3,16 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createBooklet } from "@/app/(app)/forms/actions";
+import { BUSINESS_LINES } from "@/lib/config";
 import type { FormType, BusinessEntity } from "@/lib/forms/types";
 
 type Custodian = { userId: string; label: string; role: string | null };
+type Role = { key: string; label: string };
 
-export function RegisterBooklet({ types, custodians, entities }: { types: FormType[]; custodians: Custodian[]; entities: BusinessEntity[] }) {
+export function RegisterBooklet({ types, custodians, entities, roles }: { types: FormType[]; custodians: Custodian[]; entities: BusinessEntity[]; roles: Role[] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [f, setF] = useState({ formTypeId: types[0]?.id ?? "", bookletNo: "", prefix: "", from: "", to: "", padWidth: "6", custodianUserId: "", receivedFrom: "", receivedAt: "", notes: "", businessEntityId: entities[0]?.id ?? "", birAtpNo: "", birAtpDate: "", printerName: "" });
+  const [f, setF] = useState({ formTypeId: types[0]?.id ?? "", bookletNo: "", prefix: "", from: "", to: "", padWidth: "6", custodianUserId: "", receivedFrom: "", receivedAt: "", notes: "", businessLine: "", issuedToRole: "", issuedToLabel: "", businessEntityId: entities[0]?.id ?? "", birAtpNo: "", birAtpDate: "", printerName: "" });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -25,13 +27,14 @@ export function RegisterBooklet({ types, custodians, entities }: { types: FormTy
       formTypeId: f.formTypeId, bookletNo: f.bookletNo, prefix: f.prefix,
       from: Number(f.from), to: Number(f.to), padWidth: Number(f.padWidth),
       custodianUserId: f.custodianUserId, custodianRole: cust?.role ?? "",
+      businessLine: f.businessLine, issuedToRole: f.issuedToRole, issuedToLabel: f.issuedToLabel,
       receivedFrom: f.receivedFrom, receivedAt: f.receivedAt, notes: f.notes,
       businessEntityId: f.businessEntityId, birAtpNo: f.birAtpNo, birAtpDate: f.birAtpDate, printerName: f.printerName,
     });
     setBusy(false);
     if (!res.ok) { setErr(res.error); return; }
     setOpen(false);
-    setF({ formTypeId: types[0]?.id ?? "", bookletNo: "", prefix: "", from: "", to: "", padWidth: "6", custodianUserId: "", receivedFrom: "", receivedAt: "", notes: "", businessEntityId: entities[0]?.id ?? "", birAtpNo: "", birAtpDate: "", printerName: "" });
+    setF({ formTypeId: types[0]?.id ?? "", bookletNo: "", prefix: "", from: "", to: "", padWidth: "6", custodianUserId: "", receivedFrom: "", receivedAt: "", notes: "", businessLine: "", issuedToRole: "", issuedToLabel: "", businessEntityId: entities[0]?.id ?? "", birAtpNo: "", birAtpDate: "", printerName: "" });
     if (res.id) router.push(`/forms/${res.id}`); else router.refresh();
   }
 
@@ -93,6 +96,21 @@ export function RegisterBooklet({ types, custodians, entities }: { types: FormTy
             <option value="">— unassigned —</option>
             {custodians.map((c) => <option key={c.userId} value={c.userId}>{c.label}{c.role ? ` (${c.role.replace(/_/g, " ")})` : ""}</option>)}
           </select>
+        </label>
+        <label className="text-sm"><span className="mb-1 block text-stone-600">Issued for use — business line</span>
+          <select value={f.businessLine} onChange={(e) => set("businessLine", e.target.value)} className={input}>
+            <option value="">— select —</option>
+            {BUSINESS_LINES.map((b) => <option key={b.key} value={b.key}>{b.label}</option>)}
+          </select>
+        </label>
+        <label className="text-sm"><span className="mb-1 block text-stone-600">Issued to — role</span>
+          <select value={f.issuedToRole} onChange={(e) => set("issuedToRole", e.target.value)} className={input}>
+            <option value="">— select —</option>
+            {roles.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}
+          </select>
+        </label>
+        <label className="text-sm sm:col-span-2"><span className="mb-1 block text-stone-600">Issued to — station / label (optional)</span>
+          <input value={f.issuedToLabel} onChange={(e) => set("issuedToLabel", e.target.value)} placeholder="e.g. Front Desk · Rental & Hotel Collection" className={input} />
         </label>
         <label className="text-sm"><span className="mb-1 block text-stone-600">Received from</span>
           <input value={f.receivedFrom} onChange={(e) => set("receivedFrom", e.target.value)} placeholder="printer / BIR / head office" className={input} />

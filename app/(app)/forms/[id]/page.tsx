@@ -7,6 +7,8 @@ import { bookletDetail, custodianOptions, FORM_MANAGER_ROLES } from "@/lib/forms
 import { SERIAL_STATUSES } from "@/lib/forms/types";
 import { SerialGrid } from "@/components/forms/serial-grid";
 import { CustodyPanel } from "@/components/forms/custody";
+import { ReprintButton } from "@/components/forms/reprint-button";
+import { LOW_STOCK_THRESHOLD } from "@/lib/forms/types";
 import { APP_BRAND_SHORT } from "@/lib/config";
 
 export default async function BookletDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -27,8 +29,21 @@ export default async function BookletDetailPage({ params }: { params: Promise<{ 
           subtitle={`Serials ${booklet.prefix}${booklet.from}–${booklet.prefix}${booklet.to} · custodian: ${booklet.custodianLabel ?? "unassigned"}`}
           badge={<Badge tone={booklet.status === "active" ? "green" : "slate"}>{booklet.status}</Badge>}
         />
-        <PrintButton label="Print reconciliation" />
+        <div className="flex items-center gap-2">
+          {canWrite && <ReprintButton bookletId={id} low={booklet.status === "active" && booklet.counts.unused <= LOW_STOCK_THRESHOLD} requested={Boolean(booklet.reprintRequestedAt)} />}
+          <PrintButton label="Print reconciliation" />
+        </div>
       </div>
+
+      {(booklet.issuedToRole || booklet.issuedToLabel || booklet.businessLine) && (
+        <div className="no-print mb-4 rounded-xl border border-stone-200 bg-white px-4 py-2 text-xs text-stone-600">
+          <span className="font-medium text-stone-700">Issued for use:</span> {booklet.issuedToLabel || booklet.issuedToRole?.replace(/_/g, " ") || "—"}
+          {booklet.businessLine && <span> · business: {booklet.businessLine}</span>}
+        </div>
+      )}
+      {canWrite && booklet.status === "active" && booklet.counts.unused <= LOW_STOCK_THRESHOLD && !booklet.reprintRequestedAt && (
+        <div className="no-print mb-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900">⚠ Only {booklet.counts.unused} serial(s) left — consider requesting a reprint.</div>
+      )}
 
       <div className="mb-4 hidden border-b border-stone-300 pb-3 print:block">
         <p className="text-lg font-bold">{booklet.entityName ?? APP_BRAND_SHORT}</p>

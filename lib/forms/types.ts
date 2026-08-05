@@ -15,13 +15,18 @@ export type FormType = { id: string; code: string; name: string; birReportable: 
 
 export type BusinessEntity = { id: string; name: string; tradeName: string | null; tin: string | null; rdo: string | null; address: string | null };
 
+/** Unused serials at or below this count flag a booklet as low → reprint. */
+export const LOW_STOCK_THRESHOLD = 5;
+
 export type BookletRow = {
-  id: string; bookletNo: string; typeCode: string; typeName: string;
+  id: string; bookletNo: string; typeCode: string; typeName: string; typeBir: boolean;
   prefix: string; from: number; to: number; total: number;
   custodianLabel: string | null; custodianRole: string | null;
+  businessLine: string | null; issuedToRole: string | null; issuedToLabel: string | null;
   status: string; counts: Record<SerialStatus, number>; accounted: number;
   entityId: string | null; entityName: string | null; entityTin: string | null;
   birAtpNo: string | null; birAtpDate: string | null; printerName: string | null;
+  reprintRequestedAt: string | null;
 };
 
 export type SerialRow = {
