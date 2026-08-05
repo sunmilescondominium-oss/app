@@ -89,13 +89,18 @@ export function Celebrate({ kind, onDone }: { kind: Kind; onDone: () => void }) 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [canClose, setCanClose] = useState(false);
 
+  // Keep the latest onDone in a ref so parent re-renders (e.g. the camera
+  // countdown ticking every second) never restart the banner's timers.
+  const onDoneRef = useRef(onDone);
+  onDoneRef.current = onDone;
+
   useEffect(() => {
     playChime(kind);
     const stop = canvasRef.current ? runParticles(canvasRef.current, kind) : () => {};
-    const openBtn = setTimeout(() => setCanClose(true), MIN_MS); // enable close after 5s
-    const auto = setTimeout(onDone, MAX_MS);                     // auto-dismiss so it never lingers
+    const openBtn = setTimeout(() => setCanClose(true), MIN_MS);       // enable close after 5s
+    const auto = setTimeout(() => onDoneRef.current(), MAX_MS);        // auto-dismiss so it never lingers
     return () => { stop(); clearTimeout(openBtn); clearTimeout(auto); };
-  }, [kind, onDone]);
+  }, [kind]);
 
   return (
     <div className="pointer-events-none fixed inset-0 z-50 grid place-items-center">
