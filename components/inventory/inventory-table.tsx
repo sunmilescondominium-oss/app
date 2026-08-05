@@ -6,7 +6,7 @@ import { Modal } from "@/components/modal";
 import { UnitForm } from "@/components/inventory/unit-form";
 import { CsvImport } from "@/components/inventory/csv-import";
 import { FieldDefManager } from "@/components/inventory/field-def-manager";
-import { setUnitActive } from "@/app/(app)/inventory/actions";
+import { setUnitActive, bulkSetUnitsActive, bulkDeleteUnits } from "@/app/(app)/inventory/actions";
 import { BUSINESS_LINES } from "@/lib/config";
 import type { Unit, FieldDefinition } from "@/lib/inventory/types";
 
@@ -47,16 +47,47 @@ export function InventoryTable({
   fieldDefs,
   canWrite,
   canManageFields,
+  canHardDelete,
 }: {
   units: Unit[];
   properties: { id: string; name: string }[];
   fieldDefs: FieldDefinition[];
   canWrite: boolean;
   canManageFields: boolean;
+  canHardDelete: boolean;
 }) {
   const router = useRouter();
   const [modal, setModal] = useState<ModalState>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+
+  const allSelected = units.length > 0 && units.every((u) => selected.has(u.id));
+  function toggle(id: string) {
+    setSelected((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  }
+  function toggleAll() {
+    setSelected((s) => (units.every((u) => s.has(u.id)) ? new Set() : new Set(units.map((u) => u.id))));
+  }
+  async function bulkDeactivate() {
+    setBulkBusy(true);
+    const res = await bulkSetUnitsActive([...selected], false);
+    setBulkBusy(false);
+    if (!res.ok) { window.alert(res.error); return; }
+    setSelected(new Set());
+    router.refresh();
+  }
+  async function bulkDelete() {
+    if (!window.confirm(`Permanently delete ${selected.size} unit(s)? This cannot be undone. Rows linked to other records will be skipped.`)) return;
+    setBulkBusy(true);
+    const res = await bulkDeleteUnits([...selected]);
+    setBulkBusy(false);
+    if (!res.ok) { window.alert(res.error); return; }
+    const msg = res.skipped.length ? `Deleted ${res.affected}. Skipped ${res.skipped.length} (linked to other records — deactivate those instead).` : `Deleted ${res.affected} unit(s).`;
+    window.alert(msg);
+    setSelected(new Set());
+    router.refresh();
+  }
 
   const close = () => setModal(null);
   const done = () => {
@@ -80,7 +111,7 @@ export function InventoryTable({
     router.refresh();
   }
 
-  const cols = canWrite ? 9 : 8;
+  const cols = (canWrite ? 9 : 8) + (canWrite ? 1 : 0);
 
   return (
     <div>
@@ -116,10 +147,24 @@ export function InventoryTable({
         </div>
       )}
 
+      {canWrite && selected.size > 0 && (
+        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-sm">
+          <span className="font-medium text-amber-900">{selected.size} selected</span>
+          <button type="button" onClick={bulkDeactivate} disabled={bulkBusy} className="rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-100 disabled:opacity-50">Deactivate</button>
+          {canHardDelete && (
+            <button type="button" onClick={bulkDelete} disabled={bulkBusy} className="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-700 disabled:opacity-50">Delete permanently</button>
+          )}
+          <button type="button" onClick={() => setSelected(new Set())} className="ml-auto text-xs text-stone-500 hover:underline">Clear</button>
+        </div>
+      )}
+
       <div className="table-wrap">
         <table className="w-full min-w-[820px] text-left text-sm">
           <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
             <tr>
+              {canWrite && (
+                <th className="px-3 py-3"><input type="checkbox" checked={allSelected} onChange={toggleAll} aria-label="Select all" className="h-4 w-4 accent-amber-600" /></th>
+              )}
               <th className="px-4 py-3">Property</th>
               <th className="px-4 py-3">Unit / room</th>
               <th className="px-4 py-3">Type</th>
@@ -148,6 +193,9 @@ export function InventoryTable({
                     u.is_active ? "" : "bg-stone-50/60 text-stone-400"
                   }`}
                 >
+                  {canWrite && (
+                    <td className="px-3 py-3"><input type="checkbox" checked={selected.has(u.id)} onChange={() => toggle(u.id)} aria-label={`Select ${u.unit_number}`} className="h-4 w-4 accent-amber-600" /></td>
+                  )}
                   <td className="px-4 py-3">{u.property?.name ?? "—"}</td>
                   <td className="px-4 py-3 font-medium text-stone-900">
                     {u.unit_number}

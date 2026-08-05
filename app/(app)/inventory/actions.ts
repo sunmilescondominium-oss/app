@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireModuleWrite, requireAuth, userHasAnyRole } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit";
 import { BUSINESS_LINES, UNIT_STATUSES, type UnitStatus } from "@/lib/config";
 import type { FieldDefinition, UnitImportRow } from "@/lib/inventory/types";
@@ -230,6 +231,53 @@ export async function setUnitActive(
   });
   revalidatePath("/inventory");
   return { ok: true };
+}
+
+// ---- bulk operations -----------------------------------------------------
+export type BulkResult =
+  | { ok: true; affected: number; skipped: { id: string; reason: string }[] }
+  | { ok: false; error: string };
+
+const HARD_DELETE_ROLES = ["admin", "managing_officer", "consultant"];
+
+/** Bulk deactivate/reactivate units (soft — keeps history & links). */
+export async function bulkSetUnitsActive(ids: string[], active: boolean): Promise<BulkResult> {
+  const user = await requireModuleWrite("inventory");
+  const list = Array.from(new Set(ids.filter(Boolean)));
+  if (list.length === 0) return { ok: false, error: "No rows selected." };
+  const admin = createAdminClient();
+  const { error } = await admin.from("units").update({ is_active: active }).in("id", list);
+  if (error) return { ok: false, error: error.message };
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: active ? "update" : "delete", entity: "units", entityId: null, diff: { bulk_active: active, count: list.length } });
+  revalidatePath("/inventory");
+  return { ok: true, affected: list.length, skipped: [] };
+}
+
+/** Bulk PERMANENT delete. Rows referenced by other records are skipped with a
+ *  reason (FK-safe) so demo/erroneous entries can be removed without breaking
+ *  history. Admin / managing officer / consultant only. */
+export async function bulkDeleteUnits(ids: string[]): Promise<BulkResult> {
+  const user = await requireAuth();
+  if (!userHasAnyRole(user, HARD_DELETE_ROLES)) return { ok: false, error: "Only an admin or managing officer can permanently delete." };
+  const list = Array.from(new Set(ids.filter(Boolean)));
+  if (list.length === 0) return { ok: false, error: "No rows selected." };
+  if (list.length > 500) return { ok: false, error: "Select 500 or fewer rows per delete." };
+
+  const admin = createAdminClient();
+  let affected = 0;
+  const skipped: { id: string; reason: string }[] = [];
+  for (const id of list) {
+    const { error } = await admin.from("units").delete().eq("id", id);
+    if (error) {
+      // FK violation → the unit is referenced elsewhere (buyer, lease, collection…).
+      skipped.push({ id, reason: /foreign key|violates/i.test(error.message) ? "referenced by other records (deactivate instead)" : error.message });
+    } else {
+      affected += 1;
+    }
+  }
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "delete", entity: "units", entityId: null, diff: { hard_delete: true, deleted: affected, skipped: skipped.length } });
+  revalidatePath("/inventory");
+  return { ok: true, affected, skipped };
 }
 
 // ---- custom-field DEFINITIONS (admin / managing_officer) -----------------

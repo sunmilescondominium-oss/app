@@ -55,6 +55,7 @@ export default async function InventoryPage({
     allowed === "all" ? null : lineOptions.map((b) => b.label).join(", ");
   const canManageFields =
     user.roleKeys.includes("admin") || user.roleKeys.includes("managing_officer");
+  const canHardDelete = ["admin", "managing_officer", "consultant"].some((r) => user.roleKeys.includes(r));
 
   const stats: { label: string; value: number }[] = [
     { label: "Total units", value: summary.total },
@@ -183,6 +184,7 @@ export default async function InventoryPage({
           fieldDefs={fieldDefs}
           canWrite={canWrite}
           canManageFields={canManageFields}
+          canHardDelete={canHardDelete}
         />
       </AdjustableColumns>
 
