@@ -16,6 +16,7 @@ export function RegisterBooklet({ types, custodians, entities }: { types: FormTy
 
   const set = (k: keyof typeof f, v: string) => setF((s) => ({ ...s, [k]: v }));
   const count = Number(f.to) - Number(f.from) + 1;
+  const showBir = types.find((t) => t.id === f.formTypeId)?.birReportable ?? true;
 
   async function submit() {
     setErr(null); setBusy(true);
@@ -66,21 +67,27 @@ export function RegisterBooklet({ types, custodians, entities }: { types: FormTy
         <label className="text-sm"><span className="mb-1 block text-stone-600">Serial to *</span>
           <input type="number" value={f.to} onChange={(e) => set("to", e.target.value)} placeholder="50" className={input} />
         </label>
-        <label className="text-sm sm:col-span-2"><span className="mb-1 block text-stone-600">Registered business (BIR)</span>
-          <select value={f.businessEntityId} onChange={(e) => set("businessEntityId", e.target.value)} className={input}>
-            <option value="">— none —</option>
-            {entities.map((en) => <option key={en.id} value={en.id}>{en.name}{en.tin ? ` · TIN ${en.tin}` : ""}</option>)}
-          </select>
-        </label>
-        <label className="text-sm"><span className="mb-1 block text-stone-600">BIR Authority to Print (ATP) no.</span>
-          <input value={f.birAtpNo} onChange={(e) => set("birAtpNo", e.target.value)} placeholder="ATP / permit no." className={input} />
-        </label>
-        <label className="text-sm"><span className="mb-1 block text-stone-600">ATP date</span>
-          <input type="date" value={f.birAtpDate} onChange={(e) => set("birAtpDate", e.target.value)} className={input} />
-        </label>
-        <label className="text-sm sm:col-span-2"><span className="mb-1 block text-stone-600">Accredited printer</span>
-          <input value={f.printerName} onChange={(e) => set("printerName", e.target.value)} placeholder="printer name / accreditation" className={input} />
-        </label>
+        {showBir ? (
+          <>
+            <label className="text-sm sm:col-span-2"><span className="mb-1 block text-stone-600">Registered business (BIR)</span>
+              <select value={f.businessEntityId} onChange={(e) => set("businessEntityId", e.target.value)} className={input}>
+                <option value="">— none —</option>
+                {entities.map((en) => <option key={en.id} value={en.id}>{en.name}{en.tin ? ` · TIN ${en.tin}` : ""}</option>)}
+              </select>
+            </label>
+            <label className="text-sm"><span className="mb-1 block text-stone-600">BIR Authority to Print (ATP) no.</span>
+              <input value={f.birAtpNo} onChange={(e) => set("birAtpNo", e.target.value)} placeholder="ATP / permit no." className={input} />
+            </label>
+            <label className="text-sm"><span className="mb-1 block text-stone-600">ATP date</span>
+              <input type="date" value={f.birAtpDate} onChange={(e) => set("birAtpDate", e.target.value)} className={input} />
+            </label>
+            <label className="text-sm sm:col-span-2"><span className="mb-1 block text-stone-600">Accredited printer</span>
+              <input value={f.printerName} onChange={(e) => set("printerName", e.target.value)} placeholder="printer name / accreditation" className={input} />
+            </label>
+          </>
+        ) : (
+          <p className="text-xs text-stone-500 sm:col-span-2">Internal form — not reported to the BIR. Business/ATP details are not required.</p>
+        )}
         <label className="text-sm"><span className="mb-1 block text-stone-600">Custodian (staff)</span>
           <select value={f.custodianUserId} onChange={(e) => set("custodianUserId", e.target.value)} className={input}>
             <option value="">— unassigned —</option>

@@ -11,7 +11,7 @@ export const SERIAL_TONE: Record<SerialStatus, string> = {
   void: "bg-rose-100 text-rose-700",
 };
 
-export type FormType = { id: string; code: string; name: string };
+export type FormType = { id: string; code: string; name: string; birReportable: boolean };
 
 export type BusinessEntity = { id: string; name: string; tradeName: string | null; tin: string | null; rdo: string | null; address: string | null };
 

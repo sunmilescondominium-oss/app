@@ -23,8 +23,8 @@ async function labels(admin: ReturnType<typeof createAdminClient>): Promise<Map<
 
 export async function listFormTypes(): Promise<FormType[]> {
   const admin = createAdminClient();
-  const { data } = await admin.from("form_types").select("id, code, name").eq("is_active", true).order("sort_order");
-  return (data ?? []).map((t) => ({ id: t.id as string, code: t.code as string, name: t.name as string }));
+  const { data } = await admin.from("form_types").select("id, code, name, bir_reportable").eq("is_active", true).order("sort_order");
+  return (data ?? []).map((t) => ({ id: t.id as string, code: t.code as string, name: t.name as string, birReportable: (t.bir_reportable as boolean) ?? true }));
 }
 
 export async function listBooklets(): Promise<BookletRow[]> {

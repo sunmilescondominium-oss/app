@@ -120,12 +120,12 @@ export async function closeBooklet(bookletId: string): Promise<ActionResult> {
   return { ok: true };
 }
 
-export async function createFormType(code: string, name: string): Promise<ActionResult> {
+export async function createFormType(code: string, name: string, birReportable = true): Promise<ActionResult> {
   const user = await requireModuleWrite("accountable_forms");
   if (!userHasAnyRole(user, FORM_MANAGER_ROLES)) return { ok: false, error: "Not allowed." };
   if (!code.trim() || !name.trim()) return { ok: false, error: "Code and name are required." };
   const admin = createAdminClient();
-  const { error } = await admin.from("form_types").insert({ code: code.trim().toUpperCase(), name: name.trim() });
+  const { error } = await admin.from("form_types").insert({ code: code.trim().toUpperCase(), name: name.trim(), bir_reportable: birReportable });
   if (error) return { ok: false, error: error.message };
   await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "create", entity: "form_types", entityId: null, diff: { code, name } });
   revalidatePath("/forms");
