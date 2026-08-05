@@ -181,6 +181,7 @@ export async function setUserActive(
   active: boolean,
 ): Promise<ActionResult> {
   const actor = await requireModuleWrite("users");
+  if (!active && userId === actor.userId) return { ok: false, error: "You can't deactivate your own account." };
   const admin = createAdminClient();
 
   const { error } = await admin
@@ -188,6 +189,13 @@ export async function setUserActive(
     .update({ is_active: active })
     .eq("id", userId);
   if (error) return { ok: false, error: error.message };
+
+  // Enforce at the Supabase Auth level too: a ban blocks any new login (password
+  // OR reset link) and invalidates the account's existing refresh tokens.
+  const { error: banErr } = await admin.auth.admin.updateUserById(userId, {
+    ban_duration: active ? "none" : "876000h", // ~100 years = effectively permanent until reactivated
+  });
+  if (banErr) return { ok: false, error: `Access flag saved, but auth ${active ? "unban" : "ban"} failed: ${banErr.message}` };
 
   await logAudit({
     actorUserId: actor.userId,

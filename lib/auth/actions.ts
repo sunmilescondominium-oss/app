@@ -55,9 +55,20 @@ export async function signIn(
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) {
     return { error: "Invalid email or password." };
+  }
+
+  // Disabled accounts may not enter — even with a valid password or reset link.
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("is_active")
+    .eq("id", data.user.id)
+    .maybeSingle();
+  if (profile && profile.is_active === false) {
+    await supabase.auth.signOut();
+    return { error: "This account is disabled. Please contact your administrator." };
   }
 
   redirect("/");

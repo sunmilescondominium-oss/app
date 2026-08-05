@@ -52,9 +52,14 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
 
   const [{ data: roleRows }, { data: profile }, { data: permRows }] = await Promise.all([
     supabase.from("user_roles").select("role_key").eq("user_id", user.id),
-    supabase.from("profiles").select("display_label").eq("id", user.id).maybeSingle(),
+    supabase.from("profiles").select("display_label, is_active").eq("id", user.id).maybeSingle(),
     supabase.from("role_permissions").select("role_key, module_key, can_read, can_write"),
   ]);
+
+  // Disabled accounts get NO session — closes access immediately even while a
+  // previously-issued access token is still technically unexpired.
+  if (profile && profile.is_active === false) return null;
+
   const allRoleKeys = (roleRows ?? []).map((r) => r.role_key as string);
 
   // Load the global DB permission overrides into the RBAC layer for this request.
