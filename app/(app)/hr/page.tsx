@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireModule } from "@/lib/auth/dal";
+import { requireModule, userHasAnyRole } from "@/lib/auth/dal";
 import { canWriteModule } from "@/lib/rbac/modules";
 import { payrollReport, staffPayList, getPayrollSettings } from "@/lib/hr/queries";
 import { todayManila, peso } from "@/lib/collections/summary";
@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/ui";
 import { PrintButton } from "@/components/print-button";
 import { PayPanel } from "@/components/hr/pay-panel";
 import { PayrollSettingsPanel } from "@/components/hr/settings-panel";
+import { DtrImport } from "@/components/hr/dtr-import";
 
 export const metadata = { title: "HR / Payroll" };
 
@@ -23,6 +24,8 @@ export default async function HrPage({
 }) {
   const user = await requireModule("hr");
   const canWrite = canWriteModule(user.roleKeys, "hr");
+  const canImportDtr = userHasAnyRole(user, ["warehouse_timekeeper", "accounting", "admin"]);
+  const canOverwriteDtr = userHasAnyRole(user, ["accounting", "admin"]);
 
   const sp = await searchParams;
   const from = (typeof sp.from === "string" && sp.from) || monthStart();
@@ -44,6 +47,12 @@ export default async function HrPage({
         backHref="/dashboard" title="HR / Payroll" subtitle={`DTR & payroll (PH daily-rate) · ${from} to ${to}`} />
         <PrintButton label="Print payroll" />
       </div>
+
+      {canImportDtr && (
+        <div className="no-print mb-4">
+          <DtrImport canOverwrite={canOverwriteDtr} />
+        </div>
+      )}
 
       <div className="mb-4 hidden border-b border-stone-300 pb-3 print:block">
         <p className="text-lg font-bold">{APP_BRAND_SHORT}</p>
