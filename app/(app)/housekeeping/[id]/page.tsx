@@ -9,10 +9,13 @@ import { TaskActions } from "@/components/housekeeping/task-actions";
 import { CleaningPhotos } from "@/components/housekeeping/cleaning-photos";
 import { listDocPhotos } from "@/lib/docs/photos";
 import { PhotoDocPanel } from "@/components/capture/photo-doc-panel";
+import { getLang } from "@/lib/i18n-server";
+import { t as tt } from "@/lib/i18n";
 
 export const metadata = { title: "Housekeeping task" };
 
 const STATUS_LABEL = Object.fromEntries(HOUSEKEEPING_STATUSES.map((s) => [s.key, s.label]));
+const STATUS_KEY: Record<string, string> = { pending: "hk_st_pending", in_progress: "hk_st_in_progress", done: "hk_st_done" };
 
 function eventText(type: string, detail: Record<string, unknown> | null): string {
   const d = detail ?? {};
@@ -39,6 +42,7 @@ export default async function TaskDetailPage({
 }) {
   const { id } = await params;
   const user = await requireModule("housekeeping");
+  const lang = await getLang();
   const canWrite = canWriteModule(user.roleKeys, "housekeeping");
   const detail = await getTaskDetail(id);
   if (!detail) notFound();
@@ -50,28 +54,28 @@ export default async function TaskDetailPage({
     <>
       <div className="mb-4">
         <Link href="/housekeeping" className="text-sm font-medium text-amber-700 hover:underline">
-          ← Housekeeping
+          ← {tt(lang, "hk_title")}
         </Link>
       </div>
 
       <PageHeader
-        title={`Room ${task.unit_number ?? "—"}`}
-        subtitle="Cleaning task"
-        badge={<Badge tone={task.status === "done" ? "green" : "amber"}>{STATUS_LABEL[task.status] ?? task.status}</Badge>}
+        title={`${tt(lang, "hk_room")} ${task.unit_number ?? "—"}`}
+        subtitle={tt(lang, "hk_cleaning_task")}
+        badge={<Badge tone={task.status === "done" ? "green" : "amber"}>{tt(lang, STATUS_KEY[task.status]) || STATUS_LABEL[task.status] || task.status}</Badge>}
       />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-6">
-          <TaskActions detail={detail} canWrite={canWrite} />
+          <TaskActions detail={detail} canWrite={canWrite} lang={lang} />
           <CleaningPhotos taskId={task.id} count={task.photos.length} canWrite={canWrite} />
           <PhotoDocPanel entity="housekeeping_task" entityId={task.id} kind="inspection" title="Inspection photos" label={`Inspection · Room ${task.unit_number ?? ""}`} canWrite={canWrite} canView={canReadModule(user.roleKeys, "media")} photos={inspectionPhotos} />
         </div>
 
         <div>
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-stone-500">Activity log</h2>
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-stone-500">{tt(lang, "hk_activity_log")}</h2>
           <div className="rounded-2xl border border-stone-200 bg-white p-4">
             {events.length === 0 ? (
-              <p className="text-sm text-stone-400">No activity yet.</p>
+              <p className="text-sm text-stone-400">{tt(lang, "hk_no_activity")}</p>
             ) : (
               <ul className="space-y-3">
                 {events.map((e) => (

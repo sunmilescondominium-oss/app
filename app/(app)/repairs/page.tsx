@@ -24,7 +24,7 @@ export default async function RepairsPage() {
         subtitle={tt(lang, "rp_sub")}
         badge={<Badge tone={open > 0 ? "amber" : "green"}>{open} {tt(lang, "rp_open")}</Badge>}
       />
-      <RepairsBoard requests={requests} canWrite={canWrite} />
+      <RepairsBoard requests={requests} canWrite={canWrite} lang={lang} />
       <p className="mt-4 text-xs text-stone-400">
         Public submissions come in via /repair-request and are auto-assigned to
         operations for triage.
