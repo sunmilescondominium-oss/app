@@ -48,6 +48,7 @@ export type ModuleKey =
   | "incidents"
   | "requisitions"
   | "accountable_forms"
+  | "payables"
   | "kiosk_fallback"
   | "media"
   | "actas"
@@ -246,6 +247,15 @@ export const MODULES: Record<ModuleKey, ModuleDef> = {
     milestone: "Acct",
     read: ["owner", "consultant", "admin", "managing_officer", "accounting", "hotel_rental_monitoring", "hotel_cashier"],
     write: ["admin", "managing_officer", "accounting", "hotel_rental_monitoring", "hotel_cashier"],
+  },
+  payables: {
+    key: "payables",
+    path: "/payables",
+    label: "Commissions & Payables",
+    blurb: "Allowances, referral fees, broker commissions & override, incentives.",
+    milestone: "Acct",
+    read: ["owner", "consultant", "admin", "managing_officer", "accounting"],
+    write: ["admin", "managing_officer", "accounting"],
   },
   kiosk_fallback: {
     key: "kiosk_fallback",
