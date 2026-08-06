@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireAuth, requireModuleWrite, userHasAnyRole } from "@/lib/auth/dal";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { siteOrigin } from "@/lib/site-url";
 import { logAudit } from "@/lib/audit";
 import { ALL_ROLE_KEYS, INVITE_ROLES } from "@/lib/rbac/modules";
@@ -148,6 +149,30 @@ function resetEmail(email: string, link: string): { subject: string; body: strin
 }
 
 /**
+ * Deliver a recovery email. Preferred path: the app mailer (sendAlert) with our
+ * custom instructions. If the app mailer isn't configured, fall back to
+ * Supabase Auth's own email (the transport that already powers the login
+ * "Forgot password" flow) so delivery still works with a generic template.
+ */
+async function deliverRecovery(email: string, mode: "invite" | "reset"): Promise<ActionResult> {
+  const origin = await siteOrigin();
+  const redirectTo = `${origin}/auth/reset`;
+
+  const { link } = await generateRecoveryLink(email);
+  if (link) {
+    const { subject, body } = mode === "invite" ? inviteEmail(email, link, origin) : resetEmail(email, link);
+    const sent = await sendAlert({ subject, body, to: email });
+    if (sent.ok) return { ok: true };
+    // fall through to Supabase's own sender when the app mailer is unconfigured.
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
+/**
  * Send a first-time access / verification email: the user clicks a secure link
  * to verify their email and set their own password. Admin, consultant, and
  * accounting may trigger this. We never email a plaintext password.
@@ -161,15 +186,8 @@ export async function sendAccessInvite(userId: string): Promise<ActionResult> {
   if (getErr || !got.user?.email) return { ok: false, error: "No email address on file for this user." };
   const email = got.user.email.toLowerCase();
 
-  const { link, error } = await generateRecoveryLink(email);
-  if (!link) return { ok: false, error: error ?? "Could not generate the link." };
-
-  const origin = await siteOrigin();
-  const { subject, body } = inviteEmail(email, link, origin);
-  const sent = await sendAlert({ subject, body, to: email });
-  if (!sent.ok) {
-    return { ok: false, error: sent.skipped ? "Email isn't configured on the server yet (SMTP/Resend). Set it up to send invites." : (sent.error ?? "Could not send the email.") };
-  }
+  const sent = await deliverRecovery(email, "invite");
+  if (!sent.ok) return sent;
 
   await admin.from("profiles").update({ invite_sent_at: new Date().toISOString() }).eq("id", userId);
   await logAudit({ actorUserId: actor.userId, actorRoles: actor.roleKeys, action: "update", entity: "auth.users", entityId: email, diff: { access_invite_sent: true } });
@@ -184,14 +202,8 @@ export async function sendUserPasswordReset(email: string): Promise<ActionResult
   const addr = email.trim().toLowerCase();
   if (!EMAIL_RE.test(addr)) return { ok: false, error: "Invalid email." };
 
-  const { link, error } = await generateRecoveryLink(addr);
-  if (!link) return { ok: false, error: error ?? "Could not generate the link." };
-
-  const { subject, body } = resetEmail(addr, link);
-  const sent = await sendAlert({ subject, body, to: addr });
-  if (!sent.ok) {
-    return { ok: false, error: sent.skipped ? "Email isn't configured on the server yet (SMTP/Resend)." : (sent.error ?? "Could not send the email.") };
-  }
+  const sent = await deliverRecovery(addr, "reset");
+  if (!sent.ok) return sent;
 
   await logAudit({ actorUserId: actor.userId, actorRoles: actor.roleKeys, action: "update", entity: "auth.users", entityId: addr, diff: { password_reset_sent: true } });
   return { ok: true };
