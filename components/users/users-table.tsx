@@ -307,20 +307,30 @@ export function UsersTable({
     if (!u.email) return setToast({ msg: "No email address on file.", ok: false });
     if (!window.confirm(`Email a password-reset link to ${u.email}?`)) return;
     setPendingId(u.id);
-    const res = await sendUserPasswordReset(u.email);
-    setPendingId(null);
-    setToast(res.ok ? { msg: res.info ? `Sent ✓ — ${res.info}` : "Reset link sent ✓", ok: true } : { msg: res.error, ok: false });
+    try {
+      const res = await sendUserPasswordReset(u.email);
+      setToast(res.ok ? { msg: res.info ? `Sent ✓ — ${res.info}` : "Reset link sent ✓", ok: true } : { msg: res.error, ok: false });
+    } catch (e) {
+      setToast({ msg: `Failed: ${e instanceof Error ? e.message : "server error"}`, ok: false });
+    } finally {
+      setPendingId(null);
+    }
   }
 
   async function invite(u: ManagedUser) {
     if (!u.email) return setToast({ msg: "No email address on file.", ok: false });
     if (!window.confirm(`Send an access & email-verification link to ${u.email}? They'll set their own password.`)) return;
     setPendingId(u.id);
-    const res = await sendAccessInvite(u.id);
-    setPendingId(null);
-    if (!res.ok) return setToast({ msg: res.error, ok: false });
-    setToast({ msg: res.info ? `Sent ✓ — ${res.info}` : "Access email sent ✓", ok: true });
-    router.refresh();
+    try {
+      const res = await sendAccessInvite(u.id);
+      if (!res.ok) { setToast({ msg: res.error, ok: false }); return; }
+      setToast({ msg: res.info ? `Sent ✓ — ${res.info}` : "Access email sent ✓", ok: true });
+      router.refresh();
+    } catch (e) {
+      setToast({ msg: `Failed: ${e instanceof Error ? e.message : "server error"}`, ok: false });
+    } finally {
+      setPendingId(null);
+    }
   }
 
   return (

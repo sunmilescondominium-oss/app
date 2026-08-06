@@ -159,27 +159,31 @@ type MailResult = { ok: true; info?: string } | { ok: false; error: string };
  * Reports which transport actually sent so failures aren't hidden.
  */
 async function deliverRecovery(email: string, mode: "invite" | "reset"): Promise<MailResult> {
-  const origin = await siteOrigin();
-  const redirectTo = `${origin}/auth/reset`;
+  try {
+    const origin = await siteOrigin();
+    const redirectTo = `${origin}/auth/reset`;
 
-  let appNote = "no app-mailer link";
-  const { link, error: linkErr } = await generateRecoveryLink(email);
-  if (link) {
-    const { subject, body } = mode === "invite" ? inviteEmail(email, link, origin) : resetEmail(email, link);
-    const sent = await sendAlert({ subject, body, to: email });
-    if (sent.ok) return { ok: true, info: `sent via app mailer (${serverEnv.alertDriver})` };
-    appNote = sent.skipped
-      ? `app mailer not configured (driver=${serverEnv.alertDriver})`
-      : `app mailer error: ${sent.error ?? "unknown"}`;
-  } else {
-    appNote = `could not build link: ${linkErr ?? "unknown"}`;
+    let appNote = "no app-mailer link";
+    const { link, error: linkErr } = await generateRecoveryLink(email);
+    if (link) {
+      const { subject, body } = mode === "invite" ? inviteEmail(email, link, origin) : resetEmail(email, link);
+      const sent = await sendAlert({ subject, body, to: email });
+      if (sent.ok) return { ok: true, info: `sent via app mailer (${serverEnv.alertDriver})` };
+      appNote = sent.skipped
+        ? `app mailer not configured (driver=${serverEnv.alertDriver})`
+        : `app mailer error: ${sent.error ?? "unknown"}`;
+    } else {
+      appNote = `could not build link: ${linkErr ?? "unknown"}`;
+    }
+
+    // Fallback: Supabase's own sender (generic template).
+    const supabase = await createClient();
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+    if (error) return { ok: false, error: `App mailer unavailable (${appNote}). Supabase fallback also failed: ${error.message}` };
+    return { ok: true, info: `app mailer unavailable (${appNote}) — sent via Supabase fallback (generic template)` };
+  } catch (e) {
+    return { ok: false, error: `Mail delivery threw: ${e instanceof Error ? e.message : "unknown error"}` };
   }
-
-  // Fallback: Supabase's own sender (generic template).
-  const supabase = await createClient();
-  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
-  if (error) return { ok: false, error: `App mailer unavailable (${appNote}). Supabase fallback also failed: ${error.message}` };
-  return { ok: true, info: `app mailer unavailable (${appNote}) — sent via Supabase fallback (generic template)` };
 }
 
 /**
