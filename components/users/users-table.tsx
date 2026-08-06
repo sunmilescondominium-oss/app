@@ -9,6 +9,7 @@ import {
   createUser,
   setUserActive,
   sendUserPasswordReset,
+  sendAccessInvite,
   bulkSetUsersActive,
   bulkDeleteUsers,
   type ActionResult,
@@ -230,6 +231,7 @@ export function UsersTable({
   users,
   roles,
   canWrite,
+  canInvite = false,
   currentUserId,
   canImpersonate = false,
   canHardDelete = false,
@@ -237,6 +239,7 @@ export function UsersTable({
   users: ManagedUser[];
   roles: RoleOption[];
   canWrite: boolean;
+  canInvite?: boolean;
   currentUserId: string;
   canImpersonate?: boolean;
   canHardDelete?: boolean;
@@ -309,6 +312,17 @@ export function UsersTable({
     setToast(res.ok ? { msg: "Reset link sent ✓", ok: true } : { msg: res.error, ok: false });
   }
 
+  async function invite(u: ManagedUser) {
+    if (!u.email) return setToast({ msg: "No email address on file.", ok: false });
+    if (!window.confirm(`Send an access & email-verification link to ${u.email}? They'll set their own password.`)) return;
+    setPendingId(u.id);
+    const res = await sendAccessInvite(u.id);
+    setPendingId(null);
+    if (!res.ok) return setToast({ msg: res.error, ok: false });
+    setToast({ msg: "Access email sent ✓", ok: true });
+    router.refresh();
+  }
+
   return (
     <div>
       {toast && (
@@ -351,7 +365,7 @@ export function UsersTable({
               <th className="px-4 py-3 min-w-[17rem]">Roles</th>
               <th className="px-4 py-3">Email</th>
               <th className="px-4 py-3">Status</th>
-              {canWrite && <th className="px-4 py-3 text-right">Actions</th>}
+              {(canWrite || canInvite) && <th className="px-4 py-3 text-right">Actions</th>}
             </tr>
           </thead>
           <tbody>
@@ -390,7 +404,16 @@ export function UsersTable({
                     ))}
                   </div>
                 </td>
-                <td className="px-4 py-3 text-stone-600">{u.email}</td>
+                <td className="px-4 py-3 text-stone-600">
+                  <div>{u.email}</div>
+                  {u.email && (
+                    u.emailVerifiedAt ? (
+                      <span className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700" title={`Verified ${new Date(u.emailVerifiedAt).toLocaleString()}`}>✓ Verified</span>
+                    ) : (
+                      <span className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-semibold text-stone-500" title={u.inviteSentAt ? `Invite sent ${new Date(u.inviteSentAt).toLocaleString()}` : "No access email sent yet"}>Unverified</span>
+                    )
+                  )}
+                </td>
                 <td className="px-4 py-3">
                   {u.isActive ? (
                     <span className="text-emerald-700">Active</span>
@@ -398,17 +421,19 @@ export function UsersTable({
                     <span className="text-stone-400">Inactive</span>
                   )}
                 </td>
-                {canWrite && (
+                {(canWrite || canInvite) && (
                   <td className="px-4 py-3">
-                    <div className="flex justify-end gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setModal({ kind: "edit", user: u })}
-                        className="rounded-md border border-stone-300 px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100"
-                      >
-                        Edit
-                      </button>
-                      {canImpersonate && u.id !== currentUserId && (
+                    <div className="flex flex-wrap justify-end gap-2">
+                      {canWrite && (
+                        <button
+                          type="button"
+                          onClick={() => setModal({ kind: "edit", user: u })}
+                          className="rounded-md border border-stone-300 px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100"
+                        >
+                          Edit
+                        </button>
+                      )}
+                      {canWrite && canImpersonate && u.id !== currentUserId && (
                         <button
                           type="button"
                           onClick={() => impersonate(u)}
@@ -417,23 +442,38 @@ export function UsersTable({
                           Sign in as
                         </button>
                       )}
-                      <button
-                        type="button"
-                        onClick={() => resetPw(u)}
-                        disabled={pendingId === u.id}
-                        className="rounded-md border border-stone-300 px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100 disabled:opacity-40"
-                      >
-                        Send reset
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => toggleActive(u)}
-                        disabled={pendingId === u.id || u.id === currentUserId}
-                        title={u.id === currentUserId ? "You can't deactivate yourself" : undefined}
-                        className="rounded-md border border-stone-300 px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100 disabled:opacity-40"
-                      >
-                        {u.isActive ? "Deactivate" : "Reactivate"}
-                      </button>
+                      {canInvite && (
+                        <button
+                          type="button"
+                          onClick={() => invite(u)}
+                          disabled={pendingId === u.id}
+                          title="Email a link to verify their email and set their password"
+                          className="rounded-md border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-40"
+                        >
+                          {u.emailVerifiedAt ? "Resend invite" : "Send invite"}
+                        </button>
+                      )}
+                      {canInvite && (
+                        <button
+                          type="button"
+                          onClick={() => resetPw(u)}
+                          disabled={pendingId === u.id}
+                          className="rounded-md border border-stone-300 px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100 disabled:opacity-40"
+                        >
+                          Send reset
+                        </button>
+                      )}
+                      {canWrite && (
+                        <button
+                          type="button"
+                          onClick={() => toggleActive(u)}
+                          disabled={pendingId === u.id || u.id === currentUserId}
+                          title={u.id === currentUserId ? "You can't deactivate yourself" : undefined}
+                          className="rounded-md border border-stone-300 px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100 disabled:opacity-40"
+                        >
+                          {u.isActive ? "Deactivate" : "Reactivate"}
+                        </button>
+                      )}
                     </div>
                   </td>
                 )}

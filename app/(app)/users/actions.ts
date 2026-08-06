@@ -1,12 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireModuleWrite, userHasAnyRole } from "@/lib/auth/dal";
+import { requireAuth, requireModuleWrite, userHasAnyRole } from "@/lib/auth/dal";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
 import { siteOrigin } from "@/lib/site-url";
 import { logAudit } from "@/lib/audit";
-import { ALL_ROLE_KEYS } from "@/lib/rbac/modules";
+import { ALL_ROLE_KEYS, INVITE_ROLES } from "@/lib/rbac/modules";
+import { sendAlert } from "@/lib/alerts/sendAlert";
+import { APP_BRAND } from "@/lib/config";
 import type { ImportResult } from "@/lib/imports/types";
 import type { BulkResult } from "@/lib/data/bulk";
 import { randomBytes } from "node:crypto";
@@ -103,16 +104,94 @@ export async function bulkImportStaff(rows: Record<string, string>[]): Promise<I
   return { ok: true, inserted, errors: errors.length ? errors : undefined };
 }
 
-/** Admin triggers a password-reset email for a staff member (locked-out help). */
-export async function sendUserPasswordReset(email: string): Promise<ActionResult> {
-  const actor = await requireModuleWrite("users");
-  const addr = email.trim().toLowerCase();
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(addr)) return { ok: false, error: "Invalid email." };
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
-  const supabase = await createClient();
+/** A one-time Supabase recovery link that lets the user set their own password. */
+async function generateRecoveryLink(email: string): Promise<{ link?: string; error?: string }> {
+  const admin = createAdminClient();
   const origin = await siteOrigin();
-  const { error } = await supabase.auth.resetPasswordForEmail(addr, { redirectTo: `${origin}/auth/reset` });
-  if (error) return { ok: false, error: error.message };
+  const { data, error } = await admin.auth.admin.generateLink({
+    type: "recovery",
+    email,
+    options: { redirectTo: `${origin}/auth/reset` },
+  });
+  if (error) return { error: error.message };
+  const link = (data?.properties as { action_link?: string } | undefined)?.action_link;
+  return link ? { link } : { error: "Could not generate the access link." };
+}
+
+function inviteEmail(email: string, link: string, origin: string): { subject: string; body: string } {
+  return {
+    subject: `${APP_BRAND} — verify your email and set your password`,
+    body:
+      `Hello,\n\n` +
+      `An account has been created for you in the ${APP_BRAND} system.\n\n` +
+      `To get started:\n` +
+      `1) Click the secure link below to VERIFY YOUR EMAIL and SET YOUR OWN PASSWORD:\n   ${link}\n\n` +
+      `2) After setting your password, sign in here:\n   ${origin}/login\n   Use your email (${email}) and the password you just set.\n\n` +
+      `This link can be used once and expires for your security. If it expires, ask your administrator to resend it, or use "Forgot password" on the sign-in page.\n\n` +
+      `Clicking the link confirms this email address is correct and verified.\n\n` +
+      `— ${APP_BRAND}`,
+  };
+}
+
+function resetEmail(email: string, link: string): { subject: string; body: string } {
+  return {
+    subject: `${APP_BRAND} — reset your password`,
+    body:
+      `Hello,\n\n` +
+      `A password reset was requested for your ${APP_BRAND} account (${email}).\n\n` +
+      `Click the secure link below to set a new password:\n   ${link}\n\n` +
+      `If you didn't request this, you can ignore this email. The link can be used once and expires for your security.\n\n` +
+      `— ${APP_BRAND}`,
+  };
+}
+
+/**
+ * Send a first-time access / verification email: the user clicks a secure link
+ * to verify their email and set their own password. Admin, consultant, and
+ * accounting may trigger this. We never email a plaintext password.
+ */
+export async function sendAccessInvite(userId: string): Promise<ActionResult> {
+  const actor = await requireAuth();
+  if (!userHasAnyRole(actor, [...INVITE_ROLES])) return { ok: false, error: "Only admin, consultant, or accounting can send access emails." };
+
+  const admin = createAdminClient();
+  const { data: got, error: getErr } = await admin.auth.admin.getUserById(userId);
+  if (getErr || !got.user?.email) return { ok: false, error: "No email address on file for this user." };
+  const email = got.user.email.toLowerCase();
+
+  const { link, error } = await generateRecoveryLink(email);
+  if (!link) return { ok: false, error: error ?? "Could not generate the link." };
+
+  const origin = await siteOrigin();
+  const { subject, body } = inviteEmail(email, link, origin);
+  const sent = await sendAlert({ subject, body, to: email });
+  if (!sent.ok) {
+    return { ok: false, error: sent.skipped ? "Email isn't configured on the server yet (SMTP/Resend). Set it up to send invites." : (sent.error ?? "Could not send the email.") };
+  }
+
+  await admin.from("profiles").update({ invite_sent_at: new Date().toISOString() }).eq("id", userId);
+  await logAudit({ actorUserId: actor.userId, actorRoles: actor.roleKeys, action: "update", entity: "auth.users", entityId: email, diff: { access_invite_sent: true } });
+  revalidatePath("/users");
+  return { ok: true };
+}
+
+/** Send a password-reset email (forgot-password help). Admin/consultant/accounting. */
+export async function sendUserPasswordReset(email: string): Promise<ActionResult> {
+  const actor = await requireAuth();
+  if (!userHasAnyRole(actor, [...INVITE_ROLES])) return { ok: false, error: "Only admin, consultant, or accounting can send reset emails." };
+  const addr = email.trim().toLowerCase();
+  if (!EMAIL_RE.test(addr)) return { ok: false, error: "Invalid email." };
+
+  const { link, error } = await generateRecoveryLink(addr);
+  if (!link) return { ok: false, error: error ?? "Could not generate the link." };
+
+  const { subject, body } = resetEmail(addr, link);
+  const sent = await sendAlert({ subject, body, to: addr });
+  if (!sent.ok) {
+    return { ok: false, error: sent.skipped ? "Email isn't configured on the server yet (SMTP/Resend)." : (sent.error ?? "Could not send the email.") };
+  }
 
   await logAudit({ actorUserId: actor.userId, actorRoles: actor.roleKeys, action: "update", entity: "auth.users", entityId: addr, diff: { password_reset_sent: true } });
   return { ok: true };

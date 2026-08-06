@@ -1,5 +1,5 @@
 import { requireModule } from "@/lib/auth/dal";
-import { canWriteModule } from "@/lib/rbac/modules";
+import { canWriteModule, canInviteUsers } from "@/lib/rbac/modules";
 import { listUsersWithRoles, listRoles } from "@/lib/users/queries";
 import { listFeatureFlags } from "@/lib/settings/flags";
 import { PageHeader, Badge } from "@/components/ui";
@@ -16,6 +16,7 @@ export const metadata = { title: "Users & Roles" };
 export default async function UsersPage() {
   const user = await requireModule("users");
   const canWrite = canWriteModule(user.roleKeys, "users");
+  const canInvite = canInviteUsers(user.allRoleKeys);
 
   const [allUsers, roles, flags] = await Promise.all([listUsersWithRoles(), listRoles(), listFeatureFlags()]);
   // The consultant is hidden from everyone except the consultant + accounting.
@@ -62,6 +63,7 @@ export default async function UsersPage() {
             users={users}
             roles={roles}
             canWrite={canWrite}
+            canInvite={canInvite}
             currentUserId={user.userId}
             canImpersonate={user.allRoleKeys.includes("consultant")}
             canHardDelete={["consultant", "admin"].some((r) => user.allRoleKeys.includes(r))}

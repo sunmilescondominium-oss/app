@@ -33,7 +33,7 @@ export async function listUsersWithRoles(): Promise<ManagedUser[]> {
   const guard = ids.length ? ids : ["__none__"];
 
   const [{ data: profiles }, { data: roleRows }] = await Promise.all([
-    admin.from("profiles").select("id, display_label, is_active").in("id", guard),
+    admin.from("profiles").select("id, display_label, is_active, email_verified_at, invite_sent_at").in("id", guard),
     admin.from("user_roles").select("user_id, role_key").in("user_id", guard),
   ]);
 
@@ -50,7 +50,7 @@ export async function listUsersWithRoles(): Promise<ManagedUser[]> {
   return users
     .map((u) => {
       const p = profMap.get(u.id) as
-        | { display_label?: string; is_active?: boolean }
+        | { display_label?: string; is_active?: boolean; email_verified_at?: string | null; invite_sent_at?: string | null }
         | undefined;
       return {
         id: u.id,
@@ -58,6 +58,8 @@ export async function listUsersWithRoles(): Promise<ManagedUser[]> {
         displayLabel: p?.display_label ?? "—",
         isActive: p?.is_active ?? true,
         roleKeys: rolesByUser.get(u.id) ?? [],
+        emailVerifiedAt: p?.email_verified_at ?? null,
+        inviteSentAt: p?.invite_sent_at ?? null,
       };
     })
     .sort((a, b) => (a.email ?? "").localeCompare(b.email ?? ""));

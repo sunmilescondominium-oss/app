@@ -70,6 +70,12 @@ export const GRANT_ROLES: RoleKey[] = ["admin", "owner", "consultant", "managing
  *  the app's programmer and holds the highest access. */
 export const SUPER_ROLES: readonly string[] = ["consultant"];
 
+/** Roles allowed to send access-invite / password-reset emails to users. */
+export const INVITE_ROLES: readonly string[] = ["admin", "consultant", "accounting"];
+export function canInviteUsers(roleKeys: readonly string[]): boolean {
+  return roleKeys.some((r) => INVITE_ROLES.includes(r));
+}
+
 /** Roles that may approve a cash advance, and roles that may release/disburse it. */
 export const ADVANCE_APPROVER_ROLES: RoleKey[] = ["admin", "managing_officer", "operations_manager", "accounting"];
 export const ADVANCE_RELEASE_ROLES: RoleKey[] = ["accounting", "admin"];
@@ -340,8 +346,10 @@ export const MODULES: Record<ModuleKey, ModuleDef> = {
     label: "Users & Roles",
     blurb: "Staff accounts & access.",
     milestone: "Admin",
+    // Accounting can read the roster to send access / verification emails
+    // (see canInviteUsers); editing users stays admin (+ consultant super).
     // TODO(client-confirm): should managing_officer also be able to edit users?
-    read: ["admin", "managing_officer"],
+    read: ["admin", "managing_officer", "accounting"],
     write: ["admin"],
   },
 };

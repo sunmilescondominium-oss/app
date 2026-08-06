@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getSessionUser } from "@/lib/auth/dal";
 import { siteOrigin } from "@/lib/site-url";
 
@@ -34,6 +35,15 @@ export async function updatePasswordAfterReset(_prev: ResetState, formData: Form
 
   const { error } = await supabase.auth.updateUser({ password: pw });
   if (error) return { error: error.message };
+
+  // Setting the password via an emailed link proves the address is theirs —
+  // stamp the email as verified.
+  try {
+    await createAdminClient().from("profiles").update({ email_verified_at: new Date().toISOString() }).eq("id", user.id);
+  } catch {
+    // non-fatal — the password change already succeeded.
+  }
+
   await supabase.auth.signOut();
   redirect("/login?reset=1");
 }

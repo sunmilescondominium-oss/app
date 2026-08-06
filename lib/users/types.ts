@@ -4,6 +4,8 @@ export interface ManagedUser {
   displayLabel: string;
   isActive: boolean;
   roleKeys: string[];
+  emailVerifiedAt: string | null;
+  inviteSentAt: string | null;
 }
 
 export interface RoleOption {
