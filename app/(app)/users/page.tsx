@@ -11,6 +11,7 @@ import { CsvImporter } from "@/components/data/csv-importer";
 import { STAFF_TEMPLATE } from "@/lib/imports/staff";
 import { bulkImportStaff } from "@/app/(app)/users/actions";
 import { serverEnv } from "@/lib/env";
+import { MailTester } from "@/components/users/mail-tester";
 
 export const metadata = { title: "Users & Roles" };
 
@@ -53,6 +54,8 @@ export default async function UsersPage() {
           )}
         </div>
       )}
+
+      {canInvite && <MailTester defaultTo={user.email ?? ""} />}
 
       {canWrite && (
         <div className="mb-4">

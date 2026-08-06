@@ -187,6 +187,29 @@ async function deliverRecovery(email: string, mode: "invite" | "reset"): Promise
 }
 
 /**
+ * Diagnostic: send a plain test email through the app mailer and return the raw
+ * result verbatim (driver + ok/skipped/error) so an admin can see exactly what
+ * the SMTP/Resend transport reports. No fallback — this tests one path only.
+ */
+export async function sendTestEmail(to: string): Promise<{ ok: boolean; detail: string }> {
+  const actor = await requireAuth();
+  if (!userHasAnyRole(actor, [...INVITE_ROLES])) return { ok: false, detail: "Not allowed." };
+  const addr = to.trim().toLowerCase();
+  if (!EMAIL_RE.test(addr)) return { ok: false, detail: "Enter a valid email address." };
+  try {
+    const r = await sendAlert({
+      subject: `${APP_BRAND} — test email`,
+      body: `This is a test email from ${APP_BRAND} to confirm outgoing mail works. If you received it, invites will send too.`,
+      to: addr,
+    });
+    const detail = `driver=${serverEnv.alertDriver} · ok=${r.ok}${r.skipped ? " · skipped (transport not configured)" : ""}${r.error ? ` · error=${r.error}` : ""}`;
+    return { ok: r.ok, detail };
+  } catch (e) {
+    return { ok: false, detail: `driver=${serverEnv.alertDriver} · threw: ${e instanceof Error ? e.message : "unknown"}` };
+  }
+}
+
+/**
  * Non-secret snapshot of the mail configuration, for the Users page to show
  * admins why an invite may not have sent. Never returns credential values.
  */
