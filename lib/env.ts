@@ -7,6 +7,14 @@ import "server-only";
  * is actually used at runtime — not at build time with placeholder envs.
  */
 
+/** Strip one layer of wrapping single/double quotes (Vercel stores them verbatim). */
+function unquote(v: string): string {
+  if (v.length >= 2 && ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'")))) {
+    return v.slice(1, -1);
+  }
+  return v;
+}
+
 function req(name: string): string {
   const v = process.env[name];
   if (!v || v.startsWith("your-") || v.includes("YOUR-PROJECT-ref")) {
@@ -49,16 +57,16 @@ export const serverEnv = {
     return Number(process.env.SMTP_PORT ?? "465");
   },
   get smtpUser() {
-    return (process.env.SMTP_USER ?? "").trim();
+    return unquote((process.env.SMTP_USER ?? "").trim());
   },
   get smtpPass() {
     // Gmail App Passwords are shown in groups of four; strip any spaces/newlines
-    // so a copy-pasted "abcd efgh ijkl mnop" still authenticates.
-    return (process.env.SMTP_PASS ?? "").replace(/\s+/g, "");
+    // (and stray wrapping quotes) so a pasted "abcd efgh ijkl mnop" still works.
+    return unquote((process.env.SMTP_PASS ?? "").replace(/\s+/g, ""));
   },
   /** From-address for SMTP; defaults to the SMTP user (the Gmail account). */
   get smtpFrom() {
-    return (process.env.SMTP_FROM ?? process.env.SMTP_USER ?? "").trim();
+    return unquote((process.env.SMTP_FROM ?? process.env.SMTP_USER ?? "").trim());
   },
   /** local (default) | n8n — SOA computation source; see lib/computation. */
   get computationDriver(): "local" | "n8n" {
