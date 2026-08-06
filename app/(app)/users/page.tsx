@@ -10,7 +10,6 @@ import { FeatureFlags } from "@/components/users/feature-flags";
 import { CsvImporter } from "@/components/data/csv-importer";
 import { STAFF_TEMPLATE } from "@/lib/imports/staff";
 import { bulkImportStaff } from "@/app/(app)/users/actions";
-import { serverEnv } from "@/lib/env";
 import { MailTester } from "@/components/users/mail-tester";
 
 export const metadata = { title: "Users & Roles" };
@@ -19,8 +18,6 @@ export default async function UsersPage() {
   const user = await requireModule("users");
   const canWrite = canWriteModule(user.roleKeys, "users");
   const canInvite = canInviteUsers(user.allRoleKeys);
-  const mail = { driver: serverEnv.alertDriver, smtpUser: Boolean(serverEnv.smtpUser), smtpPass: Boolean(serverEnv.smtpPass), resendKey: Boolean(serverEnv.resendApiKey) };
-  const mailReady = mail.driver === "smtp" ? mail.smtpUser && mail.smtpPass : mail.driver === "resend" ? mail.resendKey : true;
 
   const [allUsers, roles, flags] = await Promise.all([listUsersWithRoles(), listRoles(), listFeatureFlags()]);
   // The consultant is hidden from everyone except the consultant + accounting.
@@ -40,18 +37,6 @@ export default async function UsersPage() {
           <a href="/users/access" className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-300 bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100">
             ⚙ Access Control — grant modules per role
           </a>
-        </div>
-      )}
-
-      {canInvite && (
-        <div className={`mb-4 rounded-xl border px-4 py-2.5 text-xs ${mailReady ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-300 bg-amber-50 text-amber-900"}`}>
-          <span className="font-semibold">Email transport:</span> driver=<code className="font-mono">{mail.driver}</code>
-          {" · "}Gmail user {mail.smtpUser ? "✓" : "✗"} · app password {mail.smtpPass ? "✓" : "✗"} · Resend key {mail.resendKey ? "✓" : "✗"}
-          {!mailReady && (
-            <span className="mt-1 block font-medium">
-              For the custom welcome email, set <code className="font-mono">ALERT_EMAIL_DRIVER=smtp</code> plus <code className="font-mono">SMTP_USER</code> and <code className="font-mono">SMTP_PASS</code> in the server env, then redeploy. Until then invites fall back to Supabase&apos;s generic email.
-            </span>
-          )}
         </div>
       )}
 
