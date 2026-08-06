@@ -6,6 +6,7 @@ import { Modal } from "@/components/modal";
 import {
   setUserRoles,
   setUserDisplayLabel,
+  setUserEmail,
   createUser,
   setUserActive,
   sendUserPasswordReset,
@@ -97,6 +98,7 @@ function EditRolesForm({
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set(user.roleKeys));
   const [label, setLabel] = useState(user.displayLabel);
+  const [email, setEmail] = useState(user.email ?? "");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
 
@@ -112,6 +114,11 @@ function EditRolesForm({
   async function save() {
     setPending(true);
     setError("");
+    const trimmedEmail = email.trim().toLowerCase();
+    if (trimmedEmail && trimmedEmail !== (user.email ?? "").toLowerCase()) {
+      const r = await setUserEmail(user.id, trimmedEmail);
+      if (!r.ok) { setPending(false); setError(r.error); return; }
+    }
     const trimmed = label.trim();
     if (trimmed && trimmed !== user.displayLabel) {
       const r = await setUserDisplayLabel(user.id, trimmed);
@@ -128,7 +135,16 @@ function EditRolesForm({
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-stone-500">{user.email}</p>
+      <label className="block text-sm font-medium text-stone-700">
+        Login email (used to sign in)
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
+        />
+        <span className="mt-1 block text-[11px] text-stone-400">Changing this changes how they sign in. Their current password still works; they&apos;ll show as Unverified until they confirm the new address via Send invite.</span>
+      </label>
       <label className="block text-sm font-medium text-stone-700">
         Display label (name shown across the app)
         <input value={label} onChange={(e) => setLabel(e.target.value)} className="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200" />

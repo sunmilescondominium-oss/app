@@ -267,6 +267,30 @@ function cleanRoles(roleKeys: string[]): string[] {
 }
 
 /** Replace a user's entire role set (task-based access). */
+/**
+ * Change a user's LOGIN email (the Supabase auth email used to sign in) — not
+ * the 201-file personal email. The new address becomes usable immediately with
+ * their existing password; it is marked unverified until they confirm it via a
+ * "Send invite" link. Admin (+ consultant super) only.
+ */
+export async function setUserEmail(userId: string, newEmail: string): Promise<ActionResult> {
+  const actor = await requireModuleWrite("users");
+  const addr = newEmail.trim().toLowerCase();
+  if (!EMAIL_RE.test(addr)) return { ok: false, error: "Enter a valid email address." };
+
+  const admin = createAdminClient();
+  const { error } = await admin.auth.admin.updateUserById(userId, { email: addr, email_confirm: true });
+  if (error) {
+    if (/already|registered|exists|duplicate/i.test(error.message)) return { ok: false, error: "That email is already used by another account." };
+    return { ok: false, error: error.message };
+  }
+  // New address hasn't been proven by the user yet — reset verification state.
+  await admin.from("profiles").update({ email_verified_at: null, invite_sent_at: null }).eq("id", userId);
+  await logAudit({ actorUserId: actor.userId, actorRoles: actor.roleKeys, action: "update", entity: "auth.users", entityId: userId, diff: { login_email: addr } });
+  revalidatePath("/users");
+  return { ok: true };
+}
+
 /** Rename a user's display label (shown across the app). */
 export async function setUserDisplayLabel(userId: string, label: string): Promise<ActionResult> {
   const actor = await requireModuleWrite("users");
