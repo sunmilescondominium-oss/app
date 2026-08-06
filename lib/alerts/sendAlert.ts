@@ -40,6 +40,11 @@ async function sendViaSmtp(input: AlertInput): Promise<AlertResult> {
     port: serverEnv.smtpPort,
     secure: serverEnv.smtpPort === 465,
     auth: { user: serverEnv.smtpUser, pass: serverEnv.smtpPass },
+    // Fail fast on serverless: if the outbound SMTP connection is blocked or
+    // slow, error out in a few seconds so the caller can fall back — never hang.
+    connectionTimeout: 8000,
+    greetingTimeout: 8000,
+    socketTimeout: 10000,
   });
   await transport.sendMail({
     from: serverEnv.smtpFrom || serverEnv.smtpUser,
