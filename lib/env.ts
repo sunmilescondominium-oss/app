@@ -49,14 +49,16 @@ export const serverEnv = {
     return Number(process.env.SMTP_PORT ?? "465");
   },
   get smtpUser() {
-    return process.env.SMTP_USER ?? "";
+    return (process.env.SMTP_USER ?? "").trim();
   },
   get smtpPass() {
-    return process.env.SMTP_PASS ?? "";
+    // Gmail App Passwords are shown in groups of four; strip any spaces/newlines
+    // so a copy-pasted "abcd efgh ijkl mnop" still authenticates.
+    return (process.env.SMTP_PASS ?? "").replace(/\s+/g, "");
   },
   /** From-address for SMTP; defaults to the SMTP user (the Gmail account). */
   get smtpFrom() {
-    return process.env.SMTP_FROM ?? process.env.SMTP_USER ?? "";
+    return (process.env.SMTP_FROM ?? process.env.SMTP_USER ?? "").trim();
   },
   /** local (default) | n8n — SOA computation source; see lib/computation. */
   get computationDriver(): "local" | "n8n" {
