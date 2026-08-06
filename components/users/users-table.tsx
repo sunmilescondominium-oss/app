@@ -309,7 +309,7 @@ export function UsersTable({
     setPendingId(u.id);
     const res = await sendUserPasswordReset(u.email);
     setPendingId(null);
-    setToast(res.ok ? { msg: "Reset link sent ✓", ok: true } : { msg: res.error, ok: false });
+    setToast(res.ok ? { msg: res.info ? `Sent ✓ — ${res.info}` : "Reset link sent ✓", ok: true } : { msg: res.error, ok: false });
   }
 
   async function invite(u: ManagedUser) {
@@ -319,7 +319,7 @@ export function UsersTable({
     const res = await sendAccessInvite(u.id);
     setPendingId(null);
     if (!res.ok) return setToast({ msg: res.error, ok: false });
-    setToast({ msg: "Access email sent ✓", ok: true });
+    setToast({ msg: res.info ? `Sent ✓ — ${res.info}` : "Access email sent ✓", ok: true });
     router.refresh();
   }
 

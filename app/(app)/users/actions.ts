@@ -8,6 +8,7 @@ import { siteOrigin } from "@/lib/site-url";
 import { logAudit } from "@/lib/audit";
 import { ALL_ROLE_KEYS, INVITE_ROLES } from "@/lib/rbac/modules";
 import { sendAlert } from "@/lib/alerts/sendAlert";
+import { serverEnv } from "@/lib/env";
 import { APP_BRAND } from "@/lib/config";
 import type { ImportResult } from "@/lib/imports/types";
 import type { BulkResult } from "@/lib/data/bulk";
@@ -148,28 +149,51 @@ function resetEmail(email: string, link: string): { subject: string; body: strin
   };
 }
 
+type MailResult = { ok: true; info?: string } | { ok: false; error: string };
+
 /**
  * Deliver a recovery email. Preferred path: the app mailer (sendAlert) with our
  * custom instructions. If the app mailer isn't configured, fall back to
  * Supabase Auth's own email (the transport that already powers the login
  * "Forgot password" flow) so delivery still works with a generic template.
+ * Reports which transport actually sent so failures aren't hidden.
  */
-async function deliverRecovery(email: string, mode: "invite" | "reset"): Promise<ActionResult> {
+async function deliverRecovery(email: string, mode: "invite" | "reset"): Promise<MailResult> {
   const origin = await siteOrigin();
   const redirectTo = `${origin}/auth/reset`;
 
-  const { link } = await generateRecoveryLink(email);
+  let appNote = "no app-mailer link";
+  const { link, error: linkErr } = await generateRecoveryLink(email);
   if (link) {
     const { subject, body } = mode === "invite" ? inviteEmail(email, link, origin) : resetEmail(email, link);
     const sent = await sendAlert({ subject, body, to: email });
-    if (sent.ok) return { ok: true };
-    // fall through to Supabase's own sender when the app mailer is unconfigured.
+    if (sent.ok) return { ok: true, info: `sent via app mailer (${serverEnv.alertDriver})` };
+    appNote = sent.skipped
+      ? `app mailer not configured (driver=${serverEnv.alertDriver})`
+      : `app mailer error: ${sent.error ?? "unknown"}`;
+  } else {
+    appNote = `could not build link: ${linkErr ?? "unknown"}`;
   }
 
+  // Fallback: Supabase's own sender (generic template).
   const supabase = await createClient();
   const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
-  if (error) return { ok: false, error: error.message };
-  return { ok: true };
+  if (error) return { ok: false, error: `App mailer unavailable (${appNote}). Supabase fallback also failed: ${error.message}` };
+  return { ok: true, info: `app mailer unavailable (${appNote}) — sent via Supabase fallback (generic template)` };
+}
+
+/**
+ * Non-secret snapshot of the mail configuration, for the Users page to show
+ * admins why an invite may not have sent. Never returns credential values.
+ */
+export async function mailConfigStatus(): Promise<{ driver: string; smtpUser: boolean; smtpPass: boolean; resendKey: boolean }> {
+  await requireAuth();
+  return {
+    driver: serverEnv.alertDriver,
+    smtpUser: Boolean(serverEnv.smtpUser),
+    smtpPass: Boolean(serverEnv.smtpPass),
+    resendKey: Boolean(serverEnv.resendApiKey),
+  };
 }
 
 /**
@@ -177,7 +201,7 @@ async function deliverRecovery(email: string, mode: "invite" | "reset"): Promise
  * to verify their email and set their own password. Admin, consultant, and
  * accounting may trigger this. We never email a plaintext password.
  */
-export async function sendAccessInvite(userId: string): Promise<ActionResult> {
+export async function sendAccessInvite(userId: string): Promise<MailResult> {
   const actor = await requireAuth();
   if (!userHasAnyRole(actor, [...INVITE_ROLES])) return { ok: false, error: "Only admin, consultant, or accounting can send access emails." };
 
@@ -190,13 +214,13 @@ export async function sendAccessInvite(userId: string): Promise<ActionResult> {
   if (!sent.ok) return sent;
 
   await admin.from("profiles").update({ invite_sent_at: new Date().toISOString() }).eq("id", userId);
-  await logAudit({ actorUserId: actor.userId, actorRoles: actor.roleKeys, action: "update", entity: "auth.users", entityId: email, diff: { access_invite_sent: true } });
+  await logAudit({ actorUserId: actor.userId, actorRoles: actor.roleKeys, action: "update", entity: "auth.users", entityId: email, diff: { access_invite_sent: true, transport: sent.info } });
   revalidatePath("/users");
-  return { ok: true };
+  return sent;
 }
 
 /** Send a password-reset email (forgot-password help). Admin/consultant/accounting. */
-export async function sendUserPasswordReset(email: string): Promise<ActionResult> {
+export async function sendUserPasswordReset(email: string): Promise<MailResult> {
   const actor = await requireAuth();
   if (!userHasAnyRole(actor, [...INVITE_ROLES])) return { ok: false, error: "Only admin, consultant, or accounting can send reset emails." };
   const addr = email.trim().toLowerCase();
@@ -205,8 +229,8 @@ export async function sendUserPasswordReset(email: string): Promise<ActionResult
   const sent = await deliverRecovery(addr, "reset");
   if (!sent.ok) return sent;
 
-  await logAudit({ actorUserId: actor.userId, actorRoles: actor.roleKeys, action: "update", entity: "auth.users", entityId: addr, diff: { password_reset_sent: true } });
-  return { ok: true };
+  await logAudit({ actorUserId: actor.userId, actorRoles: actor.roleKeys, action: "update", entity: "auth.users", entityId: addr, diff: { password_reset_sent: true, transport: sent.info } });
+  return sent;
 }
 
 const VALID_ROLES: readonly string[] = ALL_ROLE_KEYS;
