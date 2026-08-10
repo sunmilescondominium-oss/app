@@ -1,5 +1,5 @@
 import { requireModule } from "@/lib/auth/dal";
-import { canWriteModule } from "@/lib/rbac/modules";
+import { canWriteModule, canEditCollections } from "@/lib/rbac/modules";
 import { listCollections, listUnitOptions } from "@/lib/collections/queries";
 import { summarizeCollections, peso, todayManila } from "@/lib/collections/summary";
 import { APP_BRAND_SHORT } from "@/lib/config";
@@ -15,6 +15,7 @@ export default async function CollectionsPage({
 }) {
   const user = await requireModule("collections");
   const canWrite = canWriteModule(user.roleKeys, "collections");
+  const canEdit = canEditCollections(user.roleKeys);
 
   const sp = await searchParams;
   const date = (typeof sp.date === "string" && sp.date) || todayManila();
@@ -114,6 +115,7 @@ export default async function CollectionsPage({
         collections={collections}
         unitOptions={unitOptions}
         canWrite={canWrite}
+        canEdit={canEdit}
         date={date}
       />
 

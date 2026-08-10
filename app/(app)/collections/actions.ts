@@ -1,10 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireModuleWrite, userHasAnyRole } from "@/lib/auth/dal";
+import { requireAuth, requireModuleWrite, userHasAnyRole } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit";
+import { hashPasscode } from "@/lib/employees/passcode";
+import { COLLECTION_EDIT_ROLES } from "@/lib/rbac/modules";
 import { COLLECTION_CATEGORIES, PAYMENT_TYPES } from "@/lib/config";
 import type { BulkResult } from "@/lib/data/bulk";
 
@@ -117,6 +119,91 @@ export async function createCollection(
     entity: "collections",
     entityId: data.id as string,
     diff: { business_line, amount, or_number, payment_type },
+  });
+  revalidatePath("/collections");
+  return { ok: true };
+}
+
+/**
+ * Authorized, justified edit of a collection entry (error correction) — allowed
+ * even after it has been transmitted. Multi-layer gate:
+ *   1) the actor holds an authority role (COLLECTION_EDIT_ROLES);
+ *   2) a justification is provided;
+ *   3) the actor types the exact phrase "CONFIRM EDIT";
+ *   4) the actor re-authenticates with their employee code + passcode.
+ * The before/after snapshot + justification are recorded in collection_edits
+ * and the audit log.
+ */
+export async function editCollection(
+  id: string,
+  _prev: ActionResult | undefined,
+  formData: FormData,
+): Promise<ActionResult> {
+  const user = await requireAuth();
+  if (!userHasAnyRole(user, [...COLLECTION_EDIT_ROLES])) {
+    return { ok: false, error: "You don't have the authority to edit a collection." };
+  }
+
+  const justification = String(formData.get("justification") ?? "").trim();
+  const confirmText = String(formData.get("confirm_text") ?? "").trim();
+  const employeeNo = String(formData.get("employee_no") ?? "").trim();
+  const passcode = String(formData.get("passcode") ?? "").trim();
+
+  if (justification.length < 10) return { ok: false, error: "Enter a clear justification (at least 10 characters)." };
+  if (confirmText !== "CONFIRM EDIT") return { ok: false, error: 'Type the phrase CONFIRM EDIT exactly to proceed.' };
+  if (!employeeNo || !passcode) return { ok: false, error: "Enter your employee code and passcode." };
+
+  // Re-authenticate the actor: employee code + passcode must match THEIR profile.
+  const admin = createAdminClient();
+  const { data: prof } = await admin
+    .from("profiles")
+    .select("employee_no, passcode_hash")
+    .eq("id", user.userId)
+    .maybeSingle();
+  if (!prof?.employee_no || !prof.passcode_hash) {
+    return { ok: false, error: "Your account has no employee code/passcode set. Ask an admin to set one." };
+  }
+  if (prof.employee_no !== employeeNo || hashPasscode(employeeNo, passcode) !== prof.passcode_hash) {
+    return { ok: false, error: "Employee code or passcode is incorrect." };
+  }
+
+  // Load the current row (before snapshot).
+  const { data: before, error: loadErr } = await admin.from("collections").select("*").eq("id", id).maybeSingle();
+  if (loadErr || !before) return { ok: false, error: "Collection entry not found." };
+
+  // Parse the editable fields.
+  const business_line = String(formData.get("business_line") ?? "").trim();
+  const amountRaw = String(formData.get("amount") ?? "").trim();
+  const amount = Number(amountRaw);
+  const payment_type = String(formData.get("payment_type") ?? "").trim();
+  const or_number = String(formData.get("or_number") ?? "").trim() || null;
+  const collected_on = String(formData.get("collected_on") ?? "").trim();
+  const remarks = String(formData.get("remarks") ?? "").trim() || null;
+
+  if (!CATS.includes(business_line)) return { ok: false, error: "Choose a category." };
+  if (!amountRaw || !Number.isFinite(amount) || amount < 0) return { ok: false, error: "Enter a valid amount." };
+  if (!PAYS.includes(payment_type)) return { ok: false, error: "Choose a payment type." };
+
+  const patch = { business_line, amount, payment_type, or_number, remarks, ...(collected_on ? { collected_on } : {}) };
+  const { data: after, error: updErr } = await admin.from("collections").update(patch).eq("id", id).select("*").single();
+  if (updErr) return { ok: false, error: updErr.message };
+
+  const editorRole = user.roleKeys.find((r) => COLLECTION_EDIT_ROLES.includes(r)) ?? user.roleKeys[0] ?? null;
+  await admin.from("collection_edits").insert({
+    collection_id: id,
+    edited_by: user.userId,
+    editor_role: editorRole,
+    justification,
+    before_json: before,
+    after_json: after,
+  });
+  await logAudit({
+    actorUserId: user.userId,
+    actorRoles: user.roleKeys,
+    action: "update",
+    entity: "collections",
+    entityId: id,
+    diff: { edited: true, justification, from: { amount: before.amount, or_number: before.or_number, payment_type: before.payment_type, business_line: before.business_line }, to: { amount, or_number, payment_type, business_line }, was_transmitted: Boolean(before.transmittal_id) },
   });
   revalidatePath("/collections");
   return { ok: true };

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Modal } from "@/components/modal";
 import { CollectionForm } from "./collection-form";
+import { EditCollectionForm } from "./edit-collection-form";
 import { deleteCollection, bulkDeleteCollections } from "@/app/(app)/collections/actions";
 import { peso } from "@/lib/collections/summary";
 import { COLLECTION_CATEGORIES, PAYMENT_TYPES } from "@/lib/config";
@@ -25,15 +26,18 @@ export function CollectionsPanel({
   collections,
   unitOptions,
   canWrite,
+  canEdit = false,
   date,
 }: {
   collections: Collection[];
   unitOptions: UnitOption[];
   canWrite: boolean;
+  canEdit?: boolean;
   date: string;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<Collection | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
@@ -109,13 +113,13 @@ export function CollectionsPanel({
               <th className="px-4 py-3">Payment</th>
               <th className="px-4 py-3">Collected by</th>
               <th className="px-4 py-3 text-right">Amount</th>
-              {canWrite && <th className="no-print px-4 py-3 text-right">·</th>}
+              {(canWrite || canEdit) && <th className="no-print px-4 py-3 text-right">·</th>}
             </tr>
           </thead>
           <tbody>
             {collections.length === 0 && (
               <tr>
-                <td colSpan={canWrite ? 8 : 6} className="px-4 py-10 text-center text-stone-500">
+                <td colSpan={6 + (canWrite ? 1 : 0) + (canWrite || canEdit ? 1 : 0)} className="px-4 py-10 text-center text-stone-500">
                   No collections recorded for {date}.
                 </td>
               </tr>
@@ -129,22 +133,32 @@ export function CollectionsPanel({
                 <td className="px-4 py-3">{PAY_LABEL[c.payment_type] ?? c.payment_type}</td>
                 <td className="px-4 py-3">{roleLabel(c.collected_by_role)}</td>
                 <td className="px-4 py-3 text-right tabular-nums">{peso(c.amount)}</td>
-                {canWrite && (
+                {(canWrite || canEdit) && (
                   <td className="no-print px-4 py-3 text-right">
-                    {c.transmittal_id ? (
-                      <span className="text-[10px] font-semibold uppercase text-stone-400">
-                        transmitted
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => remove(c)}
-                        disabled={pendingId === c.id}
-                        className="text-xs font-medium text-red-600 hover:underline disabled:opacity-50"
-                      >
-                        Delete
-                      </button>
-                    )}
+                    <div className="flex items-center justify-end gap-3">
+                      {c.transmittal_id && (
+                        <span className="text-[10px] font-semibold uppercase text-stone-400">transmitted</span>
+                      )}
+                      {canEdit && (
+                        <button
+                          type="button"
+                          onClick={() => setEditing(c)}
+                          className="text-xs font-medium text-amber-700 hover:underline"
+                        >
+                          Edit
+                        </button>
+                      )}
+                      {canWrite && !c.transmittal_id && (
+                        <button
+                          type="button"
+                          onClick={() => remove(c)}
+                          disabled={pendingId === c.id}
+                          className="text-xs font-medium text-red-600 hover:underline disabled:opacity-50"
+                        >
+                          Delete
+                        </button>
+                      )}
+                    </div>
                   </td>
                 )}
               </tr>
@@ -155,6 +169,10 @@ export function CollectionsPanel({
 
       <Modal open={open} onClose={() => setOpen(false)} title={`Add collection — ${date}`}>
         <CollectionForm date={date} unitOptions={unitOptions} onDone={done} />
+      </Modal>
+
+      <Modal open={editing !== null} onClose={() => setEditing(null)} title="Edit collection (authorized correction)">
+        {editing && <EditCollectionForm collection={editing} onDone={() => { setEditing(null); router.refresh(); }} />}
       </Modal>
     </div>
   );

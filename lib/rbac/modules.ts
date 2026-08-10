@@ -72,6 +72,12 @@ export const SUPER_ROLES: readonly string[] = ["consultant"];
 
 /** Roles allowed to send access-invite / password-reset emails to users. */
 export const INVITE_ROLES: readonly string[] = ["admin", "consultant", "accounting"];
+
+/** Roles allowed to make justified, audited edits to collection entries. */
+export const COLLECTION_EDIT_ROLES: readonly string[] = ["admin", "managing_officer", "consultant", "accounting"];
+export function canEditCollections(roleKeys: readonly string[]): boolean {
+  return roleKeys.some((r) => COLLECTION_EDIT_ROLES.includes(r));
+}
 export function canInviteUsers(roleKeys: readonly string[]): boolean {
   return roleKeys.some((r) => INVITE_ROLES.includes(r));
 }
