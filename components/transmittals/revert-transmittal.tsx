@@ -1,7 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useActionState, useState } from "react";
 import { Modal } from "@/components/modal";
 import { revertTransmittal } from "@/app/(app)/transmittals/actions";
 
@@ -12,20 +11,11 @@ const inputCls =
 const labelCls = "mb-1 block text-xs font-medium text-stone-600";
 
 export function RevertTransmittal({ id, status, canRevert }: { id: string; status: string; canRevert: boolean }) {
-  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [state, formAction, pending] = useActionState<ActionResult | undefined, FormData>(
     revertTransmittal.bind(null, id),
     undefined,
   );
-
-  useEffect(() => {
-    if (state?.ok) {
-      setOpen(false);
-      router.push("/transmittals");
-      router.refresh();
-    }
-  }, [state, router]);
 
   if (!canRevert) return null;
   const locked = status === "reconciled";

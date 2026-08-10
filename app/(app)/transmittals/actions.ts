@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import {
   requireAuth,
   requireModuleWrite,
@@ -73,7 +74,7 @@ export async function revertTransmittal(
   });
   revalidatePath("/transmittals");
   revalidatePath("/collections");
-  return { ok: true };
+  redirect("/transmittals");
 }
 
 function firstHeld(roleKeys: string[], preferred: string[]): string {
