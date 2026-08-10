@@ -31,15 +31,27 @@ export default async function BuyersPage() {
   const canManageParams = user.roleKeys.some((r) => ["admin", "consultant"].includes(r));
   const canHardDelete = ["admin", "managing_officer", "consultant"].some((r) => user.roleKeys.includes(r));
 
-  const [buyers, unitOptions, params] = await Promise.all([
-    listBuyers(),
-    canWrite ? listUnitOptions() : Promise.resolve([]),
-    canManageParams ? listComputationParams() : Promise.resolve([]),
-  ]).catch((e: unknown) => {
-    // Log the real error to Vercel Function Logs so it can be traced by digest.
+  let buyers, unitOptions, params;
+  try {
+    [buyers, unitOptions, params] = await Promise.all([
+      listBuyers(),
+      canWrite ? listUnitOptions() : Promise.resolve([]),
+      canManageParams ? listComputationParams() : Promise.resolve([]),
+    ]);
+  } catch (e: unknown) {
     console.error("[buyers/page] data fetch failed:", e);
-    throw e;
-  });
+    const msg = e instanceof Error ? `${e.message}\n\n${e.stack ?? ""}` : String(e);
+    return (
+      <div className="mx-auto mt-8 max-w-2xl rounded-xl border border-rose-200 bg-rose-50 p-5">
+        <p className="font-semibold text-rose-900">Buyers page — production diagnostic</p>
+        <p className="mt-1 text-xs text-rose-700">
+          Role: {user.roleKeys.join(", ")} · actingAs: {user.actingAs ?? "none"} ·
+          canWrite: {String(canWrite)} · canManageParams: {String(canManageParams)}
+        </p>
+        <pre className="mt-2 overflow-auto whitespace-pre-wrap text-xs text-rose-800">{msg}</pre>
+      </div>
+    );
+  }
 
   return (
     <>
