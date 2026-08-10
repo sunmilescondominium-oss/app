@@ -37,7 +37,7 @@ export async function bulkDeleteCollections(ids: string[]): Promise<BulkResult> 
   return { ok: true, affected, skipped };
 }
 
-export type ActionResult = { ok: true } | { ok: false; error: string };
+export type ActionResult = { ok: true; pendingId?: string } | { ok: false; error: string };
 
 const CATS: readonly string[] = COLLECTION_CATEGORIES.map((c) => c.key);
 const PAYS: readonly string[] = PAYMENT_TYPES.map((p) => p.key);
@@ -125,14 +125,11 @@ export async function createCollection(
 }
 
 /**
- * Authorized, justified edit of a collection entry (error correction) — allowed
- * even after it has been transmitted. Multi-layer gate:
- *   1) the actor holds an authority role (COLLECTION_EDIT_ROLES);
- *   2) a justification is provided;
- *   3) the actor types the exact phrase "CONFIRM EDIT";
- *   4) the actor re-authenticates with their employee code + passcode.
- * The before/after snapshot + justification are recorded in collection_edits
- * and the audit log.
+ * Authorized, justified edit of a collection entry — creates a pending
+ * authorization request instead of executing immediately. A managing officer
+ * or consultant must approve it from their dashboard before the change
+ * is applied. The before snapshot and proposed patch are stored in the
+ * request payload so the approver can see exactly what will change.
  */
 export async function editCollection(
   id: string,
@@ -146,14 +143,11 @@ export async function editCollection(
 
   const gate = await verifyStepUp(user.userId, formData);
   if (!gate.ok) return gate;
-  const justification = gate.justification;
 
   const admin = createAdminClient();
-  // Load the current row (before snapshot).
   const { data: before, error: loadErr } = await admin.from("collections").select("*").eq("id", id).maybeSingle();
   if (loadErr || !before) return { ok: false, error: "Collection entry not found." };
 
-  // Parse the editable fields.
   const business_line = String(formData.get("business_line") ?? "").trim();
   const amountRaw = String(formData.get("amount") ?? "").trim();
   const amount = Number(amountRaw);
@@ -167,28 +161,27 @@ export async function editCollection(
   if (!PAYS.includes(payment_type)) return { ok: false, error: "Choose a payment type." };
 
   const patch = { business_line, amount, payment_type, or_number, remarks, ...(collected_on ? { collected_on } : {}) };
-  const { data: after, error: updErr } = await admin.from("collections").update(patch).eq("id", id).select("*").single();
-  if (updErr) return { ok: false, error: updErr.message };
+  const requesterRole = user.roleKeys.find((r) => COLLECTION_EDIT_ROLES.includes(r)) ?? user.roleKeys[0] ?? null;
 
-  const editorRole = user.roleKeys.find((r) => COLLECTION_EDIT_ROLES.includes(r)) ?? user.roleKeys[0] ?? null;
-  await admin.from("collection_edits").insert({
-    collection_id: id,
-    edited_by: user.userId,
-    editor_role: editorRole,
-    justification,
-    before_json: before,
-    after_json: after,
-  });
+  const { data: req, error: reqErr } = await admin.from("authorization_requests").insert({
+    type: "collection_edit",
+    entity_id: id,
+    requested_by: user.userId,
+    requester_role: requesterRole,
+    justification: gate.justification,
+    payload: { before, patch, collection_id: id, was_transmitted: Boolean(before.transmittal_id) },
+  }).select("id").single();
+  if (reqErr) return { ok: false, error: reqErr.message };
+
   await logAudit({
     actorUserId: user.userId,
     actorRoles: user.roleKeys,
-    action: "update",
-    entity: "collections",
-    entityId: id,
-    diff: { edited: true, justification, from: { amount: before.amount, or_number: before.or_number, payment_type: before.payment_type, business_line: before.business_line }, to: { amount, or_number, payment_type, business_line }, was_transmitted: Boolean(before.transmittal_id) },
+    action: "create",
+    entity: "authorization_requests",
+    entityId: req.id as string,
+    diff: { type: "collection_edit", collection_id: id, justification: gate.justification, was_transmitted: Boolean(before.transmittal_id) },
   });
-  revalidatePath("/collections");
-  return { ok: true };
+  return { ok: true, pendingId: req.id as string };
 }
 
 export async function deleteCollection(id: string): Promise<ActionResult> {

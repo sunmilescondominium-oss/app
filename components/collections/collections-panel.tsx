@@ -127,7 +127,14 @@ export function CollectionsPanel({
             {collections.map((c) => (
               <tr key={c.id} className="border-b border-stone-100 last:border-0">
                 {canWrite && <td className="no-print px-3 py-3">{!c.transmittal_id && <input type="checkbox" checked={selected.has(c.id)} onChange={() => toggleSel(c.id)} aria-label="Select" className="h-4 w-4 accent-amber-600" />}</td>}
-                <td className="px-4 py-3 font-medium text-stone-900">{c.or_number ?? "—"}</td>
+                <td className="px-4 py-3 font-medium text-stone-900">
+                  {c.or_number ?? "—"}
+                  {Number((c as unknown as Record<string, unknown>).reverted_count ?? 0) > 0 ? (
+                    <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800" title={`Previously in transmittal ${String((c as unknown as Record<string, unknown>).last_reverted_from_ref ?? "")}`}>
+                      reverted
+                    </span>
+                  ) : null}
+                </td>
                 <td className="px-4 py-3">{CAT_LABEL[c.business_line] ?? c.business_line}</td>
                 <td className="px-4 py-3">{c.unit?.unit_number ?? "—"}</td>
                 <td className="px-4 py-3">{PAY_LABEL[c.payment_type] ?? c.payment_type}</td>

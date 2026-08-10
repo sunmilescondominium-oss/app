@@ -5,7 +5,7 @@ import { editCollection } from "@/app/(app)/collections/actions";
 import { COLLECTION_CATEGORIES, PAYMENT_TYPES } from "@/lib/config";
 import type { Collection } from "@/lib/collections/types";
 
-type ActionResult = { ok: true } | { ok: false; error: string };
+type ActionResult = { ok: true; pendingId?: string } | { ok: false; error: string };
 
 const inputCls =
   "w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
@@ -16,8 +16,27 @@ export function EditCollectionForm({ collection, onDone }: { collection: Collect
   const [state, formAction, pending] = useActionState<ActionResult | undefined, FormData>(action, undefined);
 
   useEffect(() => {
-    if (state?.ok) onDone();
+    // Do NOT auto-close — show the "awaiting approval" state instead.
   }, [state, onDone]);
+
+  if (state?.ok) {
+    return (
+      <div className="space-y-4">
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+          <p className="font-semibold">Correction request submitted</p>
+          <p className="mt-1 text-xs text-emerald-700">
+            Your request is awaiting approval from a managing officer or consultant.
+            The change will be applied only after it is approved. Ref: <span className="font-mono">{state.pendingId?.slice(0, 8).toUpperCase() ?? "—"}</span>
+          </p>
+        </div>
+        <div className="flex justify-end">
+          <button type="button" onClick={onDone} className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100">
+            Close
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <form action={formAction} className="space-y-4">

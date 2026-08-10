@@ -9,6 +9,8 @@ import { Avatar } from "@/components/employees/avatar";
 import { LaunchPad } from "@/components/guide/launch-pad";
 import { getLang } from "@/lib/i18n-server";
 import { t, type Lang } from "@/lib/i18n";
+import { listPendingRequests } from "@/lib/authorizations/queries";
+import { PendingApprovals } from "@/components/authorizations/pending-approvals";
 
 export const metadata = { title: "Dashboard" };
 
@@ -52,7 +54,12 @@ export default async function DashboardPage() {
   const tr = (k: string) => t(lang, k);
   const has = (r: string) => user.roleKeys.includes(r);
   const can = (m: Parameters<typeof canReadModule>[1]) => canReadModule(user.roleKeys, m);
-  const [d, photoPath] = await Promise.all([getDashboard(), myPhotoPath(user.userId)]);
+  const isApprover = user.roleKeys.some((r) => ["admin", "managing_officer", "consultant"].includes(r));
+  const [d, photoPath, pendingRequests] = await Promise.all([
+    getDashboard(),
+    myPhotoPath(user.userId),
+    isApprover ? listPendingRequests() : Promise.resolve([]),
+  ]);
 
   const cards: React.ReactNode[] = [];
 
@@ -106,6 +113,11 @@ export default async function DashboardPage() {
       </div>
 
       <LaunchPad guides={guidesForRoles(user.roleKeys)} lang={lang} />
+      {pendingRequests.length > 0 && (
+        <div className="mb-4">
+          <PendingApprovals requests={pendingRequests} />
+        </div>
+      )}
       {cards.length === 0 ? (
         <p className="mt-4 text-sm text-stone-500">{tr("db_no_widgets")}</p>
       ) : (

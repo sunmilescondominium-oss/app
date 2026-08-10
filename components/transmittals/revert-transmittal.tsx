@@ -4,7 +4,7 @@ import { useActionState, useState } from "react";
 import { Modal } from "@/components/modal";
 import { revertTransmittal } from "@/app/(app)/transmittals/actions";
 
-type ActionResult = { ok: true } | { ok: false; error: string };
+type ActionResult = { ok: true; pendingId?: string } | { ok: false; error: string };
 
 const inputCls =
   "w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
@@ -36,6 +36,21 @@ export function RevertTransmittal({ id, status, canRevert }: { id: string; statu
           <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
             This transmittal is already <strong>reconciled</strong> — the books are closed. Coordinate any correction with accounting.
           </p>
+        ) : state?.ok ? (
+          <div className="space-y-4">
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+              <p className="font-semibold">Revert request submitted</p>
+              <p className="mt-1 text-xs text-emerald-700">
+                Your request is awaiting approval from a managing officer or consultant.
+                The transmittal will be reverted only after approval. Ref: <span className="font-mono">{state.pendingId?.slice(0, 8).toUpperCase()}</span>
+              </p>
+            </div>
+            <div className="flex justify-end">
+              <button type="button" onClick={() => setOpen(false)} className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100">
+                Close
+              </button>
+            </div>
+          </div>
         ) : (
           <form action={formAction} className="space-y-4">
             {isDeposited ? (

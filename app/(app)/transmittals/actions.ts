@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import {
   requireAuth,
   requireModuleWrite,
@@ -14,7 +13,7 @@ import { todayManila } from "@/lib/collections/summary";
 import { verifyStepUp } from "@/lib/auth/step-up";
 import { COLLECTION_EDIT_ROLES } from "@/lib/rbac/modules";
 
-export type ActionResult = { ok: true } | { ok: false; error: string };
+export type ActionResult = { ok: true; pendingId?: string } | { ok: false; error: string };
 
 /**
  * Revert a transmittal back to loose collections (error in payment application).
@@ -35,9 +34,8 @@ export async function revertTransmittal(
   }
 
   const admin = createAdminClient();
-  const { data: t } = await admin.from("transmittals").select("*").eq("id", id).maybeSingle();
+  const { data: t } = await admin.from("transmittals").select("id, status, total_amount, transmittal_date").eq("id", id).maybeSingle();
   if (!t) return { ok: false, error: "Transmittal not found." };
-  // Reconciled transmittals are locked — the books are already closed.
   if (t.status === "reconciled") {
     return { ok: false, error: "This transmittal is already reconciled — the books are closed. Coordinate any correction with accounting." };
   }
@@ -45,36 +43,38 @@ export async function revertTransmittal(
   const gate = await verifyStepUp(user.userId, formData);
   if (!gate.ok) return gate;
 
-  // Un-link the collections so they return to the editable collections list.
-  const { data: freed } = await admin.from("collections").update({ transmittal_id: null }).eq("transmittal_id", id).select("id");
-  const freedCount = freed?.length ?? 0;
+  // Count how many collections would be freed so the approver can see the impact.
+  const { data: colRows } = await admin.from("collections").select("id").eq("transmittal_id", id);
+  const collectionCount = colRows?.length ?? 0;
 
-  // If deposited, also void the linked bank transaction so banking records stay clean.
-  let bankVoided = false;
-  if (t.status === "deposited") {
-    const { data: btRows } = await admin.from("bank_transactions").select("id").eq("transmittal_id", id);
-    if (btRows && btRows.length > 0) {
-      await admin.from("bank_transactions").update({ status: "void", memo: `Voided — transmittal ${id.slice(0, 8).toUpperCase()} reverted by ${user.userId}` }).eq("transmittal_id", id);
-      bankVoided = true;
-    }
-  }
+  const requesterRole = user.roleKeys.find((r) => [...COLLECTION_EDIT_ROLES].includes(r)) ?? user.roleKeys[0] ?? null;
 
-  // Remove custody trail + the transmittal itself.
-  await admin.from("transmittal_custody").delete().eq("transmittal_id", id);
-  const { error: delErr } = await admin.from("transmittals").delete().eq("id", id);
-  if (delErr) return { ok: false, error: delErr.message };
+  const { data: req, error: reqErr } = await admin.from("authorization_requests").insert({
+    type: "transmittal_revert",
+    entity_id: id,
+    requested_by: user.userId,
+    requester_role: requesterRole,
+    justification: gate.justification,
+    payload: {
+      transmittal_id: id,
+      transmittal_ref: id.slice(0, 8).toUpperCase(),
+      transmittal_date: t.transmittal_date,
+      status_was: t.status,
+      total_amount: t.total_amount,
+      collection_count: collectionCount,
+    },
+  }).select("id").single();
+  if (reqErr) return { ok: false, error: reqErr.message };
 
   await logAudit({
     actorUserId: user.userId,
     actorRoles: user.roleKeys,
-    action: "delete",
-    entity: "transmittals",
-    entityId: id,
-    diff: { reverted: true, justification: gate.justification, status_was: t.status, total_amount: t.total_amount, collections_freed: freedCount, bank_transaction_voided: bankVoided },
+    action: "create",
+    entity: "authorization_requests",
+    entityId: req.id as string,
+    diff: { type: "transmittal_revert", transmittal_id: id, justification: gate.justification, status_was: t.status },
   });
-  revalidatePath("/transmittals");
-  revalidatePath("/collections");
-  redirect("/transmittals");
+  return { ok: true, pendingId: req.id as string };
 }
 
 function firstHeld(roleKeys: string[], preferred: string[]): string {
