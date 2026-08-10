@@ -26,85 +26,88 @@ const STATUS_LABEL = Object.fromEntries(BUYER_STATUSES.map((s) => [s.key, s.labe
 const SCHEME_LABEL = Object.fromEntries(PAYMENT_SCHEMES.map((s) => [s.key, s.label]));
 
 export default async function BuyersPage() {
-  const user = await requireModule("buyers");
-  const canWrite = canWriteModule(user.roleKeys, "buyers");
-  const canManageParams = user.roleKeys.some((r) => ["admin", "consultant"].includes(r));
-  const canHardDelete = ["admin", "managing_officer", "consultant"].some((r) => user.roleKeys.includes(r));
-
-  let buyers, unitOptions, params;
   try {
-    [buyers, unitOptions, params] = await Promise.all([
+    const user = await requireModule("buyers");
+    const canWrite = canWriteModule(user.roleKeys, "buyers");
+    const canManageParams = user.roleKeys.some((r) => ["admin", "consultant"].includes(r));
+    const canHardDelete = ["admin", "managing_officer", "consultant"].some((r) => user.roleKeys.includes(r));
+
+    const [buyers, unitOptions, params] = await Promise.all([
       listBuyers(),
       canWrite ? listUnitOptions() : Promise.resolve([]),
       canManageParams ? listComputationParams() : Promise.resolve([]),
     ]);
+
+    return (
+      <>
+        <PageHeader
+          backHref="/dashboard"
+          title="Buyers"
+          subtitle="Buyer accounts, Statement of Account & payment history"
+          badge={<Badge tone="green">Live</Badge>}
+        />
+
+        <BuyersToolbar
+          unitOptions={unitOptions}
+          params={params}
+          canWrite={canWrite}
+          canManageParams={canManageParams}
+        />
+
+        {canWrite && (
+          <div className="mb-4">
+            <CsvImporter
+              title="Import buyers from CSV"
+              templateName="buyers_template.csv"
+              templateCsv={BUYERS_TEMPLATE}
+              requiredHeaders={["unit_number", "ref_pin"]}
+              commit={bulkImportBuyers}
+            />
+          </div>
+        )}
+
+        <TableSearch placeholder="Search buyers by unit, name, status…">
+        <AdjustableColumns storageKey="buyers">
+        <BulkTable
+          canWrite={canWrite}
+          canHardDelete={canHardDelete}
+          deactivate={(ids) => bulkSetBuyersActive(ids, false)}
+          hardDelete={bulkDeleteBuyers}
+          entityLabel="buyer(s)"
+          emptyText={`No buyers yet.${canWrite ? " Add one to begin." : ""}`}
+          columns={[{ header: "Unit" }, { header: "Buyer" }, { header: "Scheme" }, { header: "Status" }, { header: "Balance", align: "right" }, { header: "Next due" }]}
+          rows={buyers.map((b) => ({
+            id: b.id,
+            cells: [
+              b.unit?.unit_number ?? "—",
+              <Link key="n" href={`/buyers/${b.id}`} className="font-medium text-amber-700 hover:underline">{b.contact_label}</Link>,
+              SCHEME_LABEL[b.payment_scheme] ?? b.payment_scheme,
+              <span key="s" className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_CLS[b.payment_status] ?? "bg-stone-100 text-stone-700"}`}>{STATUS_LABEL[b.payment_status] ?? b.payment_status}</span>,
+              b.contract_balance != null ? peso(b.contract_balance) : "—",
+              b.next_due_date ?? "—",
+            ],
+          }))}
+        />
+        </AdjustableColumns>
+        </TableSearch>
+      </>
+    );
   } catch (e: unknown) {
-    console.error("[buyers/page] data fetch failed:", e);
-    const msg = e instanceof Error ? `${e.message}\n\n${e.stack ?? ""}` : String(e);
+    // Re-throw Next.js redirect/not-found errors so they work normally.
+    if (e instanceof Error && typeof (e as { digest?: string }).digest === "string" &&
+        ((e as { digest?: string }).digest ?? "").startsWith("NEXT_")) {
+      throw e;
+    }
+    console.error("[buyers/page] UNCAUGHT ERROR:", e);
+    const msg = e instanceof Error ? `${e.name}: ${e.message}\n\n${e.stack ?? ""}` : String(e);
     return (
       <div className="mx-auto mt-8 max-w-2xl rounded-xl border border-rose-200 bg-rose-50 p-5">
         <p className="font-semibold text-rose-900">Buyers page — production diagnostic</p>
         <p className="mt-1 text-xs text-rose-700">
-          Role: {user.roleKeys.join(", ")} · actingAs: {user.actingAs ?? "none"} ·
-          canWrite: {String(canWrite)} · canManageParams: {String(canManageParams)}
+          Error caught at: {new Date().toISOString()}
         </p>
-        <pre className="mt-2 overflow-auto whitespace-pre-wrap text-xs text-rose-800">{msg}</pre>
+        <pre className="mt-2 overflow-auto whitespace-pre-wrap rounded-lg bg-white/70 px-3 py-2 text-xs text-rose-900">{msg}</pre>
       </div>
     );
   }
-
-  return (
-    <>
-      <PageHeader
-        backHref="/dashboard"
-        title="Buyers"
-        subtitle="Buyer accounts, Statement of Account & payment history"
-        badge={<Badge tone="green">Live</Badge>}
-      />
-
-      <BuyersToolbar
-        unitOptions={unitOptions}
-        params={params}
-        canWrite={canWrite}
-        canManageParams={canManageParams}
-      />
-
-      {canWrite && (
-        <div className="mb-4">
-          <CsvImporter
-            title="Import buyers from CSV"
-            templateName="buyers_template.csv"
-            templateCsv={BUYERS_TEMPLATE}
-            requiredHeaders={["unit_number", "ref_pin"]}
-            commit={bulkImportBuyers}
-          />
-        </div>
-      )}
-
-      <TableSearch placeholder="Search buyers by unit, name, status…">
-      <AdjustableColumns storageKey="buyers">
-      <BulkTable
-        canWrite={canWrite}
-        canHardDelete={canHardDelete}
-        deactivate={(ids) => bulkSetBuyersActive(ids, false)}
-        hardDelete={bulkDeleteBuyers}
-        entityLabel="buyer(s)"
-        emptyText={`No buyers yet.${canWrite ? " Add one to begin." : ""}`}
-        columns={[{ header: "Unit" }, { header: "Buyer" }, { header: "Scheme" }, { header: "Status" }, { header: "Balance", align: "right" }, { header: "Next due" }]}
-        rows={buyers.map((b) => ({
-          id: b.id,
-          cells: [
-            b.unit?.unit_number ?? "—",
-            <Link key="n" href={`/buyers/${b.id}`} className="font-medium text-amber-700 hover:underline">{b.contact_label}</Link>,
-            SCHEME_LABEL[b.payment_scheme] ?? b.payment_scheme,
-            <span key="s" className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_CLS[b.payment_status] ?? "bg-stone-100 text-stone-700"}`}>{STATUS_LABEL[b.payment_status] ?? b.payment_status}</span>,
-            b.contract_balance != null ? peso(b.contract_balance) : "—",
-            b.next_due_date ?? "—",
-          ],
-        }))}
-      />
-      </AdjustableColumns>
-      </TableSearch>
-    </>
-  );
 }
