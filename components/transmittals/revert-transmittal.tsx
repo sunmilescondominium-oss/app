@@ -28,7 +28,8 @@ export function RevertTransmittal({ id, status, canRevert }: { id: string; statu
   }, [state, router]);
 
   if (!canRevert) return null;
-  const locked = status === "deposited" || status === "reconciled";
+  const locked = status === "reconciled";
+  const isDeposited = status === "deposited";
 
   return (
     <div className="no-print">
@@ -43,13 +44,19 @@ export function RevertTransmittal({ id, status, canRevert }: { id: string; statu
       <Modal open={open} onClose={() => setOpen(false)} title="Revert transmittal to collections">
         {locked ? (
           <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
-            This transmittal is already <strong>{status}</strong> — it can no longer be reverted here. Coordinate the correction with accounting/banking.
+            This transmittal is already <strong>reconciled</strong> — the books are closed. Coordinate any correction with accounting.
           </p>
         ) : (
           <form action={formAction} className="space-y-4">
-            <p className="rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-800">
-              This un-links every collection from this transmittal (returning them to the editable collections list) and deletes the transmittal. Use only to fix an error in payment application. The action is logged.
-            </p>
+            {isDeposited ? (
+              <p className="rounded-lg bg-red-100 px-3 py-2 text-xs font-medium text-red-900">
+                ⚠ This transmittal has already been <strong>deposited</strong>. Reverting will void the linked bank transaction and return all collections to the editable list. This action is irreversible and fully logged. Only proceed if there was an error in payment application.
+              </p>
+            ) : (
+              <p className="rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-800">
+                This un-links every collection from this transmittal (returning them to the editable collections list) and deletes the transmittal. Use only to fix an error in payment application. The action is logged.
+              </p>
+            )}
 
             <div>
               <label className={labelCls}>Justification *</label>
