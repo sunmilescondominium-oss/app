@@ -1,12 +1,13 @@
 import { notFound } from "next/navigation";
 import { requireModule } from "@/lib/auth/dal";
-import { canWriteModule, canReadModule } from "@/lib/rbac/modules";
+import { canWriteModule, canReadModule, canEditCollections } from "@/lib/rbac/modules";
 import { getTransmittal, listCustody } from "@/lib/collections/queries";
 import { summarizeCollections, peso } from "@/lib/collections/summary";
 import { canActOnStage, nextStage, type CustodyStage } from "@/lib/collections/custody";
 import { listAccountOptions } from "@/lib/banking/queries";
 import { APP_BRAND, APP_BRAND_SHORT, PHP_DENOMINATIONS } from "@/lib/config";
 import { TransmittalActions } from "@/components/transmittals/transmittal-actions";
+import { RevertTransmittal } from "@/components/transmittals/revert-transmittal";
 import { CustodyPanel } from "@/components/transmittals/custody-panel";
 import { Breadcrumb } from "@/components/ui";
 import { listDocPhotos } from "@/lib/docs/photos";
@@ -50,6 +51,7 @@ export default async function TransmittalDetailPage({
   const canReconcile = user.roleKeys.some((r) =>
     ["accounting", "managing_officer"].includes(r),
   );
+  const canRevert = canEditCollections(user.roleKeys);
 
   const signatures = [
     { title: "Counted by", role: t.counted_by_role },
@@ -195,7 +197,7 @@ export default async function TransmittalDetailPage({
         <PhotoDocPanel entity="transmittal" entityId={t.id} kind="passbook" title="Passbook photo" label="Transmittal · passbook" canWrite={canWrite} canView={canReadModule(user.roleKeys, "media")} photos={docPhotos} />
       </div>
 
-      <div className="no-print mt-4">
+      <div className="no-print mt-4 flex flex-wrap items-center gap-3">
         <TransmittalActions
           id={t.id}
           status={t.status}
@@ -203,6 +205,7 @@ export default async function TransmittalDetailPage({
           canReconcile={canReconcile}
           passbookReturned={Boolean(t.passbook_returned_on)}
         />
+        <RevertTransmittal id={t.id} status={t.status} canRevert={canRevert} />
       </div>
     </>
   );

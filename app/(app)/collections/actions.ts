@@ -5,7 +5,7 @@ import { requireAuth, requireModuleWrite, userHasAnyRole } from "@/lib/auth/dal"
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit";
-import { hashPasscode } from "@/lib/employees/passcode";
+import { verifyStepUp } from "@/lib/auth/step-up";
 import { COLLECTION_EDIT_ROLES } from "@/lib/rbac/modules";
 import { COLLECTION_CATEGORIES, PAYMENT_TYPES } from "@/lib/config";
 import type { BulkResult } from "@/lib/data/bulk";
@@ -144,29 +144,11 @@ export async function editCollection(
     return { ok: false, error: "You don't have the authority to edit a collection." };
   }
 
-  const justification = String(formData.get("justification") ?? "").trim();
-  const confirmText = String(formData.get("confirm_text") ?? "").trim();
-  const employeeNo = String(formData.get("employee_no") ?? "").trim();
-  const passcode = String(formData.get("passcode") ?? "").trim();
+  const gate = await verifyStepUp(user.userId, formData);
+  if (!gate.ok) return gate;
+  const justification = gate.justification;
 
-  if (justification.length < 10) return { ok: false, error: "Enter a clear justification (at least 10 characters)." };
-  if (confirmText !== "CONFIRM EDIT") return { ok: false, error: 'Type the phrase CONFIRM EDIT exactly to proceed.' };
-  if (!employeeNo || !passcode) return { ok: false, error: "Enter your employee code and passcode." };
-
-  // Re-authenticate the actor: employee code + passcode must match THEIR profile.
   const admin = createAdminClient();
-  const { data: prof } = await admin
-    .from("profiles")
-    .select("employee_no, passcode_hash")
-    .eq("id", user.userId)
-    .maybeSingle();
-  if (!prof?.employee_no || !prof.passcode_hash) {
-    return { ok: false, error: "Your account has no employee code/passcode set. Ask an admin to set one." };
-  }
-  if (prof.employee_no !== employeeNo || hashPasscode(employeeNo, passcode) !== prof.passcode_hash) {
-    return { ok: false, error: "Employee code or passcode is incorrect." };
-  }
-
   // Load the current row (before snapshot).
   const { data: before, error: loadErr } = await admin.from("collections").select("*").eq("id", id).maybeSingle();
   if (loadErr || !before) return { ok: false, error: "Collection entry not found." };

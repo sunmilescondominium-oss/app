@@ -10,8 +10,60 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit";
 import { todayManila } from "@/lib/collections/summary";
+import { verifyStepUp } from "@/lib/auth/step-up";
+import { COLLECTION_EDIT_ROLES } from "@/lib/rbac/modules";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
+
+/**
+ * Revert a transmittal back to loose collections (error in payment application).
+ * Un-links every collection from the transmittal so they become editable again
+ * and deletes the transmittal. Gated exactly like a collection edit: authority
+ * role + justification + "CONFIRM EDIT" + employee-code/passcode re-auth. Only
+ * allowed before the money is deposited (draft/submitted) to avoid breaking
+ * banking records; deposited/reconciled transmittals are blocked.
+ */
+export async function revertTransmittal(
+  id: string,
+  _prev: ActionResult | undefined,
+  formData: FormData,
+): Promise<ActionResult> {
+  const user = await requireAuth();
+  if (!userHasAnyRole(user, [...COLLECTION_EDIT_ROLES])) {
+    return { ok: false, error: "You don't have the authority to revert a transmittal." };
+  }
+
+  const admin = createAdminClient();
+  const { data: t } = await admin.from("transmittals").select("*").eq("id", id).maybeSingle();
+  if (!t) return { ok: false, error: "Transmittal not found." };
+  if (t.status === "deposited" || t.status === "reconciled") {
+    return { ok: false, error: "This transmittal is already deposited/reconciled — it can't be reverted. Handle the correction with accounting/banking." };
+  }
+
+  const gate = await verifyStepUp(user.userId, formData);
+  if (!gate.ok) return gate;
+
+  // Un-link the collections so they return to the editable collections list.
+  const { data: freed } = await admin.from("collections").update({ transmittal_id: null }).eq("transmittal_id", id).select("id");
+  const freedCount = freed?.length ?? 0;
+
+  // Remove custody trail + the transmittal itself.
+  await admin.from("transmittal_custody").delete().eq("transmittal_id", id);
+  const { error: delErr } = await admin.from("transmittals").delete().eq("id", id);
+  if (delErr) return { ok: false, error: delErr.message };
+
+  await logAudit({
+    actorUserId: user.userId,
+    actorRoles: user.roleKeys,
+    action: "delete",
+    entity: "transmittals",
+    entityId: id,
+    diff: { reverted: true, justification: gate.justification, status_was: t.status, total_amount: t.total_amount, collections_freed: freedCount },
+  });
+  revalidatePath("/transmittals");
+  revalidatePath("/collections");
+  return { ok: true };
+}
 
 function firstHeld(roleKeys: string[], preferred: string[]): string {
   return preferred.find((r) => roleKeys.includes(r)) ?? preferred[0];
