@@ -27,11 +27,29 @@ export async function listPendingRequests(): Promise<AuthRequest[]> {
   const admin = createAdminClient();
   const { data } = await admin
     .from("authorization_requests")
-    .select("*, requester:profiles!authorization_requests_requested_by_fkey(display_label)")
+    .select("*")
     .eq("status", "pending")
     .gt("expires_at", new Date().toISOString())
     .order("created_at", { ascending: false });
-  return (data ?? []).map((r) => mapRequest(r as Record<string, unknown>));
+
+  const rows = (data ?? []) as Record<string, unknown>[];
+
+  // Fetch display labels with a separate query (no direct FK to profiles).
+  const ids = [...new Set(rows.map((r) => r.requested_by).filter(Boolean))] as string[];
+  const labelMap = new Map<string, string>();
+  if (ids.length > 0) {
+    const { data: profs } = await admin
+      .from("profiles")
+      .select("id, display_label")
+      .in("id", ids);
+    for (const p of (profs ?? []) as { id: string; display_label: string | null }[]) {
+      if (p.display_label) labelMap.set(p.id, p.display_label);
+    }
+  }
+
+  return rows.map((r) =>
+    mapRequest({ ...r, requester: { display_label: labelMap.get(r.requested_by as string) ?? null } }),
+  );
 }
 
 export async function getRequest(id: string): Promise<AuthRequest | null> {

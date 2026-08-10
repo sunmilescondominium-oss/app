@@ -35,7 +35,11 @@ export default async function BuyersPage() {
     listBuyers(),
     canWrite ? listUnitOptions() : Promise.resolve([]),
     canManageParams ? listComputationParams() : Promise.resolve([]),
-  ]);
+  ]).catch((e: unknown) => {
+    // Log the real error to Vercel Function Logs so it can be traced by digest.
+    console.error("[buyers/page] data fetch failed:", e);
+    throw e;
+  });
 
   return (
     <>
