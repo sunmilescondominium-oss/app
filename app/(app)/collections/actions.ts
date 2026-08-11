@@ -125,11 +125,16 @@ export async function createCollection(
 }
 
 /**
- * Authorized, justified edit of a collection entry — creates a pending
- * authorization request instead of executing immediately. A managing officer
- * or consultant must approve it from their dashboard before the change
- * is applied. The before snapshot and proposed patch are stored in the
- * request payload so the approver can see exactly what will change.
+ * Edit a collection entry.
+ *
+ * - If the collection is NOT in a transmittal (transmittal_id is null):
+ *   applies the change directly and logs an audit entry. No approval needed
+ *   because the collection is already free (e.g. after a revert).
+ *
+ * - If the collection IS locked in a live transmittal: creates a pending
+ *   authorization request that a managing officer / consultant must approve.
+ *   The step-up credentials (justification, employee code, passcode,
+ *   CONFIRM EDIT) are required in that case.
  */
 export async function editCollection(
   id: string,
@@ -140,9 +145,6 @@ export async function editCollection(
   if (!userHasAnyRole(user, [...COLLECTION_EDIT_ROLES])) {
     return { ok: false, error: "You don't have the authority to edit a collection." };
   }
-
-  const gate = await verifyStepUp(user.userId, formData);
-  if (!gate.ok) return gate;
 
   const admin = createAdminClient();
   const { data: before, error: loadErr } = await admin.from("collections").select("*").eq("id", id).maybeSingle();
@@ -161,6 +163,37 @@ export async function editCollection(
   if (!PAYS.includes(payment_type)) return { ok: false, error: "Choose a payment type." };
 
   const patch = { business_line, amount, payment_type, or_number, remarks, ...(collected_on ? { collected_on } : {}) };
+
+  // --- Free collection (not in a transmittal): apply directly ---
+  if (!before.transmittal_id) {
+    const { error: updErr } = await admin.from("collections").update(patch).eq("id", id);
+    if (updErr) return { ok: false, error: updErr.message };
+
+    await admin.from("collection_edits").insert({
+      collection_id: id,
+      edited_by: user.userId,
+      editor_role: user.roleKeys[0] ?? null,
+      justification: "(direct edit — collection was not in a transmittal)",
+      before_json: before,
+      after_json: { ...before, ...patch },
+    });
+
+    await logAudit({
+      actorUserId: user.userId,
+      actorRoles: user.roleKeys,
+      action: "update",
+      entity: "collections",
+      entityId: id,
+      diff: { direct_edit: true, from: { amount: before.amount, or_number: before.or_number, payment_type: before.payment_type, business_line: before.business_line }, to: patch },
+    });
+    revalidatePath("/collections");
+    return { ok: true };
+  }
+
+  // --- Transmitted collection: authorization gate ---
+  const gate = await verifyStepUp(user.userId, formData);
+  if (!gate.ok) return gate;
+
   const requesterRole = user.roleKeys.find((r) => COLLECTION_EDIT_ROLES.includes(r)) ?? user.roleKeys[0] ?? null;
 
   const { data: req, error: reqErr } = await admin.from("authorization_requests").insert({
@@ -169,7 +202,7 @@ export async function editCollection(
     requested_by: user.userId,
     requester_role: requesterRole,
     justification: gate.justification,
-    payload: { before, patch, collection_id: id, was_transmitted: Boolean(before.transmittal_id) },
+    payload: { before, patch, collection_id: id, was_transmitted: true },
   }).select("id").single();
   if (reqErr) return { ok: false, error: reqErr.message };
 
@@ -179,7 +212,7 @@ export async function editCollection(
     action: "create",
     entity: "authorization_requests",
     entityId: req.id as string,
-    diff: { type: "collection_edit", collection_id: id, justification: gate.justification, was_transmitted: Boolean(before.transmittal_id) },
+    diff: { type: "collection_edit", collection_id: id, justification: gate.justification, was_transmitted: true },
   });
   return { ok: true, pendingId: req.id as string };
 }

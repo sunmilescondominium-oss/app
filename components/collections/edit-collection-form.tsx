@@ -19,15 +19,23 @@ export function EditCollectionForm({ collection, onDone }: { collection: Collect
     // Do NOT auto-close — show the "awaiting approval" state instead.
   }, [state, onDone]);
 
+  const isTransmitted = Boolean(collection.transmittal_id);
+
   if (state?.ok) {
     return (
       <div className="space-y-4">
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
-          <p className="font-semibold">Correction request submitted</p>
-          <p className="mt-1 text-xs text-emerald-700">
-            Your request is awaiting approval from a managing officer or consultant.
-            The change will be applied only after it is approved. Ref: <span className="font-mono">{state.pendingId?.slice(0, 8).toUpperCase() ?? "—"}</span>
-          </p>
+          {isTransmitted ? (
+            <>
+              <p className="font-semibold">Correction request submitted</p>
+              <p className="mt-1 text-xs text-emerald-700">
+                Your request is awaiting approval from a managing officer or consultant.
+                The change will be applied only after it is approved. Ref: <span className="font-mono">{state.pendingId?.slice(0, 8).toUpperCase() ?? "—"}</span>
+              </p>
+            </>
+          ) : (
+            <p className="font-semibold">Collection updated successfully.</p>
+          )}
         </div>
         <div className="flex justify-end">
           <button type="button" onClick={onDone} className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100">
@@ -40,9 +48,13 @@ export function EditCollectionForm({ collection, onDone }: { collection: Collect
 
   return (
     <form action={formAction} className="space-y-4">
-      {collection.transmittal_id && (
+      {isTransmitted ? (
         <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
-          ⚠ This entry was already transmitted. Editing it is a correction and will be recorded.
+          ⚠ This entry is currently in a transmittal. Editing it is a correction and requires approval before it is applied.
+        </p>
+      ) : (
+        <p className="rounded-lg bg-stone-50 px-3 py-2 text-xs text-stone-600">
+          This collection is not in a transmittal — changes will be saved immediately.
         </p>
       )}
 
@@ -77,28 +89,30 @@ export function EditCollectionForm({ collection, onDone }: { collection: Collect
         </div>
       </div>
 
-      {/* Authorization gate */}
-      <div className="space-y-3 rounded-xl border border-rose-200 bg-rose-50/60 p-3">
-        <p className="text-xs font-semibold uppercase tracking-wide text-rose-700">Authorization required</p>
-        <div>
-          <label className={labelCls}>Justification for this edit *</label>
-          <textarea name="justification" required rows={2} placeholder="Why is this correction needed?" className={inputCls} />
+      {/* Authorization gate — only for collections currently locked in a transmittal */}
+      {isTransmitted && (
+        <div className="space-y-3 rounded-xl border border-rose-200 bg-rose-50/60 p-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-rose-700">Authorization required</p>
+          <div>
+            <label className={labelCls}>Justification for this edit *</label>
+            <textarea name="justification" required rows={2} placeholder="Why is this correction needed?" className={inputCls} />
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div>
+              <label className={labelCls}>Employee code *</label>
+              <input name="employee_no" required autoComplete="off" className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Passcode *</label>
+              <input name="passcode" type="password" required autoComplete="off" className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Type <span className="font-mono font-semibold">CONFIRM EDIT</span> *</label>
+              <input name="confirm_text" required autoComplete="off" placeholder="CONFIRM EDIT" className={inputCls} />
+            </div>
+          </div>
         </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <div>
-            <label className={labelCls}>Employee code *</label>
-            <input name="employee_no" required autoComplete="off" className={inputCls} />
-          </div>
-          <div>
-            <label className={labelCls}>Passcode *</label>
-            <input name="passcode" type="password" required autoComplete="off" className={inputCls} />
-          </div>
-          <div>
-            <label className={labelCls}>Type <span className="font-mono font-semibold">CONFIRM EDIT</span> *</label>
-            <input name="confirm_text" required autoComplete="off" placeholder="CONFIRM EDIT" className={inputCls} />
-          </div>
-        </div>
-      </div>
+      )}
 
       {state && !state.ok && (
         <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{state.error}</p>
@@ -109,7 +123,7 @@ export function EditCollectionForm({ collection, onDone }: { collection: Collect
           Cancel
         </button>
         <button type="submit" disabled={pending} className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-60">
-          {pending ? "Saving…" : "Save correction"}
+          {pending ? "Saving…" : isTransmitted ? "Request correction" : "Save changes"}
         </button>
       </div>
     </form>

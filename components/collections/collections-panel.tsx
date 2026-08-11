@@ -178,7 +178,7 @@ export function CollectionsPanel({
         <CollectionForm date={date} unitOptions={unitOptions} onDone={done} />
       </Modal>
 
-      <Modal open={editing !== null} onClose={() => setEditing(null)} title="Edit collection (authorized correction)">
+      <Modal open={editing !== null} onClose={() => setEditing(null)} title={editing?.transmittal_id ? "Edit collection (authorized correction)" : "Edit collection"}>
         {editing && <EditCollectionForm collection={editing} onDone={() => { setEditing(null); router.refresh(); }} />}
       </Modal>
     </div>
