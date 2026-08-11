@@ -22,7 +22,7 @@ export function HotelBoard({
   globalTax,
   roomTax,
   canWrite,
-  isAdmin,
+  canManageConfig,
   canManageTax,
 }: {
   board: RoomBoardItem[];
@@ -32,7 +32,7 @@ export function HotelBoard({
   globalTax: TaxSetting;
   roomTax: RoomTaxRow[];
   canWrite: boolean;
-  isAdmin: boolean;
+  canManageConfig: boolean;
   canManageTax: boolean;
 }) {
   const router = useRouter();
@@ -47,7 +47,7 @@ export function HotelBoard({
   return (
     <div>
       <CheckoutAlarm count={pendingCheckouts} />
-      {(isAdmin || canManageTax) && (
+      {(canManageConfig || canManageTax) && (
         <div className="mb-3">
           <button
             type="button"
@@ -77,7 +77,7 @@ export function HotelBoard({
 
       <Modal open={modal?.kind === "config"} onClose={() => setModal(null)} title="Hotel settings">
         <div className="space-y-8">
-          {isAdmin && (
+          {canManageConfig && (
             <>
               <RatePromoManager ratePlans={ratePlans} promos={promos} onDone={done} />
               <div className="border-t border-stone-200 pt-6">

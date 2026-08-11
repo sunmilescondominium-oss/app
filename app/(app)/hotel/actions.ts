@@ -321,14 +321,17 @@ export async function issueRoomCheck(
   return { ok: true };
 }
 
-// ---- rate plan / promo management (admin) --------------------------------
+// ---- rate plan / promo management (admin + consultant) -------------------
+
+const CONFIG_ROLES = ["admin", "consultant"] as const;
+
 export async function createRatePlan(
   _prev: ActionResult | undefined,
   formData: FormData,
 ): Promise<ActionResult> {
   const user = await requireAuth();
-  if (!userHasAnyRole(user, ["admin"]))
-    return { ok: false, error: "Only an admin can manage rate plans." };
+  if (!userHasAnyRole(user, [...CONFIG_ROLES]))
+    return { ok: false, error: "Only admin or consultant can manage rate plans." };
   const supabase = await createClient();
 
   const name = String(formData.get("name") ?? "").trim();
@@ -340,10 +343,42 @@ export async function createRatePlan(
 
   const { error } = await supabase.from("rate_plans").insert({ name, base_hours, base_rate, extra_hour_rate });
   if (error) {
-    if (/duplicate|unique/i.test(error.message)) return { ok: false, error: "A plan with that name exists." };
+    if (/duplicate|unique/i.test(error.message)) return { ok: false, error: "A plan with that name already exists." };
     return { ok: false, error: error.message };
   }
   await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "create", entity: "rate_plans", entityId: name });
+  revalidatePath("/hotel");
+  return { ok: true };
+}
+
+export async function updateRatePlan(id: string, formData: FormData): Promise<ActionResult> {
+  const user = await requireAuth();
+  if (!userHasAnyRole(user, [...CONFIG_ROLES]))
+    return { ok: false, error: "Only admin or consultant can manage rate plans." };
+  const supabase = await createClient();
+
+  const name = String(formData.get("name") ?? "").trim();
+  const base_hours = parseInt(String(formData.get("base_hours") ?? "3"), 10) || 3;
+  const base_rate = Number(String(formData.get("base_rate") ?? ""));
+  const extra_hour_rate = Number(String(formData.get("extra_hour_rate") ?? "0")) || 0;
+  if (!name) return { ok: false, error: "Name is required." };
+  if (!Number.isFinite(base_rate) || base_rate < 0) return { ok: false, error: "Enter a base rate." };
+
+  const { error } = await supabase.from("rate_plans").update({ name, base_hours, base_rate, extra_hour_rate }).eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "update", entity: "rate_plans", entityId: id, diff: { name, base_hours, base_rate, extra_hour_rate } });
+  revalidatePath("/hotel");
+  return { ok: true };
+}
+
+export async function deactivateRatePlan(id: string): Promise<ActionResult> {
+  const user = await requireAuth();
+  if (!userHasAnyRole(user, [...CONFIG_ROLES]))
+    return { ok: false, error: "Only admin or consultant can manage rate plans." };
+  const supabase = await createClient();
+  const { error } = await supabase.from("rate_plans").update({ is_active: false }).eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "delete", entity: "rate_plans", entityId: id });
   revalidatePath("/hotel");
   return { ok: true };
 }
@@ -353,8 +388,8 @@ export async function createPromo(
   formData: FormData,
 ): Promise<ActionResult> {
   const user = await requireAuth();
-  if (!userHasAnyRole(user, ["admin"]))
-    return { ok: false, error: "Only an admin can manage promos." };
+  if (!userHasAnyRole(user, [...CONFIG_ROLES]))
+    return { ok: false, error: "Only admin or consultant can manage promos." };
   const supabase = await createClient();
 
   const name = String(formData.get("name") ?? "").trim();
@@ -366,6 +401,37 @@ export async function createPromo(
   const { error } = await supabase.from("promos").insert({ name, disc_type, disc_value });
   if (error) return { ok: false, error: error.message };
   await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "create", entity: "promos", entityId: name });
+  revalidatePath("/hotel");
+  return { ok: true };
+}
+
+export async function updatePromo(id: string, formData: FormData): Promise<ActionResult> {
+  const user = await requireAuth();
+  if (!userHasAnyRole(user, [...CONFIG_ROLES]))
+    return { ok: false, error: "Only admin or consultant can manage promos." };
+  const supabase = await createClient();
+
+  const name = String(formData.get("name") ?? "").trim();
+  const disc_type = String(formData.get("disc_type") ?? "percent");
+  const disc_value = Number(String(formData.get("disc_value") ?? "0")) || 0;
+  if (!name) return { ok: false, error: "Name is required." };
+  if (!["percent", "amount"].includes(disc_type)) return { ok: false, error: "Invalid discount type." };
+
+  const { error } = await supabase.from("promos").update({ name, disc_type, disc_value }).eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "update", entity: "promos", entityId: id, diff: { name, disc_type, disc_value } });
+  revalidatePath("/hotel");
+  return { ok: true };
+}
+
+export async function deactivatePromo(id: string): Promise<ActionResult> {
+  const user = await requireAuth();
+  if (!userHasAnyRole(user, [...CONFIG_ROLES]))
+    return { ok: false, error: "Only admin or consultant can manage promos." };
+  const supabase = await createClient();
+  const { error } = await supabase.from("promos").update({ is_active: false }).eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "delete", entity: "promos", entityId: id });
   revalidatePath("/hotel");
   return { ok: true };
 }

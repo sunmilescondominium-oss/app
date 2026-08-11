@@ -89,6 +89,7 @@ export function RoomCard({
         </span>
       </div>
       <p className="mt-1 truncate text-sm text-stone-700">{stay.guest_label}</p>
+      {stay.rate_plan_name && <p className="text-xs text-amber-700">{stay.rate_plan_name}</p>}
       <p className={`mt-2 text-lg font-bold tabular-nums ${rem < 0 ? "text-red-700" : "text-stone-900"}`}>
         {rem >= 0 ? `${fmt(rem)} left` : `OVER +${fmt(rem)}`}
       </p>

@@ -20,8 +20,10 @@ export const metadata = { title: "Hotel Ops" };
 export default async function HotelPage() {
   const user = await requireModule("hotel");
   const canWrite = canWriteModule(user.roleKeys, "hotel");
-  const isAdmin = user.roleKeys.includes("admin");
-  const canManageTax = user.roleKeys.some((r) => ["admin", "accounting"].includes(r));
+  // consultant is a SUPER_ROLE (bypasses module checks) but is not literally "admin",
+  // so we include consultant explicitly in all hotel-config capability checks.
+  const canManageConfig = user.roleKeys.some((r) => ["admin", "consultant"].includes(r));
+  const canManageTax = user.roleKeys.some((r) => ["admin", "accounting", "consultant"].includes(r));
 
   const [board, ratePlans, promos, menu, globalTax, roomTax] = await Promise.all([
     listRoomBoard(),
@@ -46,7 +48,7 @@ export default async function HotelPage() {
         <Link href="/hotel/day" className="text-sm font-medium text-amber-700 hover:underline">
           Day-end / remittance report →
         </Link>
-        {isAdmin && (
+        {canManageConfig && (
           <>
             <CsvImporter title="Import rate plans from CSV" templateName="rate_plans_template.csv" templateCsv={RATE_PLAN_TEMPLATE} requiredHeaders={["name", "base_rate"]} commit={bulkImportRatePlans} />
             <CsvImporter title="Import hotel menu from CSV" templateName="hotel_menu_template.csv" templateCsv={MENU_TEMPLATE} requiredHeaders={["category", "name", "price"]} commit={bulkImportMenu} />
@@ -67,7 +69,7 @@ export default async function HotelPage() {
           globalTax={globalTax}
           roomTax={roomTax}
           canWrite={canWrite}
-          isAdmin={isAdmin}
+          canManageConfig={canManageConfig}
           canManageTax={canManageTax}
         />
       )}
