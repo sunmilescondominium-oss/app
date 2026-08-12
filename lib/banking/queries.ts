@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type {
   BankAccount,
   AccountBalances,
@@ -84,7 +85,7 @@ export async function listAccountsWithBalances(): Promise<AccountWithBalances[]>
 
 /** Lightweight active-account options for pickers. */
 export async function listAccountOptions(): Promise<{ id: string; label: string }[]> {
-  const supabase = await createClient();
+  const supabase = await createAdminClient();
   const { data } = await supabase
     .from("bank_accounts")
     .select("id, label")

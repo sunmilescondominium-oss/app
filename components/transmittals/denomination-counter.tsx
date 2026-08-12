@@ -12,12 +12,12 @@ export function DenominationCounter() {
   const [counts, setCounts] = useState<Record<string, number>>({});
 
   const total = useMemo(
-    () => PHP_DENOMINATIONS.reduce((s, d) => s + d.value * (counts[String(d.value)] ?? 0), 0),
+    () => PHP_DENOMINATIONS.reduce((s, d) => s + d.value * (counts[`${d.kind}-${d.value}`] ?? 0), 0),
     [counts],
   );
 
-  function set(value: number, qty: number) {
-    setCounts((c) => ({ ...c, [String(value)]: Math.max(0, Math.floor(qty) || 0) }));
+  function set(key: string, qty: number) {
+    setCounts((c) => ({ ...c, [key]: Math.max(0, Math.floor(qty) || 0) }));
   }
 
   return (
@@ -29,11 +29,12 @@ export function DenominationCounter() {
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
         {PHP_DENOMINATIONS.map((d) => {
           const key = `${d.kind}-${d.value}`;
-          const qty = counts[String(d.value)] ?? 0;
+          const qty = counts[key] ?? 0;
+          const label = d.value < 1 ? `¢${d.value * 100} ${d.kind}` : `₱${d.value} ${d.kind}`;
           return (
             <label key={key} className="rounded-lg border border-stone-200 bg-white px-2.5 py-2">
               <div className="flex items-center justify-between text-sm">
-                <span className="font-semibold text-stone-700">{d.value < 1 ? `¢${d.value * 100}` : `₱${d.value}`}</span>
+                <span className="font-semibold text-stone-700">{label}</span>
                 <span className="text-[11px] tabular-nums text-stone-400">{peso(d.value * qty)}</span>
               </div>
               <input
@@ -42,7 +43,7 @@ export function DenominationCounter() {
                 inputMode="numeric"
                 placeholder="0"
                 value={qty || ""}
-                onChange={(e) => set(d.value, Number(e.target.value))}
+                onChange={(e) => set(key, Number(e.target.value))}
                 className="mt-1 w-full rounded-md border border-stone-300 px-2 py-1.5 text-center text-sm tabular-nums outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
               />
             </label>

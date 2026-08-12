@@ -107,7 +107,7 @@ export async function createUnit(
   formData: FormData,
 ): Promise<ActionResult> {
   const user = await requireModuleWrite("inventory");
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const unit_number = str(formData.get("unit_number"));
   const business_line = str(formData.get("business_line")).toLowerCase();
@@ -169,7 +169,7 @@ export async function updateUnit(
   formData: FormData,
 ): Promise<ActionResult> {
   const user = await requireModuleWrite("inventory");
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const unit_number = str(formData.get("unit_number"));
   const business_line = str(formData.get("business_line")).toLowerCase();
@@ -216,7 +216,7 @@ export async function setUnitActive(
   active: boolean,
 ): Promise<ActionResult> {
   const user = await requireModuleWrite("inventory");
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const { error } = await supabase.from("units").update({ is_active: active }).eq("id", id);
   if (error) return { ok: false, error: error.message };

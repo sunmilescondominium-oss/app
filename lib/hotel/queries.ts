@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { round2, stayTotals } from "./rates";
 import type {
   RatePlan,
@@ -44,7 +45,7 @@ function mapStay(r: Record<string, unknown>): Stay {
 }
 
 export async function listRatePlans(): Promise<RatePlan[]> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data, error } = await supabase.from("rate_plans").select("*").eq("is_active", true).order("sort_order", { ascending: true });
   if (error) throw new Error(error.message);
   return (data ?? []).map((r: Record<string, unknown>) => ({
@@ -59,7 +60,7 @@ export async function listRatePlans(): Promise<RatePlan[]> {
 }
 
 export async function listPromos(): Promise<Promo[]> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data, error } = await supabase.from("promos").select("*").eq("is_active", true).order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
   return (data ?? []).map((r: Record<string, unknown>) => ({

@@ -110,7 +110,7 @@ export const MODULES: Record<ModuleKey, ModuleDef> = {
     // Only roles that actually work with inventory — errand/liaison, room
     // attendant, guard, utility, etc. are intentionally excluded.
     read: ["admin", "managing_officer", "operations_manager", "consultant", "accounting", "hotel_rental_monitoring", "hotel_cashier"],
-    write: ["admin", "operations_manager", "managing_officer"],
+    write: ["admin", "operations_manager", "managing_officer", "hotel_rental_monitoring", "hotel_cashier"],
   },
   collections: {
     key: "collections",

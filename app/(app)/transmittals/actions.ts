@@ -116,7 +116,11 @@ export async function buildTransmittalForDate(
     try {
       const parsed = JSON.parse(denomRaw) as Record<string, number>;
       denomination_counts = parsed;
-      counted_cash = Object.entries(parsed).reduce((s, [v, n]) => s + Number(v) * (Number(n) || 0), 0);
+      // Key may be "bill-20" / "coin-20" (new) or plain "20" (legacy)
+      counted_cash = Object.entries(parsed).reduce((s, [v, n]) => {
+        const numVal = Number(v.split("-").pop());
+        return s + (isNaN(numVal) ? 0 : numVal) * (Number(n) || 0);
+      }, 0);
       counted_cash = Math.round(counted_cash * 100) / 100;
     } catch {
       /* ignore malformed count */

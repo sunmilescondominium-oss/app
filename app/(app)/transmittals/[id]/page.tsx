@@ -133,11 +133,14 @@ export default async function TransmittalDetailPage({
           <div className="mt-3 rounded-xl border border-stone-200 p-3">
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">Cash count (bills &amp; coins)</p>
             <div className="grid grid-cols-2 gap-x-6 gap-y-0.5 text-sm sm:grid-cols-3">
-              {PHP_DENOMINATIONS.filter((d) => Number(t.denomination_counts![String(d.value)] ?? 0) > 0).map((d) => {
-                const qty = Number(t.denomination_counts![String(d.value)]);
+              {PHP_DENOMINATIONS.filter((d) => {
+                const qty = t.denomination_counts![`${d.kind}-${d.value}`] ?? t.denomination_counts![String(d.value)] ?? 0;
+                return Number(qty) > 0;
+              }).map((d) => {
+                const qty = Number(t.denomination_counts![`${d.kind}-${d.value}`] ?? t.denomination_counts![String(d.value)] ?? 0);
                 return (
                   <div key={`${d.kind}-${d.value}`} className="flex justify-between tabular-nums">
-                    <span className="text-stone-500">{d.value < 1 ? `¢${d.value * 100}` : `₱${d.value}`} × {qty}</span>
+                    <span className="text-stone-500">{d.value < 1 ? `¢${d.value * 100}` : `₱${d.value}`} {d.kind} × {qty}</span>
                     <span>{peso(d.value * qty)}</span>
                   </div>
                 );
