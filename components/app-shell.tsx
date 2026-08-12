@@ -9,6 +9,7 @@ import { LanguageToggle } from "@/components/language-toggle";
 import { exitImpersonation } from "@/app/(app)/users/impersonate-actions";
 import { SunMilesMark } from "@/components/brand-logo";
 import { t, navLabel, navBlurb, type Lang } from "@/lib/i18n";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 
 export interface NavModule {
   key: string;
@@ -32,6 +33,7 @@ export function AppShell({
   lang = "en",
   commitSha = null,
   isSuperUser = false,
+  unreadNotifications = 0,
   children,
 }: {
   modules: NavModule[];
@@ -42,6 +44,7 @@ export function AppShell({
   lang?: Lang;
   commitSha?: string | null;
   isSuperUser?: boolean;
+  unreadNotifications?: number;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -146,6 +149,7 @@ export function AppShell({
               ))}
             </select>
           )}
+          <NotificationBell unread={unreadNotifications} />
           <LanguageToggle />
           <span className="hidden text-sm font-medium text-stone-700 sm:inline">
             {displayLabel}

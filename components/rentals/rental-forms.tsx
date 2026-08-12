@@ -7,6 +7,7 @@ import {
   endLease,
   extendLease,
   addMeterReading,
+  saveUnitUtilityAccounts,
   createDue,
   markDuePaid,
   requestRentalCleaning,
@@ -102,11 +103,64 @@ export function MeterForm({ units }: { units: Unit[] }) {
       <select name="utility" defaultValue="electric" className={cls}>
         {UTILITY_TYPES.map((u) => <option key={u.key} value={u.key}>{u.label}</option>)}
       </select>
-      <input name="reading" type="number" step="0.01" min="0" placeholder="Reading" required className={`${cls} w-28`} />
-      <input name="read_on" type="date" className={cls} />
+      <input name="reading" type="number" step="0.01" min="0" placeholder="Meter reading" required className={`${cls} w-28`} />
+      <input name="bill_amount" type="number" step="0.01" min="0" placeholder="Bill ₱" className={`${cls} w-24`} />
+      <input name="billing_period" placeholder="Period (2026-08)" pattern="\d{4}-\d{2}" className={`${cls} w-28`} title="YYYY-MM" />
+      <input name="or_number" placeholder="OR / ref no." className={`${cls} w-28`} />
+      <input name="due_date" type="date" className={cls} title="Due date" />
+      <input name="read_on" type="date" className={cls} title="Read on" />
       <button type="submit" disabled={pending} className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-60">
         {pending ? "Saving…" : "Add reading"}
       </button>
+      {state && !state.ok && <p className="w-full text-sm text-red-700">{state.error}</p>}
+    </form>
+  );
+}
+
+export function UtilityAccountForm({
+  unitId,
+  meralcoCan,
+  waterAccountNo,
+}: {
+  unitId: string;
+  meralcoCan: string | null;
+  waterAccountNo: string | null;
+}) {
+  const [open, setOpen] = useState(false);
+  const boundAction = saveUnitUtilityAccounts.bind(null, unitId);
+  const [state, action, pending] = useActionState<ActionResult | undefined, FormData>(boundAction, undefined);
+  const router = useRouter();
+  useEffect(() => {
+    if (state?.ok) { setOpen(false); router.refresh(); }
+  }, [state, router]);
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="text-xs font-medium text-amber-700 hover:underline"
+      >
+        {meralcoCan || waterAccountNo ? "edit accounts" : "+ add accounts"}
+      </button>
+    );
+  }
+  return (
+    <form action={action} className="flex flex-wrap items-end gap-2 rounded-xl border border-stone-200 bg-stone-50 p-3">
+      <div className="flex flex-col gap-1">
+        <label className="text-xs font-medium text-stone-500">Meralco CAN</label>
+        <input name="meralco_can" defaultValue={meralcoCan ?? ""} placeholder="CAN (e.g. 123-456-789-00)" className={cls} />
+      </div>
+      <div className="flex flex-col gap-1">
+        <label className="text-xs font-medium text-stone-500">Water account no.</label>
+        <input name="water_account_no" defaultValue={waterAccountNo ?? ""} placeholder="Account number" className={cls} />
+      </div>
+      <div className="flex items-end gap-2">
+        <button type="submit" disabled={pending} className="rounded-lg bg-amber-600 px-3 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-60">
+          {pending ? "Saving…" : "Save"}
+        </button>
+        <button type="button" onClick={() => setOpen(false)} className="rounded-lg border border-stone-300 px-3 py-2 text-sm hover:bg-stone-100">Cancel</button>
+      </div>
       {state && !state.ok && <p className="w-full text-sm text-red-700">{state.error}</p>}
     </form>
   );

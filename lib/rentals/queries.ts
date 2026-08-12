@@ -88,35 +88,50 @@ export async function listDues(): Promise<(DueInfo & { unitNumber: string })[]> 
   }));
 }
 
-export async function listMeterReadings(): Promise<MeterRow[]> {
-  const admin = createAdminClient();
-  const { data } = await admin
-    .from("meter_readings")
-    .select("id, unit_id, utility, reading, read_on, units(unit_number)")
-    .order("read_on", { ascending: false })
-    .limit(100);
-  const rows = data ?? [];
+const METER_SELECT = "id, unit_id, utility, reading, read_on, bill_amount, billing_period, or_number, due_date, units(unit_number)";
 
-  // Consumption = this reading − the previous reading for the same unit+utility.
-  const asc = [...rows].sort((a, b) => (a.read_on as string).localeCompare(b.read_on as string));
-  const prev = new Map<string, number>();
-  const consumptionById = new Map<string, number>();
-  for (const r of asc) {
-    const key = `${r.unit_id}|${r.utility}`;
-    const last = prev.get(key);
-    if (last != null) consumptionById.set(r.id as string, Math.round((Number(r.reading) - last) * 100) / 100);
-    prev.set(key, Number(r.reading));
-  }
-
-  return rows.map((r) => ({
+function mapMeter(
+  r: Record<string, unknown>,
+  consumption: number | null,
+): MeterRow {
+  return {
     id: r.id as string,
     unitId: r.unit_id as string,
     unitNumber: ((r.units as { unit_number?: string } | null)?.unit_number as string) ?? "—",
     utility: r.utility as string,
     reading: Number(r.reading),
     readOn: r.read_on as string,
-    consumption: consumptionById.get(r.id as string) ?? null,
-  }));
+    consumption,
+    billAmount: r.bill_amount != null ? Number(r.bill_amount) : null,
+    billingPeriod: (r.billing_period as string | null) ?? null,
+    orNumber: (r.or_number as string | null) ?? null,
+    dueDate: (r.due_date as string | null) ?? null,
+  };
+}
+
+function computeConsumption(rows: Record<string, unknown>[]): Map<string, number> {
+  const asc = [...rows].sort((a, b) => (a.read_on as string).localeCompare(b.read_on as string));
+  const prev = new Map<string, number>();
+  const out = new Map<string, number>();
+  for (const r of asc) {
+    const key = `${r.unit_id}|${r.utility}`;
+    const last = prev.get(key);
+    if (last != null) out.set(r.id as string, Math.round((Number(r.reading) - last) * 100) / 100);
+    prev.set(key, Number(r.reading));
+  }
+  return out;
+}
+
+export async function listMeterReadings(): Promise<MeterRow[]> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("meter_readings")
+    .select(METER_SELECT)
+    .order("read_on", { ascending: false })
+    .limit(100);
+  const rows = (data ?? []) as Record<string, unknown>[];
+  const cons = computeConsumption(rows);
+  return rows.map((r) => mapMeter(r, cons.get(r.id as string) ?? null));
 }
 
 /** Staff reminders: near Airbnb checkouts + overdue/soon dues. */
@@ -148,7 +163,7 @@ export async function rentalUnitDetail(unitId: string): Promise<UnitDetail | nul
   const admin = createAdminClient();
   const { data: u } = await admin
     .from("units")
-    .select("id, unit_number, business_line, status, is_active, properties(name)")
+    .select("id, unit_number, business_line, status, is_active, meralco_can, water_account_no, properties(name)")
     .eq("id", unitId)
     .maybeSingle();
   if (!u || !["rental", "airbnb"].includes(u.business_line as string)) return null;
@@ -164,6 +179,8 @@ export async function rentalUnitDetail(unitId: string): Promise<UnitDetail | nul
     propertyName: ((u.properties as { name?: string } | null)?.name as string) ?? "—",
     businessLine: u.business_line as string,
     unitStatus: u.status as string,
+    meralcoCan: (u.meralco_can as string | null) ?? null,
+    waterAccountNo: (u.water_account_no as string | null) ?? null,
     lease: lease
       ? {
           id: lease.id as string,
@@ -215,27 +232,57 @@ export async function metersForUnit(unitId: string): Promise<MeterRow[]> {
   const admin = createAdminClient();
   const { data } = await admin
     .from("meter_readings")
-    .select("id, unit_id, utility, reading, read_on, units(unit_number)")
+    .select(METER_SELECT)
     .eq("unit_id", unitId)
     .order("read_on", { ascending: false });
-  const rows = data ?? [];
-  const asc = [...rows].sort((a, b) => (a.read_on as string).localeCompare(b.read_on as string));
-  const prev = new Map<string, number>();
-  const cons = new Map<string, number>();
-  for (const r of asc) {
-    const last = prev.get(r.utility as string);
-    if (last != null) cons.set(r.id as string, Math.round((Number(r.reading) - last) * 100) / 100);
-    prev.set(r.utility as string, Number(r.reading));
+  const rows = (data ?? []) as Record<string, unknown>[];
+  const cons = computeConsumption(rows);
+  return rows.map((r) => mapMeter(r, cons.get(r.id as string) ?? null));
+}
+
+/** Overview query for the utilities page — all hotel/rental/airbnb units with
+ *  their latest reading per utility type and their account numbers. */
+export async function listUtilityUnits(): Promise<import("./types").UtilityUnitRow[]> {
+  const admin = createAdminClient();
+
+  const [{ data: units }, { data: readings }] = await Promise.all([
+    admin
+      .from("units")
+      .select("id, unit_number, business_line, meralco_can, water_account_no, properties(name)")
+      .in("business_line", ["hotel", "rental", "airbnb"])
+      .eq("is_active", true)
+      .order("unit_number"),
+    admin
+      .from("meter_readings")
+      .select(METER_SELECT)
+      .order("read_on", { ascending: false }),
+  ]);
+
+  const allRows = (readings ?? []) as Record<string, unknown>[];
+  const cons = computeConsumption(allRows);
+
+  // Latest reading per unit×utility
+  const latestByKey = new Map<string, MeterRow>();
+  for (const r of allRows) {
+    const key = `${r.unit_id}|${r.utility}`;
+    if (!latestByKey.has(key)) {
+      latestByKey.set(key, mapMeter(r, cons.get(r.id as string) ?? null));
+    }
   }
-  return rows.map((r) => ({
-    id: r.id as string,
-    unitId: r.unit_id as string,
-    unitNumber: ((r.units as { unit_number?: string } | null)?.unit_number as string) ?? "—",
-    utility: r.utility as string,
-    reading: Number(r.reading),
-    readOn: r.read_on as string,
-    consumption: cons.get(r.id as string) ?? null,
-  }));
+
+  return (units ?? []).map((u) => {
+    const uid = u.id as string;
+    return {
+      unitId: uid,
+      unitNumber: u.unit_number as string,
+      propertyName: ((u.properties as { name?: string } | null)?.name as string) ?? "—",
+      businessLine: u.business_line as string,
+      meralcoCan: (u.meralco_can as string | null) ?? null,
+      waterAccountNo: (u.water_account_no as string | null) ?? null,
+      electric: latestByKey.get(`${uid}|electric`) ?? null,
+      water: latestByKey.get(`${uid}|water`) ?? null,
+    };
+  });
 }
 
 /** The lease's document checklist across the configured catalog. */
@@ -262,10 +309,11 @@ export interface BillLine {
   amount: number;
 }
 
-/** Monthly billing statement — monthly rent + all unpaid dues for the unit. */
+/** Monthly billing statement — monthly rent + all unpaid dues + latest billed utility charges. */
 export async function unitBill(unitId: string): Promise<{
   unit: UnitDetail;
   lines: BillLine[];
+  utilityLines: BillLine[];
   total: number;
 } | null> {
   const { RENTAL_DUE_CATEGORIES } = await import("@/lib/config");
@@ -273,7 +321,8 @@ export async function unitBill(unitId: string): Promise<{
   const unit = await rentalUnitDetail(unitId);
   if (!unit) return null;
 
-  const dues = await duesForUnit(unitId);
+  const [dues, meters] = await Promise.all([duesForUnit(unitId), metersForUnit(unitId)]);
+
   const lines: BillLine[] = [];
   if (unit.lease && unit.lease.billingCycle === "monthly" && unit.lease.rentAmount > 0) {
     lines.push({ label: "Monthly rent", detail: null, amount: unit.lease.rentAmount });
@@ -286,8 +335,24 @@ export async function unitBill(unitId: string): Promise<{
       amount: d.amount,
     });
   }
-  const total = Math.round(lines.reduce((s, l) => s + l.amount, 0) * 100) / 100;
-  return { unit, lines, total };
+
+  // Latest billed meter reading per utility (only where bill_amount is set)
+  const utilityLines: BillLine[] = [];
+  const seen = new Set<string>();
+  for (const m of meters) {
+    if (!seen.has(m.utility) && m.billAmount != null) {
+      seen.add(m.utility);
+      const utilLabel = m.utility === "electric" ? "Electricity (Meralco)" : "Water";
+      utilityLines.push({
+        label: utilLabel,
+        detail: m.billingPeriod ? `${m.billingPeriod} · ${m.consumption ?? "?"} ${m.utility === "electric" ? "kWh" : "m³"}` : null,
+        amount: m.billAmount,
+      });
+    }
+  }
+
+  const total = Math.round([...lines, ...utilityLines].reduce((s, l) => s + l.amount, 0) * 100) / 100;
+  return { unit, lines, utilityLines, total };
 }
 
 export interface TenantRow {

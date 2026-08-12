@@ -40,6 +40,22 @@ export interface MeterRow {
   reading: number;
   readOn: string;
   consumption: number | null;
+  billAmount: number | null;
+  billingPeriod: string | null;
+  orNumber: string | null;
+  dueDate: string | null;
+}
+
+/** One unit row for the utilities overview — latest reading per utility type. */
+export interface UtilityUnitRow {
+  unitId: string;
+  unitNumber: string;
+  propertyName: string;
+  businessLine: string;
+  meralcoCan: string | null;
+  waterAccountNo: string | null;
+  electric: MeterRow | null;
+  water: MeterRow | null;
 }
 
 export interface UnitDetail {
@@ -48,6 +64,8 @@ export interface UnitDetail {
   propertyName: string;
   businessLine: string;
   unitStatus: string;
+  meralcoCan: string | null;
+  waterAccountNo: string | null;
   lease:
     | (LeaseInfo & {
         startDate: string;

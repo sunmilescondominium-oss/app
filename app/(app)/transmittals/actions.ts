@@ -12,6 +12,13 @@ import { logAudit } from "@/lib/audit";
 import { todayManila } from "@/lib/collections/summary";
 import { verifyStepUp } from "@/lib/auth/step-up";
 import { COLLECTION_EDIT_ROLES } from "@/lib/rbac/modules";
+import { createNotification } from "@/lib/notifications/queries";
+
+function nextBusinessDay(fromIso: string): string {
+  const d = new Date(fromIso + "T00:00:00+08:00");
+  do { d.setDate(d.getDate() + 1); } while (d.getDay() === 0 || d.getDay() === 6);
+  return d.toISOString().slice(0, 10);
+}
 
 export type ActionResult = { ok: true; pendingId?: string } | { ok: false; error: string };
 
@@ -237,6 +244,19 @@ export async function buildTransmittalForDate(
     entityId: t.id as string,
     diff: { date, total, count: cols.length, payment_mode, transmittal_source },
   });
+
+  // Notify accounting that a transmittal is ready for review.
+  void createNotification({
+    kind: "transmittal_built",
+    title: `Transmittal built — ₱${total.toLocaleString("en-PH", { minimumFractionDigits: 2 })}`,
+    body: `${cols.length} collection(s) for ${date}, ${payment_mode.replace("_", " ")}.`,
+    link: `/transmittals/${t.id as string}`,
+    entityType: "transmittal",
+    entityId: t.id as string,
+    recipientRole: "accounting",
+    createdBy: user.userId,
+  });
+
   revalidatePath("/transmittals");
   return { ok: true };
 }
@@ -471,6 +491,33 @@ export async function recordCustodyStep(
   }
 
   await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "update", entity: "transmittal_custody", entityId: id, diff: { stage, counted, variance } });
+
+  // When accounting marks as deposited → notify errand_liaison with next business day.
+  if (stage === "deposited") {
+    const nbd = nextBusinessDay(todayManila());
+    void createNotification({
+      kind: "deposit_confirmed",
+      title: `Deposit confirmed — bank it by ${nbd}`,
+      body: `Transmittal ${id.slice(0, 8).toUpperCase()} has been handed over. Please deposit at the bank by ${nbd} (next business day).`,
+      link: `/transmittals/${id}`,
+      entityType: "transmittal",
+      entityId: id,
+      recipientRole: "errand_liaison",
+      createdBy: user.userId,
+    });
+    // Also notify accounting for their own records.
+    void createNotification({
+      kind: "deposit_confirmed",
+      title: `Transmittal ${id.slice(0, 8).toUpperCase()} marked deposited`,
+      body: deposit_slip_ref ? `Slip ref: ${deposit_slip_ref}.` : null,
+      link: `/transmittals/${id}`,
+      entityType: "transmittal",
+      entityId: id,
+      recipientRole: "accounting",
+      createdBy: user.userId,
+    });
+  }
+
   revalidatePath(`/transmittals/${id}`);
   revalidatePath("/transmittals");
   if (stage === "deposited" && bank_account_id) revalidatePath(`/banking/${bank_account_id}`);

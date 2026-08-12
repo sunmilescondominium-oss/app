@@ -5,6 +5,7 @@ import { getFeatureFlags, MODULE_FLAG } from "@/lib/settings/flags";
 import { AppShell, type NavModule, type RoleOption } from "@/components/app-shell";
 import { getLang } from "@/lib/i18n-server";
 import { navLabel, navBlurb } from "@/lib/i18n";
+import { countUnreadNotifications } from "@/lib/notifications/queries";
 
 /**
  * Authenticated app shell. requireAuth() is the authoritative gate; the nav is
@@ -47,6 +48,7 @@ export default async function AppLayout({
   }));
 
   const commitSha = process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? null;
+  const unreadNotifications = await countUnreadNotifications(user.userId, user.roleKeys);
 
   return (
     <AppShell
@@ -58,6 +60,7 @@ export default async function AppLayout({
       lang={lang}
       commitSha={commitSha}
       isSuperUser={user.roleKeys.some((r) => ["consultant", "admin", "managing_officer"].includes(r))}
+      unreadNotifications={unreadNotifications}
     >
       {children}
     </AppShell>

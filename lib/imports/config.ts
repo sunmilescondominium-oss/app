@@ -23,3 +23,24 @@ export const SUPPLY_TEMPLATE =
   "Bath Soap,pcs,0,24,20\n" +
   "Toilet Paper,roll,0,24,30\n" +
   "# name is unique — re-importing an existing name updates unit/stock/reorder\n";
+
+// Meter reading bulk import template.
+// unit_number   : must match an existing unit's unit_number exactly (case-insensitive)
+// utility       : electric | water
+// read_on       : YYYY-MM-DD — date the meter was physically read
+// reading       : dial reading (cumulative kWh / cu.m)
+// bill_amount   : peso amount printed on the bill (leave blank if not yet billed)
+// billing_period: YYYY-MM billing month (e.g. 2026-08)
+// or_number     : Meralco / water utility OR or reference number on the bill
+// due_date      : YYYY-MM-DD when the bill is due for payment
+// remarks       : any note (optional)
+export const METER_READING_HEADERS = [
+  "unit_number", "utility", "read_on", "reading",
+  "bill_amount", "billing_period", "or_number", "due_date", "remarks",
+] as const;
+export const METER_READING_TEMPLATE =
+  METER_READING_HEADERS.join(",") + "\n" +
+  "Room 101,electric,2026-08-01,4523.50,1850.00,2026-08,MEP-123456,2026-08-20,\n" +
+  "Room 101,water,2026-08-01,1230.00,280.00,2026-08,,2026-08-20,\n" +
+  "Room 102,electric,2026-08-01,8712.00,2100.00,2026-08,MEP-123457,2026-08-20,\n" +
+  "# unit_number must match exactly · utility = electric or water · reading = cumulative dial\n";

@@ -233,6 +233,12 @@ export async function addMeterReading(_prev: ActionResult | undefined, formData:
   if (!unit_id || !["electric", "water"].includes(utility)) return { ok: false, error: "Choose a unit and utility." };
   if (!Number.isFinite(reading) || reading < 0) return { ok: false, error: "Enter a valid meter reading." };
 
+  const billAmountRaw = String(formData.get("bill_amount") ?? "").trim();
+  const bill_amount = billAmountRaw ? Number(billAmountRaw) : null;
+  const billing_period = String(formData.get("billing_period") ?? "").trim() || null;
+  const or_number = String(formData.get("or_number") ?? "").trim() || null;
+  const due_date = String(formData.get("due_date") ?? "").trim() || null;
+
   const admin = createAdminClient();
   const { error } = await admin.from("meter_readings").insert({
     unit_id,
@@ -240,12 +246,97 @@ export async function addMeterReading(_prev: ActionResult | undefined, formData:
     reading,
     read_on: String(formData.get("read_on") ?? "").trim() || todayManila(),
     remarks: String(formData.get("remarks") ?? "").trim() || null,
+    bill_amount,
+    billing_period,
+    or_number,
+    due_date,
     created_by: user.userId,
   });
   if (error) return { ok: false, error: error.message };
-  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "create", entity: "meter_readings", entityId: unit_id, diff: { utility, reading } });
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "create", entity: "meter_readings", entityId: unit_id, diff: { utility, reading, bill_amount } });
   revalidatePath("/rentals");
+  revalidatePath("/rentals/utilities");
   return { ok: true };
+}
+
+/** Save the Meralco CAN and water account number for a unit. */
+export async function saveUnitUtilityAccounts(
+  unitId: string,
+  _prev: ActionResult | undefined,
+  formData: FormData,
+): Promise<ActionResult> {
+  const user = await requireModuleWrite("rentals");
+  const meralco_can = String(formData.get("meralco_can") ?? "").trim() || null;
+  const water_account_no = String(formData.get("water_account_no") ?? "").trim() || null;
+  const admin = createAdminClient();
+  const { error } = await admin.from("units").update({ meralco_can, water_account_no }).eq("id", unitId);
+  if (error) return { ok: false, error: error.message };
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "update", entity: "units", entityId: unitId, diff: { meralco_can, water_account_no } });
+  revalidatePath("/rentals/utilities");
+  revalidatePath(`/rentals/${unitId}`);
+  return { ok: true };
+}
+
+/** Bulk import meter readings from CSV. Resolves unit by unit_number. */
+export async function importMeterReadings(rows: Record<string, string>[]): Promise<import("@/lib/imports/types").ImportResult> {
+  const user = await requireModuleWrite("rentals");
+  if (!Array.isArray(rows) || rows.length === 0) return { ok: false, error: "No rows to import." };
+  if (rows.length > 2000) return { ok: false, error: "Too many rows (max 2000)." };
+
+  const admin = createAdminClient();
+  const errors: { row: number; error: string }[] = [];
+  const toInsert: Record<string, unknown>[] = [];
+  const unitCache = new Map<string, string | null>();
+
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    const lineNo = i + 2;
+    const unitNo = (r.unit_number ?? "").trim();
+    const utility = (r.utility ?? "").trim().toLowerCase();
+    const readOn = (r.read_on ?? "").trim();
+    const readingRaw = (r.reading ?? "").trim();
+
+    if (!unitNo) { errors.push({ row: lineNo, error: "unit_number is required" }); continue; }
+    if (!["electric", "water"].includes(utility)) { errors.push({ row: lineNo, error: `utility must be electric or water, got "${utility}"` }); continue; }
+    if (!readOn || !/^\d{4}-\d{2}-\d{2}$/.test(readOn)) { errors.push({ row: lineNo, error: "read_on must be YYYY-MM-DD" }); continue; }
+    const reading = Number(readingRaw);
+    if (!readingRaw || !Number.isFinite(reading) || reading < 0) { errors.push({ row: lineNo, error: "reading must be a non-negative number" }); continue; }
+
+    const key = unitNo.toLowerCase();
+    if (!unitCache.has(key)) {
+      const { data } = await admin.from("units").select("id").ilike("unit_number", unitNo).limit(1).maybeSingle();
+      unitCache.set(key, data ? (data.id as string) : null);
+    }
+    const unitId = unitCache.get(key);
+    if (!unitId) { errors.push({ row: lineNo, error: `unit "${unitNo}" not found` }); continue; }
+
+    const billAmountRaw = (r.bill_amount ?? "").trim();
+    const bill_amount = billAmountRaw ? Number(billAmountRaw) : null;
+    const due_date = (r.due_date ?? "").trim() || null;
+
+    toInsert.push({
+      unit_id: unitId,
+      utility,
+      reading,
+      read_on: readOn,
+      bill_amount: bill_amount != null && Number.isFinite(bill_amount) ? bill_amount : null,
+      billing_period: (r.billing_period ?? "").trim() || null,
+      or_number: (r.or_number ?? "").trim() || null,
+      due_date: due_date && /^\d{4}-\d{2}-\d{2}$/.test(due_date) ? due_date : null,
+      remarks: (r.remarks ?? "").trim() || null,
+      created_by: user.userId,
+    });
+  }
+
+  if (toInsert.length > 0) {
+    const { error } = await admin.from("meter_readings").insert(toInsert);
+    if (error) return { ok: false, error: error.message };
+  }
+
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "create", entity: "meter_readings", entityId: null, diff: { imported: toInsert.length, skipped: errors.length } });
+  revalidatePath("/rentals");
+  revalidatePath("/rentals/utilities");
+  return { ok: true, inserted: toInsert.length, errors };
 }
 
 export async function createDue(_prev: ActionResult | undefined, formData: FormData): Promise<ActionResult> {

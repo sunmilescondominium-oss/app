@@ -24,9 +24,14 @@ export default async function RentalsPage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <PageHeader
           backHref="/dashboard" title="Rentals & Airbnb" subtitle="Tap a unit to record dues, meter readings & manage the lease." />
-        <Link href="/rentals/tenants" className="rounded-lg border border-indigo-300 bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100">
-          👥 Tenants
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/rentals/utilities" className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100">
+            ⚡ Utilities
+          </Link>
+          <Link href="/rentals/tenants" className="rounded-lg border border-indigo-300 bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100">
+            👥 Tenants
+          </Link>
+        </div>
       </div>
 
       {rem.length > 0 && (

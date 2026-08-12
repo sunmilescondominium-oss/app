@@ -13,7 +13,7 @@ export default async function RentalBillPage({ params }: { params: Promise<{ uni
   const { unitId } = await params;
   const bill = await unitBill(unitId);
   if (!bill) notFound();
-  const { unit, lines, total } = bill;
+  const { unit, lines, utilityLines, total } = bill;
 
   return (
     <>
@@ -48,11 +48,25 @@ export default async function RentalBillPage({ params }: { params: Promise<{ uni
             </tr>
           </thead>
           <tbody>
-            {lines.length === 0 && (
+            {lines.length === 0 && utilityLines.length === 0 && (
               <tr><td colSpan={2} className="py-4 text-center text-stone-500">Nothing outstanding.</td></tr>
             )}
             {lines.map((l, i) => (
               <tr key={i} className="border-b border-stone-100">
+                <td className="py-2">
+                  {l.label}
+                  {l.detail && <span className="ml-1 text-xs text-stone-400">({l.detail})</span>}
+                </td>
+                <td className="py-2 text-right tabular-nums">{peso(l.amount)}</td>
+              </tr>
+            ))}
+            {utilityLines.length > 0 && (
+              <tr className="border-b border-stone-100">
+                <td colSpan={2} className="pt-3 pb-1 text-xs font-semibold uppercase tracking-wide text-stone-400">Utilities</td>
+              </tr>
+            )}
+            {utilityLines.map((l, i) => (
+              <tr key={`u${i}`} className="border-b border-stone-100">
                 <td className="py-2">
                   {l.label}
                   {l.detail && <span className="ml-1 text-xs text-stone-400">({l.detail})</span>}

@@ -5,7 +5,7 @@ import { rentalUnitDetail, duesForUnit, metersForUnit, leaseDocuments } from "@/
 import { peso } from "@/lib/collections/summary";
 import { PageHeader, Breadcrumb } from "@/components/ui";
 import { canWriteModule, canReadModule } from "@/lib/rbac/modules";
-import { StartLeaseForm, LeaseActions, MeterForm, DueForm, MarkPaid } from "@/components/rentals/rental-forms";
+import { StartLeaseForm, LeaseActions, MeterForm, DueForm, MarkPaid, UtilityAccountForm } from "@/components/rentals/rental-forms";
 import { RenterDetails, LeaseDocsChecklist } from "@/components/rentals/renter-details";
 import { listDocPhotos } from "@/lib/docs/photos";
 import { PhotoDocPanel } from "@/components/capture/photo-doc-panel";
@@ -35,9 +35,14 @@ export default async function RentalUnitPage({ params }: { params: Promise<{ uni
           <Breadcrumb items={[{ label: "Rentals & Airbnb", href: "/rentals" }, { label: `Unit ${unit.unitNumber}` }]} />
           <PageHeader title={`Unit ${unit.unitNumber}`} subtitle={`${unit.propertyName} · ${unit.businessLine}`} />
         </div>
-        <Link href={`/rentals/${unitId}/bill`} className="rounded-lg border border-stone-300 px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50">
-          Monthly bill →
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link href={`/rentals/${unitId}/letter`} className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-700 hover:bg-amber-100">
+            ✉ Reminder letter
+          </Link>
+          <Link href={`/rentals/${unitId}/bill`} className="rounded-lg border border-stone-300 px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50">
+            Monthly bill →
+          </Link>
+        </div>
       </div>
 
       {/* Occupancy */}
@@ -131,26 +136,41 @@ export default async function RentalUnitPage({ params }: { params: Promise<{ uni
       </div>
 
       {/* Meter readings */}
-      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-stone-500">Meter readings</h2>
+      <div className="mb-2 flex items-center justify-between">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-stone-500">Meter readings</h2>
+        <div className="flex items-center gap-4 text-xs text-stone-500">
+          {unit.meralcoCan && <span>⚡ CAN: <span className="font-mono text-stone-700">{unit.meralcoCan}</span></span>}
+          {unit.waterAccountNo && <span>💧 Water: <span className="font-mono text-stone-700">{unit.waterAccountNo}</span></span>}
+          <UtilityAccountForm unitId={unit.unitId} meralcoCan={unit.meralcoCan} waterAccountNo={unit.waterAccountNo} />
+        </div>
+      </div>
       <div className="mb-2"><MeterForm units={one} /></div>
       <div className="table-wrap">
-        <table className="w-full min-w-[420px] text-left text-sm">
+        <table className="w-full min-w-[600px] text-left text-sm">
           <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
             <tr>
               <th className="px-4 py-3">Utility</th>
               <th className="px-4 py-3">Date</th>
               <th className="px-4 py-3 text-right">Reading</th>
               <th className="px-4 py-3 text-right">Consumption</th>
+              <th className="px-4 py-3 text-right">Bill ₱</th>
+              <th className="px-4 py-3">Period</th>
+              <th className="px-4 py-3">OR / Ref</th>
+              <th className="px-4 py-3">Due</th>
             </tr>
           </thead>
           <tbody>
-            {meters.length === 0 && <tr><td colSpan={4} className="px-4 py-6 text-center text-stone-500">No readings.</td></tr>}
+            {meters.length === 0 && <tr><td colSpan={8} className="px-4 py-6 text-center text-stone-500">No readings.</td></tr>}
             {meters.map((m) => (
               <tr key={m.id} className="border-b border-stone-100 last:border-0">
                 <td className="px-4 py-2.5 capitalize">{m.utility}</td>
                 <td className="px-4 py-2.5">{m.readOn}</td>
                 <td className="px-4 py-2.5 text-right tabular-nums">{m.reading}</td>
                 <td className="px-4 py-2.5 text-right tabular-nums">{m.consumption != null ? m.consumption : "—"}</td>
+                <td className="px-4 py-2.5 text-right tabular-nums">{m.billAmount != null ? `₱${m.billAmount.toLocaleString("en-PH", { minimumFractionDigits: 2 })}` : "—"}</td>
+                <td className="px-4 py-2.5">{m.billingPeriod ?? "—"}</td>
+                <td className="px-4 py-2.5 font-mono text-xs">{m.orNumber ?? "—"}</td>
+                <td className={`px-4 py-2.5 ${m.dueDate ? "text-rose-700" : "text-stone-400"}`}>{m.dueDate ?? "—"}</td>
               </tr>
             ))}
           </tbody>
