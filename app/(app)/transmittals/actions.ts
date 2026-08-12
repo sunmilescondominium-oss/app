@@ -81,7 +81,47 @@ function firstHeld(roleKeys: string[], preferred: string[]): string {
   return preferred.find((r) => roleKeys.includes(r)) ?? preferred[0];
 }
 
-/** Bundle a day's un-transmitted collections into a new transmittal. */
+export type CollectionOption = {
+  id: string;
+  or_number: string | null;
+  amount: number;
+  business_line: string;
+  payment_type: string;
+};
+
+export type FetchCollectionsResult =
+  | { ok: true; collections: CollectionOption[] }
+  | { ok: false; error: string };
+
+/** Return un-transmitted collections for a date (query-only, no mutation). */
+export async function fetchUntransmittedCollections(date: string): Promise<FetchCollectionsResult> {
+  const user = await requireAuth();
+  if (!userHasAnyRole(user, ["hotel_rental_monitoring", "accounting", "hotel_cashier", "consultant"]))
+    return { ok: false, error: "Not authorized." };
+  if (!date) return { ok: false, error: "Choose a date." };
+
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("collections")
+    .select("id, or_number, amount, business_line, payment_type")
+    .eq("collected_on", date)
+    .is("transmittal_id", null)
+    .order("created_at", { ascending: true });
+  if (error) return { ok: false, error: error.message };
+
+  return {
+    ok: true,
+    collections: (data ?? []).map((c) => ({
+      id: c.id as string,
+      or_number: c.or_number as string | null,
+      amount: Number(c.amount),
+      business_line: c.business_line as string,
+      payment_type: c.payment_type as string,
+    })),
+  };
+}
+
+/** Bundle selected un-transmitted collections into a new transmittal. */
 export async function buildTransmittalForDate(
   _prev: ActionResult | undefined,
   formData: FormData,
@@ -90,40 +130,72 @@ export async function buildTransmittalForDate(
   if (!userHasAnyRole(user, ["hotel_rental_monitoring", "accounting", "hotel_cashier"]))
     return { ok: false, error: "Only the cashier, monitoring, or accounting can build a transmittal." };
 
-  // Service role: the action is already role-gated above; this lets the hotel
-  // cashier bundle collections they can't read under the collections RLS.
   const supabase = createAdminClient();
   const date = String(formData.get("date") ?? "").trim();
   if (!date) return { ok: false, error: "Choose a date." };
 
+  const payment_mode = (String(formData.get("payment_mode") ?? "cash").trim() || "cash") as "cash" | "bank_transfer";
+  const transmittal_source = String(formData.get("transmittal_source") ?? "").trim() || null;
+
+  // Parse selected collection IDs.
+  let selectedIds: string[] = [];
+  const idsRaw = String(formData.get("collection_ids") ?? "").trim();
+  if (idsRaw) {
+    try {
+      const parsed = JSON.parse(idsRaw);
+      if (Array.isArray(parsed)) selectedIds = (parsed as unknown[]).filter((x): x is string => typeof x === "string");
+    } catch { /* ignore */ }
+  }
+  if (selectedIds.length === 0)
+    return { ok: false, error: "Select at least one collection to bundle." };
+
+  // Fetch only the selected un-transmitted collections.
   const { data: cols, error: cErr } = await supabase
     .from("collections")
     .select("id, amount")
-    .eq("collected_on", date)
+    .in("id", selectedIds)
     .is("transmittal_id", null);
   if (cErr) return { ok: false, error: cErr.message };
   if (!cols || cols.length === 0)
-    return { ok: false, error: "No un-transmitted collections found for that date." };
+    return { ok: false, error: "None of the selected collections are available (already transmitted or not found)." };
 
   const total = cols.reduce((s, c) => s + Number(c.amount), 0);
   const counted_by_role = firstHeld(user.roleKeys, ["hotel_cashier", "hotel_rental_monitoring", "accounting"]);
 
-  // Optional PHP bill/coin count → the physical cash being transmitted.
+  // Cash denomination count.
   let denomination_counts: Record<string, number> | null = null;
   let counted_cash: number | null = null;
-  const denomRaw = String(formData.get("denomination_counts") ?? "").trim();
-  if (denomRaw) {
-    try {
-      const parsed = JSON.parse(denomRaw) as Record<string, number>;
-      denomination_counts = parsed;
-      // Key may be "bill-20" / "coin-20" (new) or plain "20" (legacy)
-      counted_cash = Object.entries(parsed).reduce((s, [v, n]) => {
-        const numVal = Number(v.split("-").pop());
-        return s + (isNaN(numVal) ? 0 : numVal) * (Number(n) || 0);
-      }, 0);
-      counted_cash = Math.round(counted_cash * 100) / 100;
-    } catch {
-      /* ignore malformed count */
+  if (payment_mode === "cash") {
+    const denomRaw = String(formData.get("denomination_counts") ?? "").trim();
+    if (denomRaw) {
+      try {
+        const parsed = JSON.parse(denomRaw) as Record<string, number>;
+        denomination_counts = parsed;
+        counted_cash = Object.entries(parsed).reduce((s, [v, n]) => {
+          const numVal = Number(v.split("-").pop());
+          return s + (isNaN(numVal) ? 0 : numVal) * (Number(n) || 0);
+        }, 0);
+        counted_cash = Math.round(counted_cash * 100) / 100;
+      } catch { /* ignore malformed count */ }
+    }
+  }
+
+  // Bank transfer proof + bank account.
+  let transfer_proof_path: string | null = null;
+  let transfer_bank_account_id: string | null = null;
+  if (payment_mode === "bank_transfer") {
+    transfer_bank_account_id = String(formData.get("bank_account_id") ?? "").trim() || null;
+    if (!transfer_bank_account_id)
+      return { ok: false, error: "Choose the Sun Miles bank account the payment was deposited to." };
+
+    const proof = formData.get("transfer_proof");
+    if (proof instanceof File && proof.size > 0) {
+      if (proof.size > 8 * 1024 * 1024) return { ok: false, error: "Proof image too large (max 8 MB)." };
+      const path = `transmittal-proofs/${new Date().toISOString().slice(0, 10)}/${Date.now()}-${proof.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+      const up = await supabase.storage
+        .from("payment-proofs")
+        .upload(path, new Uint8Array(await proof.arrayBuffer()), { contentType: proof.type || "image/jpeg" });
+      if (!up.error) transfer_proof_path = path;
     }
   }
 
@@ -135,6 +207,10 @@ export async function buildTransmittalForDate(
       counted_by_role,
       denomination_counts,
       counted_cash,
+      payment_mode,
+      transmittal_source,
+      transfer_proof_path,
+      transfer_bank_account_id,
       status: "submitted",
       created_by: user.userId,
     })
@@ -154,18 +230,18 @@ export async function buildTransmittalForDate(
     action: "create",
     entity: "transmittals",
     entityId: t.id as string,
-    diff: { date, total, count: cols.length },
+    diff: { date, total, count: cols.length, payment_mode, transmittal_source },
   });
   revalidatePath("/transmittals");
   return { ok: true };
 }
 
 /** Monitoring/admin sets the AR receipt series (prefix + next number). */
-export async function setReceiptSeries(context: "hotel" | "rental", prefix: string, nextNo: number): Promise<ActionResult> {
+export async function setReceiptSeries(context: "hotel" | "rental" | "parking", prefix: string, nextNo: number): Promise<ActionResult> {
   const user = await requireAuth();
   if (!userHasAnyRole(user, ["admin", "hotel_rental_monitoring"]))
     return { ok: false, error: "Only monitoring/admin can set the receipt series." };
-  if (!["hotel", "rental"].includes(context)) return { ok: false, error: "Invalid context." };
+  if (!["hotel", "rental", "parking"].includes(context)) return { ok: false, error: "Invalid context." };
   if (!Number.isInteger(nextNo) || nextNo < 1) return { ok: false, error: "Next number must be a positive integer." };
 
   const admin = createAdminClient();

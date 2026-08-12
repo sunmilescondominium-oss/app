@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireModule } from "@/lib/auth/dal";
 import { listTransmittals, getReceiptSeries } from "@/lib/collections/queries";
+import { listAccountOptions } from "@/lib/banking/queries";
 import { peso, todayManila } from "@/lib/collections/summary";
 import { PageHeader, Badge } from "@/components/ui";
 import { BuildTransmittalForm } from "@/components/transmittals/build-form";
@@ -27,7 +28,11 @@ export default async function TransmittalsPage() {
     ["hotel_rental_monitoring", "accounting", "hotel_cashier"].includes(r),
   );
   const canSeries = user.roleKeys.some((r) => ["admin", "hotel_rental_monitoring"].includes(r));
-  const [transmittals, series] = await Promise.all([listTransmittals(), canSeries ? getReceiptSeries() : Promise.resolve([])]);
+  const [transmittals, series, bankAccounts] = await Promise.all([
+    listTransmittals(),
+    canSeries ? getReceiptSeries() : Promise.resolve([]),
+    canBuild ? listAccountOptions() : Promise.resolve([]),
+  ]);
 
   // Daily reconciliation tally (accounting) — collected vs deposited per day.
   const byDate = new Map<string, { collected: number; deposited: number; reconciled: number; passbook: number; count: number }>();
@@ -69,7 +74,7 @@ export default async function TransmittalsPage() {
         </a>
       </div>
 
-      {canBuild && <BuildTransmittalForm defaultDate={todayManila()} />}
+      {canBuild && <BuildTransmittalForm defaultDate={todayManila()} bankAccounts={bankAccounts} />}
       {canSeries && series.length > 0 && <ReceiptSeriesPanel series={series} />}
 
       {/* Daily reconciliation tally — accounting, before the final owner report */}
