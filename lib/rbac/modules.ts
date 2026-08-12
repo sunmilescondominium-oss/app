@@ -230,7 +230,7 @@ export const MODULES: Record<ModuleKey, ModuleDef> = {
     label: "Bank & Reconciliation",
     blurb: "Bank accounts, deposits, checks & reconciliation.",
     milestone: "M9",
-    read: ["owner", "managing_officer", "consultant", "accounting", "admin"],
+    read: ["owner", "managing_officer", "consultant", "accounting", "admin", "errand_liaison"],
     write: ["accounting", "admin"],
   },
   incidents: {

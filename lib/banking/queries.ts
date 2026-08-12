@@ -67,7 +67,7 @@ export interface AccountWithBalances {
 
 /** All accounts with their derived balances (one ledger scan). */
 export async function listAccountsWithBalances(): Promise<AccountWithBalances[]> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const [{ data: accts }, { data: txns }] = await Promise.all([
     supabase.from("bank_accounts").select("*").order("sort_order", { ascending: true }),
     supabase.from("bank_transactions").select("*").neq("status", "void"),
@@ -95,13 +95,13 @@ export async function listAccountOptions(): Promise<{ id: string; label: string 
 }
 
 export async function getAccount(id: string): Promise<BankAccount | null> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data } = await supabase.from("bank_accounts").select("*").eq("id", id).maybeSingle();
   return data ? mapAccount(data) : null;
 }
 
 export async function listTransactions(accountId: string, limit = 200): Promise<BankTransaction[]> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data } = await supabase
     .from("bank_transactions")
     .select("*")
@@ -114,7 +114,7 @@ export async function listTransactions(accountId: string, limit = 200): Promise<
 
 /** Full ledger (all statuses) folded into balances for one account. */
 export async function accountBalances(accountId: string, opening: number): Promise<AccountBalances> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data } = await supabase.from("bank_transactions").select("*").eq("bank_account_id", accountId).neq("status", "void");
   return foldBalances(opening, (data ?? []).map(mapTxn));
 }
