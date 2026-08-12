@@ -236,6 +236,35 @@ export async function buildTransmittalForDate(
   return { ok: true };
 }
 
+/**
+ * Consultant/admin: recalculate transmittal.total_amount from its current
+ * linked collections and persist it. Fixes the list-page figure when a
+ * collection was deleted after the transmittal was built.
+ */
+export async function fixTransmittalTotal(id: string): Promise<void> {
+  const user = await requireAuth();
+  if (!userHasAnyRole(user, ["consultant", "admin", "managing_officer"])) return;
+
+  const admin = createAdminClient();
+  const { data: cols } = await admin
+    .from("collections")
+    .select("amount")
+    .eq("transmittal_id", id);
+
+  if (!cols || cols.length === 0) {
+    await admin.from("transmittals").delete().eq("id", id);
+    await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "delete", entity: "transmittals", entityId: id, diff: { reason: "no remaining collections" } });
+    revalidatePath("/transmittals");
+    return;
+  }
+
+  const newTotal = Math.round(cols.reduce((s, c) => s + Number(c.amount), 0) * 100) / 100;
+  await admin.from("transmittals").update({ total_amount: newTotal }).eq("id", id);
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "update", entity: "transmittals", entityId: id, diff: { total_amount: newTotal, reason: "manual sync" } });
+  revalidatePath(`/transmittals/${id}`);
+  revalidatePath("/transmittals");
+}
+
 /** Monitoring/admin sets the AR receipt series (prefix + next number). */
 export async function setReceiptSeries(context: "hotel" | "rental" | "parking", prefix: string, nextNo: number): Promise<ActionResult> {
   const user = await requireAuth();

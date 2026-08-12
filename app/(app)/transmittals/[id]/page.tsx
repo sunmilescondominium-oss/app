@@ -8,6 +8,7 @@ import { listAccountOptions } from "@/lib/banking/queries";
 import { APP_BRAND, APP_BRAND_SHORT, PHP_DENOMINATIONS } from "@/lib/config";
 import { TransmittalActions } from "@/components/transmittals/transmittal-actions";
 import { RevertTransmittal } from "@/components/transmittals/revert-transmittal";
+import { fixTransmittalTotal } from "@/app/(app)/transmittals/actions";
 import { CustodyPanel } from "@/components/transmittals/custody-panel";
 import { Breadcrumb } from "@/components/ui";
 import { listDocPhotos } from "@/lib/docs/photos";
@@ -52,6 +53,8 @@ export default async function TransmittalDetailPage({
     ["accounting", "managing_officer"].includes(r),
   );
   const canRevert = canEditCollections(user.roleKeys);
+  const isConsultant = user.roleKeys.some((r) => ["consultant", "admin", "managing_officer"].includes(r));
+  const totalMismatch = Math.round((summary.grandTotal - Number(t.total_amount)) * 100) !== 0;
 
   const signatures = [
     { title: "Counted by", role: t.counted_by_role },
@@ -106,9 +109,16 @@ export default async function TransmittalDetailPage({
         </table>
 
         {/* Warn if stored total differs from live collection sum (e.g. a collection was deleted after transmittal was built). */}
-        {Math.round((summary.grandTotal - Number(t.total_amount)) * 100) !== 0 && (
+        {totalMismatch && (
           <div className="no-print mt-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-            ⚠ The stored transmittal total ({peso(Number(t.total_amount))}) differs from the current collection sum ({peso(summary.grandTotal)}) — a collection was added or removed after this transmittal was built. The figures below reflect the current collection sum.
+            <p>⚠ The stored transmittal total ({peso(Number(t.total_amount))}) differs from the current collection sum ({peso(summary.grandTotal)}) — a collection was added or removed after this transmittal was built. The figures below reflect the current collection sum.</p>
+            {isConsultant && (
+              <form action={fixTransmittalTotal.bind(null, t.id)} className="mt-2">
+                <button type="submit" className="rounded-md bg-amber-700 px-3 py-1 text-xs font-semibold text-white hover:bg-amber-800">
+                  Sync total to {peso(summary.grandTotal)}
+                </button>
+              </form>
+            )}
           </div>
         )}
 
