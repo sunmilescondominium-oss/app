@@ -12,6 +12,35 @@ import type { BulkResult } from "@/lib/data/bulk";
 
 const HARD_DELETE_ROLES = ["admin", "managing_officer", "consultant", "accounting"];
 
+/**
+ * After deleting one or more collections that were part of a transmittal,
+ * update the transmittal's total_amount to reflect the remaining collections.
+ * If no collections remain, delete the (now empty) transmittal entirely.
+ */
+async function syncTransmittalTotal(
+  admin: ReturnType<typeof createAdminClient>,
+  transmittalId: string,
+): Promise<void> {
+  const { data: remaining } = await admin
+    .from("collections")
+    .select("amount")
+    .eq("transmittal_id", transmittalId);
+
+  if (!remaining || remaining.length === 0) {
+    await admin.from("transmittals").delete().eq("id", transmittalId);
+    revalidatePath("/transmittals");
+  } else {
+    const newTotal =
+      Math.round(remaining.reduce((s, c) => s + Number(c.amount), 0) * 100) / 100;
+    await admin
+      .from("transmittals")
+      .update({ total_amount: newTotal })
+      .eq("id", transmittalId);
+    revalidatePath(`/transmittals/${transmittalId}`);
+    revalidatePath("/transmittals");
+  }
+}
+
 /** Bulk delete collections. Entries already in a transmittal are skipped (consultant can override). */
 export async function bulkDeleteCollections(ids: string[]): Promise<BulkResult> {
   const user = await requireModuleWrite("collections");
@@ -23,15 +52,24 @@ export async function bulkDeleteCollections(ids: string[]): Promise<BulkResult> 
   const { data: rows } = await admin.from("collections").select("id, transmittal_id").in("id", list);
   const skipped: { id: string; reason: string }[] = [];
   const deletable: string[] = [];
+  const affectedTransmittalIds = new Set<string>();
   for (const r of rows ?? []) {
-    if (r.transmittal_id && !isConsultant) skipped.push({ id: r.id as string, reason: "part of a transmittal" });
-    else deletable.push(r.id as string);
+    if (r.transmittal_id && !isConsultant) {
+      skipped.push({ id: r.id as string, reason: "part of a transmittal" });
+    } else {
+      deletable.push(r.id as string);
+      if (r.transmittal_id) affectedTransmittalIds.add(r.transmittal_id as string);
+    }
   }
   let affected = 0;
   if (deletable.length) {
     const { error } = await admin.from("collections").delete().in("id", deletable);
     if (error) return { ok: false, error: error.message };
     affected = deletable.length;
+    // Recalculate total for every transmittal that lost a collection.
+    for (const tId of affectedTransmittalIds) {
+      await syncTransmittalTotal(admin, tId);
+    }
   }
   await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "delete", entity: "collections", entityId: null, diff: { bulk_delete: affected, skipped: skipped.length } });
   revalidatePath("/collections");
@@ -223,18 +261,23 @@ export async function deleteCollection(id: string): Promise<ActionResult> {
   const isConsultant = user.roleKeys.includes("consultant");
   const admin = createAdminClient();
 
-  if (!isConsultant) {
-    const { data: c } = await admin
-      .from("collections")
-      .select("transmittal_id")
-      .eq("id", id)
-      .maybeSingle();
-    if (c?.transmittal_id)
-      return { ok: false, error: "This entry is part of a transmittal and can't be deleted." };
-  }
+  // Always fetch transmittal_id first — needed for total recalc after deletion.
+  const { data: c } = await admin
+    .from("collections")
+    .select("transmittal_id")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (!isConsultant && c?.transmittal_id)
+    return { ok: false, error: "This entry is part of a transmittal and can't be deleted." };
 
   const { error } = await admin.from("collections").delete().eq("id", id);
   if (error) return { ok: false, error: error.message };
+
+  // Keep transmittal total in sync when a linked collection is removed.
+  if (c?.transmittal_id) {
+    await syncTransmittalTotal(admin, c.transmittal_id as string);
+  }
 
   await logAudit({
     actorUserId: user.userId,

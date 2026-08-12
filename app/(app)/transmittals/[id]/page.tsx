@@ -100,20 +100,28 @@ export default async function TransmittalDetailPage({
             <tr className="font-semibold">
               <td className="py-2.5">Grand total</td>
               <td className="py-2.5 text-right tabular-nums">{summary.count}</td>
-              <td className="py-2.5 text-right tabular-nums">{peso(t.total_amount)}</td>
+              <td className="py-2.5 text-right tabular-nums">{peso(summary.grandTotal)}</td>
             </tr>
           </tfoot>
         </table>
 
+        {/* Warn if stored total differs from live collection sum (e.g. a collection was deleted after transmittal was built). */}
+        {Math.round((summary.grandTotal - Number(t.total_amount)) * 100) !== 0 && (
+          <div className="no-print mt-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            ⚠ The stored transmittal total ({peso(Number(t.total_amount))}) differs from the current collection sum ({peso(summary.grandTotal)}) — a collection was added or removed after this transmittal was built. The figures below reflect the current collection sum.
+          </div>
+        )}
+
         {/* Reconciliation figures */}
         {(() => {
+          const liveTotal = summary.grandTotal;
           const compareTo = t.deposited_amount ?? t.counted_cash;
-          const variance = compareTo == null ? null : Math.round((Number(compareTo) - Number(t.total_amount)) * 100) / 100;
+          const variance = compareTo == null ? null : Math.round((Number(compareTo) - liveTotal) * 100) / 100;
           return (
             <div className="mt-4 rounded-xl border border-stone-200 p-3">
               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">Reconciliation</p>
               <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-4">
-                <div><span className="text-stone-400">Collected (reported)</span><br /><span className="font-medium tabular-nums">{peso(t.total_amount)}</span></div>
+                <div><span className="text-stone-400">Collected (reported)</span><br /><span className="font-medium tabular-nums">{peso(liveTotal)}</span></div>
                 <div><span className="text-stone-400">Cash counted</span><br /><span className="tabular-nums">{t.counted_cash != null ? peso(Number(t.counted_cash)) : "—"}</span></div>
                 <div><span className="text-stone-400">Deposited</span><br /><span className="tabular-nums">{t.deposited_amount != null ? peso(Number(t.deposited_amount)) : "—"}</span></div>
                 <div>
@@ -121,7 +129,7 @@ export default async function TransmittalDetailPage({
                   <span className={`tabular-nums ${variance ? "text-amber-700" : "text-emerald-700"}`}>{variance == null ? "—" : peso(variance)}</span>
                 </div>
               </div>
-              {t.total_amount !== (t.counted_cash ?? t.total_amount) && (
+              {t.counted_cash != null && liveTotal !== Number(t.counted_cash) && (
                 <p className="mt-1 text-[11px] text-stone-400">Total includes online payments; counted cash is physical bills &amp; coins only.</p>
               )}
             </div>
