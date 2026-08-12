@@ -11,6 +11,7 @@ import { OrdersPanel } from "@/components/hotel/orders-panel";
 import { ReceiptFrame } from "@/components/hotel/receipt-frame";
 import { FolioActions } from "@/components/hotel/folio-actions";
 import { RoomCheck } from "@/components/hotel/room-check";
+import { DeleteStayButton, DeletePaymentButton } from "@/components/hotel/consultant-delete";
 import { listDocPhotos } from "@/lib/docs/photos";
 import { PhotoDocPanel } from "@/components/capture/photo-doc-panel";
 
@@ -26,6 +27,7 @@ export default async function StayFolioPage({
   const { stayId } = await params;
   const user = await requireModule("hotel");
   const canWrite = canWriteModule(user.roleKeys, "hotel");
+  const isConsultant = user.roleKeys.includes("consultant");
   const [detail, menu, roomCheck, damagePhotos] = await Promise.all([
     getStayDetail(stayId),
     listMenuItems(),
@@ -42,10 +44,11 @@ export default async function StayFolioPage({
 
   return (
     <>
-      <div className="no-print mb-4">
+      <div className="no-print mb-4 flex items-center justify-between gap-3">
         <Link href="/hotel" className="text-sm font-medium text-amber-700 hover:underline">
           ← Room board
         </Link>
+        {isConsultant && <DeleteStayButton stayId={stayId} />}
       </div>
 
       {/* Guest requests from the QR bill portal */}
@@ -132,13 +135,18 @@ export default async function StayFolioPage({
           )}
 
           <div className="mt-2 space-y-0.5 border-t border-dashed border-stone-300 pt-2">
-            {payments.map((p) => (
-              <Line
-                key={p.id}
-                k={`${METHOD_LABEL[p.method] ?? p.method}${p.receipt_no ? ` ${p.receipt_no}` : ""}${p.ar_no ? ` · ${p.ar_no}` : ""}`}
-                v={peso(p.amount)}
-              />
-            ))}
+            {payments.map((p) => {
+              const label = `${METHOD_LABEL[p.method] ?? p.method}${p.receipt_no ? ` ${p.receipt_no}` : ""}${p.ar_no ? ` · ${p.ar_no}` : ""}`;
+              return (
+                <div key={p.id} className="flex items-center justify-between gap-1">
+                  <span className="text-stone-500 text-[11px]">{label}</span>
+                  <span className="flex items-center tabular-nums text-[11px]">
+                    {peso(p.amount)}
+                    {isConsultant && <DeletePaymentButton paymentId={p.id} stayId={stayId} label={label} />}
+                  </span>
+                </div>
+              );
+            })}
             <Line k="Paid" v={peso(t.paid)} />
             <div className="flex justify-between font-bold">
               <span>BALANCE</span>

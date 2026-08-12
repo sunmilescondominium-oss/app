@@ -593,3 +593,32 @@ export async function bulkImportMenu(rows: Record<string, string>[]): Promise<Im
   revalidatePath("/hotel");
   return { ok: true, inserted, errors: errors.length ? errors : undefined };
 }
+
+// ---- consultant-only hard deletes (testing / data cleanup) ---------------
+const DEV_DELETE_ROLES = ["consultant"];
+
+/** Hard-delete a stay and all cascaded records (payments, orders, extensions). */
+export async function deleteStay(stayId: string): Promise<ActionResult> {
+  const user = await requireModuleWrite("hotel");
+  if (!userHasAnyRole(user, DEV_DELETE_ROLES))
+    return { ok: false, error: "Only consultant can delete stays." };
+  const admin = createAdminClient();
+  const { error } = await admin.from("stays").delete().eq("id", stayId);
+  if (error) return { ok: false, error: error.message };
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "delete", entity: "stays", entityId: stayId });
+  revalidatePath("/hotel");
+  return { ok: true };
+}
+
+/** Hard-delete a single stay payment record. */
+export async function deleteStayPayment(paymentId: string, stayId: string): Promise<ActionResult> {
+  const user = await requireModuleWrite("hotel");
+  if (!userHasAnyRole(user, DEV_DELETE_ROLES))
+    return { ok: false, error: "Only consultant can delete payments." };
+  const admin = createAdminClient();
+  const { error } = await admin.from("stay_payments").delete().eq("id", paymentId);
+  if (error) return { ok: false, error: error.message };
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "delete", entity: "stay_payments", entityId: paymentId });
+  revalidatePath(`/hotel/${stayId}`);
+  return { ok: true };
+}

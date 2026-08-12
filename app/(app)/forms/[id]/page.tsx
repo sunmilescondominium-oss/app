@@ -8,6 +8,7 @@ import { SERIAL_STATUSES } from "@/lib/forms/types";
 import { SerialGrid } from "@/components/forms/serial-grid";
 import { CustodyPanel } from "@/components/forms/custody";
 import { ReprintButton } from "@/components/forms/reprint-button";
+import { DeleteBookletButton } from "@/components/forms/delete-booklet-button";
 import { LOW_STOCK_THRESHOLD } from "@/lib/forms/types";
 import { APP_BRAND_SHORT } from "@/lib/config";
 
@@ -16,6 +17,7 @@ export default async function BookletDetailPage({ params }: { params: Promise<{ 
   const user = await requireModule("accountable_forms");
   const canWrite = canWriteModule(user.roleKeys, "accountable_forms");
   const canManage = userHasAnyRole(user, FORM_MANAGER_ROLES);
+  const isConsultant = user.roleKeys.includes("consultant");
   const [data, custodians] = await Promise.all([bookletDetail(id), canManage ? custodianOptions() : Promise.resolve([])]);
   if (!data) notFound();
   const { booklet, serials, custody } = data;
@@ -32,6 +34,7 @@ export default async function BookletDetailPage({ params }: { params: Promise<{ 
         <div className="flex items-center gap-2">
           {canWrite && <ReprintButton bookletId={id} low={booklet.status === "active" && booklet.counts.unused <= LOW_STOCK_THRESHOLD} requested={Boolean(booklet.reprintRequestedAt)} />}
           <PrintButton label="Print reconciliation" />
+          {isConsultant && <DeleteBookletButton bookletId={id} bookletNo={booklet.bookletNo} />}
         </div>
       </div>
 

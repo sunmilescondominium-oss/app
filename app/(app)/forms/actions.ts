@@ -168,3 +168,16 @@ export async function createFormType(code: string, name: string, birReportable =
   revalidatePath("/forms");
   return { ok: true };
 }
+
+/** Hard-delete a booklet and all its serials (consultant only — testing cleanup). */
+export async function deleteBooklet(bookletId: string): Promise<ActionResult> {
+  const user = await requireModuleWrite("accountable_forms");
+  if (!userHasAnyRole(user, ["consultant"]))
+    return { ok: false, error: "Only consultant can delete booklets." };
+  const admin = createAdminClient();
+  const { error } = await admin.from("form_booklets").delete().eq("id", bookletId);
+  if (error) return { ok: false, error: error.message };
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "delete", entity: "form_booklets", entityId: bookletId });
+  revalidatePath("/forms");
+  return { ok: true };
+}
