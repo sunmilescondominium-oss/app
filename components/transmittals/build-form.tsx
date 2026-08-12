@@ -27,7 +27,6 @@ export function BuildTransmittalForm({
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
 
-  const [date, setDate] = useState(defaultDate);
   const [cols, setCols] = useState<CollectionOption[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [paymentMode, setPaymentMode] = useState<"cash" | "bank_transfer">("cash");
@@ -36,12 +35,12 @@ export function BuildTransmittalForm({
   const [submitErr, setSubmitErr] = useState("");
   const [pending, startSubmit] = useTransition();
 
-  async function load(d: string) {
+  async function load() {
     setLoadState("loading");
     setLoadErr("");
     setCols([]);
     setSelectedIds(new Set());
-    const res = await fetchUntransmittedCollections(d);
+    const res = await fetchUntransmittedCollections();
     if (!res.ok) {
       setLoadState("error");
       setLoadErr(res.error);
@@ -52,10 +51,16 @@ export function BuildTransmittalForm({
     setLoadState(res.collections.length === 0 ? "empty" : "done");
   }
 
-  // Load on mount and whenever the date changes.
   useEffect(() => {
-    void load(date);
-  }, [date]); // eslint-disable-line react-hooks/exhaustive-deps
+    void load();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Group collections by collected_on date, newest first.
+  const grouped = cols.reduce<Record<string, CollectionOption[]>>((acc, c) => {
+    (acc[c.collected_on] ??= []).push(c);
+    return acc;
+  }, {});
+  const sortedDates = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
 
   const allSelected = cols.length > 0 && cols.every((c) => selectedIds.has(c.id));
   const toggleId = (id: string) =>
@@ -64,6 +69,16 @@ export function BuildTransmittalForm({
       n.has(id) ? n.delete(id) : n.add(id);
       return n;
     });
+  const toggleDate = (date: string) => {
+    const ids = grouped[date].map((c) => c.id);
+    const allChecked = ids.every((id) => selectedIds.has(id));
+    setSelectedIds((s) => {
+      const n = new Set(s);
+      if (allChecked) ids.forEach((id) => n.delete(id));
+      else ids.forEach((id) => n.add(id));
+      return n;
+    });
+  };
   const selectedTotal = cols
     .filter((c) => selectedIds.has(c.id))
     .reduce((s, c) => s + c.amount, 0);
@@ -77,8 +92,7 @@ export function BuildTransmittalForm({
       const res = await buildTransmittalForDate(undefined, fd);
       if (res.ok) {
         router.refresh();
-        void load(date);
-        // Reset denomination counter by resetting the whole form, then re-render resets state.
+        void load();
         formRef.current?.reset();
       } else {
         setSubmitErr(res.error);
@@ -94,26 +108,19 @@ export function BuildTransmittalForm({
     >
       <p className="text-sm font-semibold text-stone-800">Build transmittal</p>
 
-      {/* Date + Source + Mode */}
+      {/* Turnover date + Source + Mode */}
       <div className="flex flex-wrap items-end gap-4">
         <div>
-          <label className="mb-1 block text-xs font-medium text-stone-600">Date</label>
-          <div className="flex items-center gap-2">
-            <input
-              type="date"
-              name="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className={inputCls}
-            />
-            <button
-              type="button"
-              onClick={() => void load(date)}
-              className="rounded-lg border border-stone-300 px-3 py-2 text-sm text-stone-600 hover:bg-stone-50"
-            >
-              Reload
-            </button>
-          </div>
+          <label className="mb-1 block text-xs font-medium text-stone-600">
+            Turnover date
+            <span className="ml-1 font-normal text-stone-400">(date cash is handed over, not collection date)</span>
+          </label>
+          <input
+            type="date"
+            name="date"
+            defaultValue={defaultDate}
+            className={inputCls}
+          />
         </div>
 
         <div>
@@ -148,15 +155,27 @@ export function BuildTransmittalForm({
         </div>
       </div>
 
-      {/* Collection checkboxes */}
+      {/* Collection checkboxes — all un-transmitted, grouped by collection date */}
       <div>
         <div className="mb-2 flex items-center justify-between">
-          <p className="text-xs font-medium text-stone-600">Collections to bundle</p>
-          {selectedIds.size > 0 && (
-            <span className="text-xs text-stone-500">
-              {selectedIds.size} of {cols.length} selected · {peso(selectedTotal)}
-            </span>
-          )}
+          <p className="text-xs font-medium text-stone-600">
+            Collections to bundle
+            <span className="ml-1 font-normal text-stone-400">— select from any date</span>
+          </p>
+          <div className="flex items-center gap-3">
+            {selectedIds.size > 0 && (
+              <span className="text-xs text-stone-500">
+                {selectedIds.size} selected · {peso(selectedTotal)}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => void load()}
+              className="text-xs text-amber-700 hover:underline"
+            >
+              Reload
+            </button>
+          </div>
         </div>
 
         {loadState === "loading" && (
@@ -167,20 +186,19 @@ export function BuildTransmittalForm({
         )}
         {loadState === "empty" && (
           <p className="py-3 text-sm text-stone-400">
-            No un-transmitted collections for {date}.
+            No un-transmitted collections pending.
           </p>
         )}
+
         {loadState === "done" && cols.length > 0 && (
-          <div className="divide-y divide-stone-100 overflow-hidden rounded-xl border border-stone-200">
+          <div className="overflow-hidden rounded-xl border border-stone-200">
             {/* Select-all header */}
-            <div className="flex items-center gap-3 bg-stone-50 px-4 py-2.5">
+            <div className="flex items-center gap-3 border-b border-stone-200 bg-stone-50 px-4 py-2.5">
               <input
                 type="checkbox"
                 checked={allSelected}
                 onChange={() =>
-                  setSelectedIds(
-                    allSelected ? new Set() : new Set(cols.map((c) => c.id)),
-                  )
+                  setSelectedIds(allSelected ? new Set() : new Set(cols.map((c) => c.id)))
                 }
                 className="h-4 w-4 accent-amber-600"
                 aria-label="Select all"
@@ -188,29 +206,58 @@ export function BuildTransmittalForm({
               <span className="text-xs font-medium text-stone-600">Select all</span>
             </div>
 
-            {cols.map((c) => (
-              <div key={c.id} className="flex items-center gap-3 px-4 py-2.5">
-                <input
-                  type="checkbox"
-                  checked={selectedIds.has(c.id)}
-                  onChange={() => toggleId(c.id)}
-                  className="h-4 w-4 flex-shrink-0 accent-amber-600"
-                  aria-label={c.or_number ?? c.id}
-                />
-                <span className="w-28 truncate text-sm font-medium text-stone-900">
-                  {c.or_number ?? "—"}
-                </span>
-                <span className="flex-1 text-xs text-stone-500">
-                  {CAT_LABEL[c.business_line] ?? c.business_line}
-                </span>
-                <span className="text-xs text-stone-400">
-                  {PAY_LABEL[c.payment_type] ?? c.payment_type}
-                </span>
-                <span className="w-24 text-right text-sm tabular-nums text-stone-700">
-                  {peso(c.amount)}
-                </span>
-              </div>
-            ))}
+            {/* Grouped by collection date */}
+            {sortedDates.map((date) => {
+              const dateCols = grouped[date];
+              const allDateSel = dateCols.every((c) => selectedIds.has(c.id));
+              const someDateSel = dateCols.some((c) => selectedIds.has(c.id));
+              const dateTotal = dateCols.reduce((s, c) => s + c.amount, 0);
+
+              return (
+                <div key={date} className="border-b border-stone-100 last:border-0">
+                  {/* Date group header */}
+                  <div className="flex items-center gap-3 bg-stone-50 px-4 py-2">
+                    <input
+                      type="checkbox"
+                      checked={allDateSel}
+                      ref={(el) => { if (el) el.indeterminate = someDateSel && !allDateSel; }}
+                      onChange={() => toggleDate(date)}
+                      className="h-4 w-4 accent-amber-600"
+                      aria-label={`Select all for ${date}`}
+                    />
+                    <span className="text-xs font-semibold text-stone-700">{date}</span>
+                    <span className="ml-auto text-xs text-stone-400">
+                      {dateCols.length} entries · {peso(dateTotal)}
+                    </span>
+                  </div>
+
+                  {/* Collection rows */}
+                  {dateCols.map((c) => (
+                    <div key={c.id} className="flex items-center gap-3 border-t border-stone-100 px-4 py-2.5 pl-10">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(c.id)}
+                        onChange={() => toggleId(c.id)}
+                        className="h-4 w-4 flex-shrink-0 accent-amber-600"
+                        aria-label={c.or_number ?? c.id}
+                      />
+                      <span className="w-28 truncate text-sm font-medium text-stone-900">
+                        {c.or_number ?? "—"}
+                      </span>
+                      <span className="flex-1 text-xs text-stone-500">
+                        {CAT_LABEL[c.business_line] ?? c.business_line}
+                      </span>
+                      <span className="text-xs text-stone-400">
+                        {PAY_LABEL[c.payment_type] ?? c.payment_type}
+                      </span>
+                      <span className="w-24 text-right text-sm tabular-nums text-stone-700">
+                        {peso(c.amount)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

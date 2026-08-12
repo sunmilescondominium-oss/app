@@ -87,25 +87,29 @@ export type CollectionOption = {
   amount: number;
   business_line: string;
   payment_type: string;
+  collected_on: string;
 };
 
 export type FetchCollectionsResult =
   | { ok: true; collections: CollectionOption[] }
   | { ok: false; error: string };
 
-/** Return un-transmitted collections for a date (query-only, no mutation). */
-export async function fetchUntransmittedCollections(date: string): Promise<FetchCollectionsResult> {
+/**
+ * Return ALL un-transmitted collections across all dates.
+ * Collections from previous days that haven't been turned over yet are
+ * included so they can be bundled into today's (or any) transmittal.
+ */
+export async function fetchUntransmittedCollections(): Promise<FetchCollectionsResult> {
   const user = await requireAuth();
   if (!userHasAnyRole(user, ["hotel_rental_monitoring", "accounting", "hotel_cashier", "consultant"]))
     return { ok: false, error: "Not authorized." };
-  if (!date) return { ok: false, error: "Choose a date." };
 
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("collections")
-    .select("id, or_number, amount, business_line, payment_type")
-    .eq("collected_on", date)
+    .select("id, or_number, amount, business_line, payment_type, collected_on")
     .is("transmittal_id", null)
+    .order("collected_on", { ascending: false })
     .order("created_at", { ascending: true });
   if (error) return { ok: false, error: error.message };
 
@@ -117,6 +121,7 @@ export async function fetchUntransmittedCollections(date: string): Promise<Fetch
       amount: Number(c.amount),
       business_line: c.business_line as string,
       payment_type: c.payment_type as string,
+      collected_on: c.collected_on as string,
     })),
   };
 }
