@@ -19,7 +19,7 @@ export const INVENTORY_SCOPE: Record<string, BusinessLineKey[] | "*"> = {
   electrician: "*",
   utility: "*",
   // Sales side
-  consultant: ["condo_sales"],
+  consultant: "*",
   broker: ["condo_sales"],
   // Rental + hotel + airbnb monitoring
   hotel_rental_monitoring: ["hotel", "rental", "airbnb"],
