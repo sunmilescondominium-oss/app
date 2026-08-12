@@ -10,7 +10,7 @@
     },
     {
       "path": "/api/cron/gift-card-noshow",
-      "schedule": "*/15 * * * *"
+      "schedule": "0 1 * * *"
     }
   ]
 }
