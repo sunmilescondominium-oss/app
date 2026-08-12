@@ -39,6 +39,7 @@ type ModalState =
   | { kind: "edit"; unit: Unit }
   | { kind: "import" }
   | { kind: "fields" }
+  | { kind: "confirm_delete"; ids: string[]; label: string }
   | null;
 
 export function InventoryTable({
@@ -78,13 +79,20 @@ export function InventoryTable({
     router.refresh();
   }
   async function bulkDelete() {
-    if (!window.confirm(`Permanently delete ${selected.size} unit(s)? This cannot be undone. Rows linked to other records will be skipped.`)) return;
+    setModal({ kind: "confirm_delete", ids: [...selected], label: `${selected.size} selected unit(s)` });
+  }
+
+  async function singleDelete(u: Unit) {
+    setModal({ kind: "confirm_delete", ids: [u.id], label: `unit ${u.unit_number}` });
+  }
+
+  async function confirmDelete(ids: string[]) {
     setBulkBusy(true);
-    const res = await bulkDeleteUnits([...selected]);
+    const res = await bulkDeleteUnits(ids);
     setBulkBusy(false);
+    setModal(null);
     if (!res.ok) { window.alert(res.error); return; }
-    const msg = res.skipped.length ? `Deleted ${res.affected}. Skipped ${res.skipped.length} (linked to other records — deactivate those instead).` : `Deleted ${res.affected} unit(s).`;
-    window.alert(msg);
+    if (res.skipped.length) window.alert(`Deleted ${res.affected}. Skipped ${res.skipped.length} (linked to other records — deactivate those instead).`);
     setSelected(new Set());
     router.refresh();
   }
@@ -240,6 +248,15 @@ export function InventoryTable({
                         >
                           {u.is_active ? "Deactivate" : "Reactivate"}
                         </button>
+                        {canHardDelete && (
+                          <button
+                            type="button"
+                            onClick={() => singleDelete(u)}
+                            className="rounded-md border border-rose-200 px-2.5 py-1 text-xs font-medium text-rose-700 hover:bg-rose-50"
+                          >
+                            Delete
+                          </button>
+                        )}
                       </div>
                     </td>
                   )}
@@ -281,6 +298,39 @@ export function InventoryTable({
 
       <Modal open={modal?.kind === "fields"} onClose={close} title="Manage custom fields">
         <FieldDefManager fieldDefs={fieldDefs} onDone={done} />
+      </Modal>
+
+      <Modal open={modal?.kind === "confirm_delete"} onClose={close} title="Delete permanently?">
+        {modal?.kind === "confirm_delete" && (
+          <div className="space-y-4">
+            <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+              <p className="font-semibold">You are about to permanently delete:</p>
+              <p className="mt-1">{modal.label}</p>
+            </div>
+            <ul className="space-y-1 text-sm text-stone-600">
+              <li>⚠ This action <strong>cannot be undone</strong>.</li>
+              <li>Units linked to buyers, leases, or collections will be <strong>skipped</strong> — deactivate those instead.</li>
+            </ul>
+            <div className="flex justify-end gap-3 pt-1">
+              <button
+                type="button"
+                onClick={close}
+                disabled={bulkBusy}
+                className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => confirmDelete(modal.ids)}
+                disabled={bulkBusy}
+                className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-50"
+              >
+                {bulkBusy ? "Deleting…" : "Delete permanently"}
+              </button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );
