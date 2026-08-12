@@ -14,12 +14,14 @@ export type { ImportResult };
  */
 export function CsvImporter({
   title,
+  label,
   templateName,
   templateCsv,
   requiredHeaders,
   commit,
 }: {
   title: string;
+  label?: string;
   templateName: string;
   templateCsv: string;
   requiredHeaders: string[];
@@ -73,7 +75,7 @@ export function CsvImporter({
   if (!open) {
     return (
       <button onClick={() => setOpen(true)} className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100">
-        ⬆⬇ Import / template
+        ⬆⬇ {label ?? "Import / template"}
       </button>
     );
   }

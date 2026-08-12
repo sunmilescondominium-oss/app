@@ -123,7 +123,9 @@ export function AppShell({
               onChange={async (e) => {
                 const v = e.target.value;
                 await setActAsRole(v === "__all__" ? null : v);
-                router.push("/");
+                // Hard-navigate so the server re-runs the layout and recomputes
+                // the role-filtered nav from the updated cookie.
+                window.location.href = "/dashboard";
               }}
               title="View and act as one of your roles"
               className={`rounded-lg border px-2.5 py-2 text-sm transition focus:outline-none focus:ring-2 focus:ring-amber-200 ${

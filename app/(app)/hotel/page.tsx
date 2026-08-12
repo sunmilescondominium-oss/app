@@ -53,8 +53,8 @@ export default async function HotelPage() {
         </Link>
         {canManageConfig && (
           <>
-            <CsvImporter title="Import rate plans from CSV" templateName="rate_plans_template.csv" templateCsv={RATE_PLAN_TEMPLATE} requiredHeaders={["name", "base_rate"]} commit={bulkImportRatePlans} />
-            <CsvImporter title="Import hotel menu from CSV" templateName="hotel_menu_template.csv" templateCsv={MENU_TEMPLATE} requiredHeaders={["category", "name", "price"]} commit={bulkImportMenu} />
+            <CsvImporter title="Import rate plans from CSV" label="Import rate plans" templateName="rate_plans_template.csv" templateCsv={RATE_PLAN_TEMPLATE} requiredHeaders={["name", "base_rate"]} commit={bulkImportRatePlans} />
+            <CsvImporter title="Import hotel menu from CSV" label="Import menu items" templateName="hotel_menu_template.csv" templateCsv={MENU_TEMPLATE} requiredHeaders={["category", "name", "price"]} commit={bulkImportMenu} />
           </>
         )}
       </div>
