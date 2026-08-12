@@ -12,10 +12,11 @@ import type { BulkResult } from "@/lib/data/bulk";
 
 const HARD_DELETE_ROLES = ["admin", "managing_officer", "consultant", "accounting"];
 
-/** Bulk delete collections. Entries already in a transmittal are skipped. */
+/** Bulk delete collections. Entries already in a transmittal are skipped (consultant can override). */
 export async function bulkDeleteCollections(ids: string[]): Promise<BulkResult> {
   const user = await requireModuleWrite("collections");
   if (!userHasAnyRole(user, HARD_DELETE_ROLES)) return { ok: false, error: "Only accounting / admin can bulk-delete collections." };
+  const isConsultant = user.roleKeys.includes("consultant");
   const list = Array.from(new Set(ids.filter(Boolean)));
   if (list.length === 0) return { ok: false, error: "No rows selected." };
   const admin = createAdminClient();
@@ -23,7 +24,7 @@ export async function bulkDeleteCollections(ids: string[]): Promise<BulkResult> 
   const skipped: { id: string; reason: string }[] = [];
   const deletable: string[] = [];
   for (const r of rows ?? []) {
-    if (r.transmittal_id) skipped.push({ id: r.id as string, reason: "part of a transmittal" });
+    if (r.transmittal_id && !isConsultant) skipped.push({ id: r.id as string, reason: "part of a transmittal" });
     else deletable.push(r.id as string);
   }
   let affected = 0;
@@ -219,17 +220,20 @@ export async function editCollection(
 
 export async function deleteCollection(id: string): Promise<ActionResult> {
   const user = await requireModuleWrite("collections");
-  const supabase = await createClient();
+  const isConsultant = user.roleKeys.includes("consultant");
+  const admin = createAdminClient();
 
-  const { data: c } = await supabase
-    .from("collections")
-    .select("transmittal_id")
-    .eq("id", id)
-    .maybeSingle();
-  if (c?.transmittal_id)
-    return { ok: false, error: "This entry is part of a transmittal and can't be deleted." };
+  if (!isConsultant) {
+    const { data: c } = await admin
+      .from("collections")
+      .select("transmittal_id")
+      .eq("id", id)
+      .maybeSingle();
+    if (c?.transmittal_id)
+      return { ok: false, error: "This entry is part of a transmittal and can't be deleted." };
+  }
 
-  const { error } = await supabase.from("collections").delete().eq("id", id);
+  const { error } = await admin.from("collections").delete().eq("id", id);
   if (error) return { ok: false, error: error.message };
 
   await logAudit({

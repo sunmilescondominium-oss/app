@@ -27,12 +27,14 @@ export function CollectionsPanel({
   unitOptions,
   canWrite,
   canEdit = false,
+  isConsultant = false,
   date,
 }: {
   collections: Collection[];
   unitOptions: UnitOption[];
   canWrite: boolean;
   canEdit?: boolean;
+  isConsultant?: boolean;
   date: string;
 }) {
   const router = useRouter();
@@ -41,7 +43,7 @@ export function CollectionsPanel({
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
-  const deletable = collections.filter((c) => !c.transmittal_id);
+  const deletable = collections.filter((c) => !c.transmittal_id || isConsultant);
   const allSelected = deletable.length > 0 && deletable.every((c) => selected.has(c.id));
   const toggleSel = (id: string) => setSelected((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const toggleAllSel = () => setSelected((s) => (deletable.every((c) => s.has(c.id)) ? new Set() : new Set(deletable.map((c) => c.id))));
@@ -126,7 +128,7 @@ export function CollectionsPanel({
             )}
             {collections.map((c) => (
               <tr key={c.id} className="border-b border-stone-100 last:border-0">
-                {canWrite && <td className="no-print px-3 py-3">{!c.transmittal_id && <input type="checkbox" checked={selected.has(c.id)} onChange={() => toggleSel(c.id)} aria-label="Select" className="h-4 w-4 accent-amber-600" />}</td>}
+                {canWrite && <td className="no-print px-3 py-3">{(!c.transmittal_id || isConsultant) && <input type="checkbox" checked={selected.has(c.id)} onChange={() => toggleSel(c.id)} aria-label="Select" className="h-4 w-4 accent-amber-600" />}</td>}
                 <td className="px-4 py-3 font-medium text-stone-900">
                   {c.or_number ?? "—"}
                   {Number((c as unknown as Record<string, unknown>).reverted_count ?? 0) > 0 ? (
@@ -155,7 +157,7 @@ export function CollectionsPanel({
                           Edit
                         </button>
                       )}
-                      {canWrite && !c.transmittal_id && (
+                      {canWrite && (!c.transmittal_id || isConsultant) && (
                         <button
                           type="button"
                           onClick={() => remove(c)}

@@ -16,6 +16,7 @@ export default async function CollectionsPage({
   const user = await requireModule("collections");
   const canWrite = canWriteModule(user.roleKeys, "collections");
   const canEdit = canEditCollections(user.roleKeys);
+  const isConsultant = user.roleKeys.includes("consultant");
 
   const sp = await searchParams;
   const date = (typeof sp.date === "string" && sp.date) || todayManila();
@@ -116,6 +117,7 @@ export default async function CollectionsPage({
         unitOptions={unitOptions}
         canWrite={canWrite}
         canEdit={canEdit}
+        isConsultant={isConsultant}
         date={date}
       />
 
