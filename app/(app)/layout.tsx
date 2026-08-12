@@ -46,6 +46,8 @@ export default async function AppLayout({
     label: (r.label as string) ?? (r.role_key as string),
   }));
 
+  const commitSha = process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? null;
+
   return (
     <AppShell
       modules={modules}
@@ -54,6 +56,8 @@ export default async function AppLayout({
       actingAs={user.actingAs}
       impersonating={user.impersonating}
       lang={lang}
+      commitSha={commitSha}
+      isSuperUser={user.roleKeys.some((r) => ["consultant", "admin", "managing_officer"].includes(r))}
     >
       {children}
     </AppShell>

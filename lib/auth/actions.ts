@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getSessionUser } from "@/lib/auth/dal";
+import { ALL_ROLE_KEYS } from "@/lib/rbac/modules";
 import { siteOrigin } from "@/lib/site-url";
 
 export type LoginState = { error: string } | undefined;
@@ -93,8 +94,9 @@ export async function signOut(): Promise<void> {
 }
 
 /**
- * "Act as role" — narrow the session's effective roles to a single role the
- * user actually holds. Restrict-only (never an escalation). Pass null to clear.
+ * "Act as role" — narrow the session to simulate a single role.
+ * Users with canActAsAny (consultant/admin/owner) may preview ANY valid role.
+ * Other users may only narrow to a role they personally hold.
  */
 export async function setActAsRole(role: string | null): Promise<void> {
   const cookieStore = await cookies();
@@ -103,7 +105,10 @@ export async function setActAsRole(role: string | null): Promise<void> {
     return;
   }
   const user = await getSessionUser();
-  if (user && user.allRoleKeys.includes(role)) {
+  if (!user) return;
+  const isValidRole = (ALL_ROLE_KEYS as readonly string[]).includes(role);
+  const allowed = isValidRole && (user.canActAsAny || user.allRoleKeys.includes(role));
+  if (allowed) {
     cookieStore.set("act_as_role", role, { httpOnly: true, sameSite: "lax", path: "/" });
   } else {
     cookieStore.delete("act_as_role");

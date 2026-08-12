@@ -30,6 +30,8 @@ export function AppShell({
   actingAs,
   impersonating = false,
   lang = "en",
+  commitSha = null,
+  isSuperUser = false,
   children,
 }: {
   modules: NavModule[];
@@ -38,6 +40,8 @@ export function AppShell({
   actingAs: string | null;
   impersonating?: boolean;
   lang?: Lang;
+  commitSha?: string | null;
+  isSuperUser?: boolean;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -162,6 +166,11 @@ export function AppShell({
           <div className="flex-1 overflow-y-auto p-3">{nav}</div>
           <div className="border-t border-stone-200/80 p-4">
             <p className="text-[11px] leading-relaxed text-stone-400">{APP_BRAND}</p>
+            {isSuperUser && commitSha && (
+              <p className="mt-0.5 font-mono text-[10px] text-stone-300" title="Deployed commit">
+                build {commitSha}
+              </p>
+            )}
           </div>
         </aside>
 
