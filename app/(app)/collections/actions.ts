@@ -221,13 +221,94 @@ export type ActionResult = { ok: true; pendingId?: string } | { ok: false; error
 const CATS: readonly string[] = COLLECTION_CATEGORIES.map((c) => c.key);
 const PAYS: readonly string[] = PAYMENT_TYPES.map((p) => p.key);
 const CHARGES: readonly string[] = COLLECTION_CHARGE_TYPES.map((c) => c.key);
-const RECEIPT_TYPES = ["OR", "AR", "PR"] as const;
+const RECEIPT_TYPES = ["OR", "SI", "AR", "PR"] as const;
 const COLLECTING_ROLES = ["hotel_rental_monitoring", "accounting", "hotel_cashier"];
 
 /**
  * Create multiple collection records from one form submission (one per charge
  * row). Called by the redesigned CollectionForm.
  */
+const CLEAR_CHECK_ROLES = ["accounting", "managing_officer", "consultant", "admin"];
+
+/**
+ * Accounting clears a postdated check: converts PR → OR or SI, records the
+ * final receipt number, then notifies errand_liaison for bank deposit.
+ */
+export async function clearCheck(
+  id: string,
+  newReceiptType: "OR" | "SI",
+  orNumber: string | null,
+): Promise<ActionResult> {
+  const user = await requireAuth();
+  if (!userHasAnyRole(user, CLEAR_CHECK_ROLES))
+    return { ok: false, error: "Only accounting staff can clear a check." };
+
+  const admin = createAdminClient();
+  const { data: col, error: loadErr } = await admin
+    .from("collections")
+    .select("id, receipt_type, check_number, check_date, check_bank, amount, unit_id, units(unit_number)")
+    .eq("id", id)
+    .maybeSingle();
+  if (loadErr || !col) return { ok: false, error: "Collection not found." };
+  if ((col.receipt_type as string | null) !== "PR")
+    return { ok: false, error: "Only a PR (provisional receipt) can be cleared." };
+
+  const actingRole = user.roleKeys.find((r) => CLEAR_CHECK_ROLES.includes(r)) ?? user.roleKeys[0];
+  const { error: updErr } = await admin
+    .from("collections")
+    .update({
+      receipt_type: newReceiptType,
+      or_number: orNumber || null,
+      cleared_at: new Date().toISOString(),
+      cleared_by_role: actingRole,
+    })
+    .eq("id", id);
+  if (updErr) return { ok: false, error: updErr.message };
+
+  await logAudit({
+    actorUserId: user.userId,
+    actorRoles: user.roleKeys,
+    action: "update",
+    entity: "collections",
+    entityId: id,
+    diff: { cleared: true, from: "PR", to: newReceiptType, or_number: orNumber },
+  });
+
+  // Notify errand/liaison to take the check to the bank
+  const unitNum =
+    ((col.units as { unit_number?: string } | null)?.unit_number as string | null) ?? "";
+  const amt = (Number(col.amount) || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 });
+  const detail =
+    `Check #${(col.check_number as string | null) ?? "—"} (${(col.check_bank as string | null) ?? "—"}) ₱${amt}` +
+    `${unitNum ? ` — Unit ${unitNum}` : ""}` +
+    `${col.check_date ? ` — dated ${col.check_date as string}` : ""}`;
+
+  const { createNotification } = await import("@/lib/notifications/queries");
+  void createNotification({
+    kind: "check_cleared_for_deposit",
+    title: `Check cleared — please deposit to bank`,
+    body: `${detail}. ${newReceiptType} issued by ${actingRole.replace(/_/g, " ")}.`,
+    link: "/collections",
+    entityType: "collection",
+    entityId: id,
+    recipientRole: "errand_liaison",
+    createdBy: user.userId,
+  });
+  void createNotification({
+    kind: "check_cleared_for_deposit",
+    title: `Check cleared — handed off for deposit`,
+    body: detail,
+    link: "/collections",
+    entityType: "collection",
+    entityId: id,
+    recipientRole: "accounting",
+    createdBy: user.userId,
+  });
+
+  revalidatePath("/collections");
+  return { ok: true };
+}
+
 export async function createCollectionBatch(
   _prev: ActionResult | undefined,
   formData: FormData,

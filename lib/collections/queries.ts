@@ -61,6 +61,8 @@ function mapCollection(r: Record<string, unknown>): Collection {
     check_number: (r.check_number as string) ?? null,
     check_date: (r.check_date as string) ?? null,
     check_bank: (r.check_bank as string) ?? null,
+    cleared_at: (r.cleared_at as string) ?? null,
+    cleared_by_role: (r.cleared_by_role as string) ?? null,
     payment_type: r.payment_type as string,
     collected_by_role: (r.collected_by_role as string) ?? null,
     collected_on: r.collected_on as string,

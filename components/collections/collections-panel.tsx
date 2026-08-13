@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Modal } from "@/components/modal";
 import { CollectionForm } from "./collection-form";
 import { EditCollectionForm } from "./edit-collection-form";
-import { deleteCollection, bulkDeleteCollections } from "@/app/(app)/collections/actions";
+import { deleteCollection, bulkDeleteCollections, clearCheck } from "@/app/(app)/collections/actions";
 import { peso } from "@/lib/collections/summary";
 import { COLLECTION_CATEGORIES, COLLECTION_CHARGE_TYPES, PAYMENT_TYPES } from "@/lib/config";
 import type { Collection, UnitOption } from "@/lib/collections/types";
@@ -30,6 +30,7 @@ export function CollectionsPanel({
   unitOptions,
   canWrite,
   canEdit = false,
+  canClearChecks = false,
   isConsultant = false,
   date,
 }: {
@@ -37,13 +38,31 @@ export function CollectionsPanel({
   unitOptions: UnitOption[];
   canWrite: boolean;
   canEdit?: boolean;
+  canClearChecks?: boolean;
   isConsultant?: boolean;
   date: string;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Collection | null>(null);
+  const [clearing, setClearing] = useState<Collection | null>(null);
+  const [clearBusy, setClearBusy] = useState(false);
+  const [clearReceiptType, setClearReceiptType] = useState<"OR" | "SI">("OR");
+  const [clearOrNumber, setClearOrNumber] = useState("");
+  const [clearError, setClearError] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
+
+  async function handleClearCheck() {
+    if (!clearing) return;
+    setClearBusy(true);
+    setClearError(null);
+    const res = await clearCheck(clearing.id, clearReceiptType, clearOrNumber || null);
+    setClearBusy(false);
+    if (!res.ok) { setClearError(res.error); return; }
+    setClearing(null);
+    setClearOrNumber("");
+    router.refresh();
+  }
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
   const deletable = collections.filter((c) => !c.transmittal_id || isConsultant);
@@ -138,8 +157,14 @@ export function CollectionsPanel({
                     <span>{c.or_number ?? "—"}</span>
                     <div className="flex flex-wrap gap-1">
                       {c.receipt_type && (
-                        <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${c.receipt_type === "PR" ? "bg-amber-100 text-amber-800" : c.receipt_type === "AR" ? "bg-sky-100 text-sky-800" : "bg-emerald-100 text-emerald-800"}`}>
+                        <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                          c.receipt_type === "PR" ? "bg-amber-100 text-amber-800" :
+                          c.receipt_type === "AR" ? "bg-sky-100 text-sky-800" :
+                          c.receipt_type === "SI" ? "bg-indigo-100 text-indigo-800" :
+                          "bg-emerald-100 text-emerald-800"
+                        }`}>
                           {c.receipt_type}
+                          {c.cleared_at ? " ✓" : ""}
                         </span>
                       )}
                       {c.check_date && (
@@ -168,6 +193,15 @@ export function CollectionsPanel({
                     <div className="flex items-center justify-end gap-3">
                       {c.transmittal_id && (
                         <span className="text-[10px] font-semibold uppercase text-stone-400">transmitted</span>
+                      )}
+                      {canClearChecks && c.receipt_type === "PR" && c.check_date && !c.cleared_at && (
+                        <button
+                          type="button"
+                          onClick={() => { setClearing(c); setClearReceiptType("OR"); setClearOrNumber(""); setClearError(null); }}
+                          className="text-xs font-medium text-violet-700 hover:underline"
+                        >
+                          Clear check →
+                        </button>
                       )}
                       {canEdit && (
                         <button
@@ -203,6 +237,78 @@ export function CollectionsPanel({
 
       <Modal open={editing !== null} onClose={() => setEditing(null)} title={editing?.transmittal_id ? "Edit collection (authorized correction)" : "Edit collection"}>
         {editing && <EditCollectionForm collection={editing} onDone={() => { setEditing(null); router.refresh(); }} />}
+      </Modal>
+
+      <Modal open={clearing !== null} onClose={() => setClearing(null)} title="Clear check — issue final receipt">
+        {clearing && (
+          <div className="space-y-4">
+            <div className="rounded-xl border border-stone-200 bg-stone-50 p-3 text-sm">
+              <p className="font-medium text-stone-800">
+                Check #{clearing.check_number ?? "—"} · {clearing.check_bank ?? "—"}
+              </p>
+              <p className="text-stone-500">Dated {clearing.check_date} · {peso(clearing.amount)}</p>
+              {clearing.unit && <p className="text-stone-500">Unit {clearing.unit.unit_number}</p>}
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-medium text-stone-600">Convert PR to *</label>
+              <div className="flex gap-3">
+                {(["OR", "SI"] as const).map((rt) => (
+                  <label key={rt} className="flex items-center gap-2 cursor-pointer text-sm">
+                    <input
+                      type="radio"
+                      name="clear_receipt_type"
+                      value={rt}
+                      checked={clearReceiptType === rt}
+                      onChange={() => setClearReceiptType(rt)}
+                      className="accent-amber-600"
+                    />
+                    <span className="font-medium">{rt}</span>
+                    <span className="text-stone-400 text-xs">{rt === "OR" ? "Official Receipt" : "Sales Invoice"}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-medium text-stone-600">
+                {clearReceiptType} number (if already known)
+              </label>
+              <input
+                value={clearOrNumber}
+                onChange={(e) => setClearOrNumber(e.target.value)}
+                placeholder={`${clearReceiptType} number — optional`}
+                className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
+              />
+            </div>
+
+            <div className="rounded-lg bg-violet-50 px-3 py-2 text-xs text-violet-800">
+              Clearing this check will notify the errand/liaison to deposit it at the bank.
+            </div>
+
+            {clearError && (
+              <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{clearError}</p>
+            )}
+
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setClearing(null)}
+                className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleClearCheck}
+                disabled={clearBusy}
+                className="rounded-lg bg-violet-700 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-800 disabled:opacity-60"
+              >
+                {clearBusy ? "Processing…" : `Issue ${clearReceiptType} & notify errand`}
+              </button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

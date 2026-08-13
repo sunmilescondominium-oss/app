@@ -9,6 +9,8 @@ export interface Collection {
   check_number: string | null;
   check_date: string | null;
   check_bank: string | null;
+  cleared_at: string | null;
+  cleared_by_role: string | null;
   payment_type: string;
   collected_by_role: string | null;
   collected_on: string;

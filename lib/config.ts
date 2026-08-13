@@ -100,8 +100,9 @@ export type BuyerStatus = (typeof BUYER_STATUSES)[number]["key"];
 
 export const PAYMENT_DOC_TYPES = [
   { key: "OR", label: "OR — Official Receipt" },
-  { key: "PR", label: "PR — Provisional Receipt" },
+  { key: "SI", label: "SI — Sales Invoice" },
   { key: "AR", label: "AR — Acknowledgement Receipt" },
+  { key: "PR", label: "PR — Provisional Receipt (postdated check)" },
 ] as const;
 
 export type PaymentDocType = (typeof PAYMENT_DOC_TYPES)[number]["key"];

@@ -7,6 +7,7 @@ import type { Collection } from "@/lib/collections/types";
 
 const RECEIPT_TYPES = [
   { key: "OR", label: "OR — Official Receipt" },
+  { key: "SI", label: "SI — Sales Invoice" },
   { key: "AR", label: "AR — Acknowledgement Receipt" },
   { key: "PR", label: "PR — Provisional Receipt" },
 ] as const;

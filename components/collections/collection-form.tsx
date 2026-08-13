@@ -17,6 +17,7 @@ const labelCls = "mb-1 block text-xs font-medium text-stone-600";
 
 const RECEIPT_TYPES = [
   { key: "OR", label: "OR — Official Receipt" },
+  { key: "SI", label: "SI — Sales Invoice" },
   { key: "AR", label: "AR — Acknowledgement Receipt" },
   { key: "PR", label: "PR — Provisional Receipt (postdated check)" },
 ] as const;
