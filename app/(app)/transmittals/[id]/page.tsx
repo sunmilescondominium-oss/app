@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { requireModule } from "@/lib/auth/dal";
 import { canWriteModule, canReadModule, canEditCollections } from "@/lib/rbac/modules";
 import { getTransmittal, listCustody } from "@/lib/collections/queries";
-import { summarizeCollections, peso } from "@/lib/collections/summary";
+import { summarizeCollections, summarizeByUnit, peso } from "@/lib/collections/summary";
 import { canActOnStage, nextStage, type CustodyStage } from "@/lib/collections/custody";
 import { listAccountOptions } from "@/lib/banking/queries";
 import { APP_BRAND, APP_BRAND_SHORT, PHP_DENOMINATIONS } from "@/lib/config";
@@ -39,6 +39,7 @@ export default async function TransmittalDetailPage({
   if (!t) notFound();
 
   const summary = summarizeCollections(t.transmittal_date, t.collections);
+  const unitBreakdown = summarizeByUnit(t.collections);
   const canWrite = canWriteModule(user.roleKeys, "transmittals");
 
   const currentStage = (t.custody_stage as CustodyStage) ?? "cashier_count";
@@ -107,6 +108,37 @@ export default async function TransmittalDetailPage({
             </tr>
           </tfoot>
         </table>
+
+        {/* Per-unit charge breakdown — only shown when room-linked collections exist */}
+        {unitBreakdown.length > 0 && (
+          <div className="mt-5">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">Room / unit charge breakdown</p>
+            <div className="space-y-3">
+              {unitBreakdown.map((u) => (
+                <div key={u.unit_id} className="rounded-xl border border-stone-200 bg-stone-50/50 p-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold text-stone-800">
+                      Unit {u.unit_number}
+                      {u.property_name ? <span className="ml-1 font-normal text-stone-500 text-xs">— {u.property_name}</span> : null}
+                    </p>
+                    <p className="text-sm font-semibold tabular-nums text-stone-800">{peso(u.subtotal)}</p>
+                  </div>
+                  <table className="mt-2 w-full text-xs">
+                    <tbody>
+                      {u.charges.map((ch) => (
+                        <tr key={ch.charge_type} className="border-t border-stone-100">
+                          <td className="py-1 text-stone-600">{ch.label}</td>
+                          <td className="py-1 text-right text-stone-400">{ch.count}×</td>
+                          <td className="py-1 text-right tabular-nums text-stone-700">{peso(ch.total)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Warn if stored total differs from live collection sum (e.g. a collection was deleted after transmittal was built). */}
         {totalMismatch && (

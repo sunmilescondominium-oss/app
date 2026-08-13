@@ -2,6 +2,7 @@ export interface Collection {
   id: string;
   business_line: string;
   unit_id: string | null;
+  charge_type: string | null;
   amount: number;
   or_number: string | null;
   payment_type: string;

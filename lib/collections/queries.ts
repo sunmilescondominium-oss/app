@@ -54,6 +54,7 @@ function mapCollection(r: Record<string, unknown>): Collection {
     id: r.id as string,
     business_line: r.business_line as string,
     unit_id: (r.unit_id as string) ?? null,
+    charge_type: (r.charge_type as string) ?? null,
     amount: Number(r.amount),
     or_number: (r.or_number as string) ?? null,
     payment_type: r.payment_type as string,

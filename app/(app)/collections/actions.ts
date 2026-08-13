@@ -7,7 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit";
 import { verifyStepUp } from "@/lib/auth/step-up";
 import { COLLECTION_EDIT_ROLES } from "@/lib/rbac/modules";
-import { COLLECTION_CATEGORIES, PAYMENT_TYPES } from "@/lib/config";
+import { COLLECTION_CATEGORIES, COLLECTION_CHARGE_TYPES, PAYMENT_TYPES } from "@/lib/config";
 import type { BulkResult } from "@/lib/data/bulk";
 
 const HARD_DELETE_ROLES = ["admin", "managing_officer", "consultant", "accounting"];
@@ -80,6 +80,7 @@ export type ActionResult = { ok: true; pendingId?: string } | { ok: false; error
 
 const CATS: readonly string[] = COLLECTION_CATEGORIES.map((c) => c.key);
 const PAYS: readonly string[] = PAYMENT_TYPES.map((p) => p.key);
+const CHARGES: readonly string[] = COLLECTION_CHARGE_TYPES.map((c) => c.key);
 const COLLECTING_ROLES = ["hotel_rental_monitoring", "accounting", "hotel_cashier"];
 
 export async function createCollection(
@@ -97,6 +98,8 @@ export async function createCollection(
   const unit_id = String(formData.get("unit_id") ?? "").trim() || null;
   const collected_on = String(formData.get("collected_on") ?? "").trim();
   const remarks = String(formData.get("remarks") ?? "").trim() || null;
+  const charge_type_raw = String(formData.get("charge_type") ?? "").trim();
+  const charge_type = CHARGES.includes(charge_type_raw) ? charge_type_raw : null;
   const reference_no = String(formData.get("reference_no") ?? "").trim() || null;
   const coupon_code = String(formData.get("coupon_code") ?? "").trim() || null;
   const discount_amount = Number(String(formData.get("discount_amount") ?? "0")) || 0;
@@ -133,6 +136,7 @@ export async function createCollection(
     payment_type,
     or_number,
     unit_id,
+    charge_type: unit_id ? charge_type : null,
     remarks,
     reference_no,
     proof_path,
@@ -196,12 +200,19 @@ export async function editCollection(
   const or_number = String(formData.get("or_number") ?? "").trim() || null;
   const collected_on = String(formData.get("collected_on") ?? "").trim();
   const remarks = String(formData.get("remarks") ?? "").trim() || null;
+  const charge_type_raw = String(formData.get("charge_type") ?? "").trim();
+  const charge_type = CHARGES.includes(charge_type_raw) ? charge_type_raw : null;
 
   if (!CATS.includes(business_line)) return { ok: false, error: "Choose a category." };
   if (!amountRaw || !Number.isFinite(amount) || amount < 0) return { ok: false, error: "Enter a valid amount." };
   if (!PAYS.includes(payment_type)) return { ok: false, error: "Choose a payment type." };
 
-  const patch = { business_line, amount, payment_type, or_number, remarks, ...(collected_on ? { collected_on } : {}) };
+  const unitId = (before.unit_id as string | null) ?? null;
+  const patch = {
+    business_line, amount, payment_type, or_number, remarks,
+    charge_type: unitId ? charge_type : null,
+    ...(collected_on ? { collected_on } : {}),
+  };
 
   // --- Free collection (not in a transmittal): apply directly ---
   if (!before.transmittal_id) {

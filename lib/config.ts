@@ -56,6 +56,19 @@ export const COLLECTION_CATEGORIES = [
 
 export type CollectionCategory = (typeof COLLECTION_CATEGORIES)[number]["key"];
 
+/** Charge types for room-linked collections — what is being collected within a unit. */
+export const COLLECTION_CHARGE_TYPES = [
+  { key: "rent",          label: "Monthly Rent" },
+  { key: "electric",      label: "Electricity (Meralco)" },
+  { key: "water",         label: "Water" },
+  { key: "dues",          label: "Association / Condo Dues" },
+  { key: "parking",       label: "Parking Fee" },
+  { key: "key_deposit",   label: "Key / Card Deposit" },
+  { key: "miscellaneous", label: "Miscellaneous" },
+] as const;
+
+export type CollectionChargeType = (typeof COLLECTION_CHARGE_TYPES)[number]["key"];
+
 export const PAYMENT_TYPES = [
   { key: "cash", label: "Cash" },
   { key: "gcash", label: "GCash" },

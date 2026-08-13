@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect } from "react";
 import { editCollection } from "@/app/(app)/collections/actions";
-import { COLLECTION_CATEGORIES, PAYMENT_TYPES } from "@/lib/config";
+import { COLLECTION_CATEGORIES, COLLECTION_CHARGE_TYPES, PAYMENT_TYPES } from "@/lib/config";
 import type { Collection } from "@/lib/collections/types";
 
 type ActionResult = { ok: true; pendingId?: string } | { ok: false; error: string };
@@ -83,6 +83,17 @@ export function EditCollectionForm({ collection, onDone }: { collection: Collect
           <label className={labelCls}>Collected on</label>
           <input name="collected_on" type="date" defaultValue={collection.collected_on?.slice(0, 10)} className={inputCls} />
         </div>
+        {collection.unit_id && (
+          <div>
+            <label className={labelCls}>Charge type</label>
+            <select name="charge_type" defaultValue={collection.charge_type ?? ""} className={inputCls}>
+              <option value="">— select charge —</option>
+              {COLLECTION_CHARGE_TYPES.map((ct) => (
+                <option key={ct.key} value={ct.key}>{ct.label}</option>
+              ))}
+            </select>
+          </div>
+        )}
         <div className="sm:col-span-2">
           <label className={labelCls}>Remarks</label>
           <input name="remarks" defaultValue={collection.remarks ?? ""} className={inputCls} />

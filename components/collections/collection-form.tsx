@@ -5,7 +5,7 @@ import {
   createCollection,
   type ActionResult,
 } from "@/app/(app)/collections/actions";
-import { COLLECTION_CATEGORIES, PAYMENT_TYPES } from "@/lib/config";
+import { COLLECTION_CATEGORIES, COLLECTION_CHARGE_TYPES, PAYMENT_TYPES } from "@/lib/config";
 import type { UnitOption } from "@/lib/collections/types";
 import { CameraCapture } from "@/components/capture/camera-capture";
 
@@ -39,6 +39,7 @@ export function CollectionForm({
   const [paymentType, setPaymentType] = useState("cash");
   const isCash = paymentType === "cash";
   const [proof, setProof] = useState<{ file: File; at: string } | null>(null);
+  const [selectedUnit, setSelectedUnit] = useState("");
 
   useEffect(() => {
     if (state?.ok) { onDone(); setProof(null); }
@@ -97,7 +98,7 @@ export function CollectionForm({
         </div>
         <div>
           <label className={labelCls}>Unit / room (optional)</label>
-          <select name="unit_id" defaultValue="" className={inputCls}>
+          <select name="unit_id" value={selectedUnit} onChange={(e) => setSelectedUnit(e.target.value)} className={inputCls}>
             <option value="">— none —</option>
             {unitOptions.map((u) => (
               <option key={u.id} value={u.id}>
@@ -106,6 +107,17 @@ export function CollectionForm({
             ))}
           </select>
         </div>
+        {selectedUnit && (
+          <div>
+            <label className={labelCls}>Charge type</label>
+            <select name="charge_type" defaultValue="" className={inputCls}>
+              <option value="">— select charge —</option>
+              {COLLECTION_CHARGE_TYPES.map((ct) => (
+                <option key={ct.key} value={ct.key}>{ct.label}</option>
+              ))}
+            </select>
+          </div>
+        )}
         <div>
           <label className={labelCls}>Collected by (role)</label>
           <select name="collected_by_role" defaultValue={COLLECTED_BY[0].key} className={inputCls}>

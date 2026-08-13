@@ -7,7 +7,7 @@ import { CollectionForm } from "./collection-form";
 import { EditCollectionForm } from "./edit-collection-form";
 import { deleteCollection, bulkDeleteCollections } from "@/app/(app)/collections/actions";
 import { peso } from "@/lib/collections/summary";
-import { COLLECTION_CATEGORIES, PAYMENT_TYPES } from "@/lib/config";
+import { COLLECTION_CATEGORIES, COLLECTION_CHARGE_TYPES, PAYMENT_TYPES } from "@/lib/config";
 import type { Collection, UnitOption } from "@/lib/collections/types";
 
 const CAT_LABEL: Record<string, string> = Object.fromEntries(
@@ -15,6 +15,9 @@ const CAT_LABEL: Record<string, string> = Object.fromEntries(
 );
 const PAY_LABEL: Record<string, string> = Object.fromEntries(
   PAYMENT_TYPES.map((p) => [p.key, p.label]),
+);
+const CHARGE_LABEL: Record<string, string> = Object.fromEntries(
+  COLLECTION_CHARGE_TYPES.map((c) => [c.key, c.label]),
 );
 
 function roleLabel(rk: string | null): string {
@@ -112,6 +115,7 @@ export function CollectionsPanel({
               <th className="px-4 py-3">OR #</th>
               <th className="px-4 py-3">Category</th>
               <th className="px-4 py-3">Unit</th>
+              <th className="px-4 py-3">Charge</th>
               <th className="px-4 py-3">Payment</th>
               <th className="px-4 py-3">Collected by</th>
               <th className="px-4 py-3 text-right">Amount</th>
@@ -121,7 +125,7 @@ export function CollectionsPanel({
           <tbody>
             {collections.length === 0 && (
               <tr>
-                <td colSpan={6 + (canWrite ? 1 : 0) + (canWrite || canEdit ? 1 : 0)} className="px-4 py-10 text-center text-stone-500">
+                <td colSpan={7 + (canWrite ? 1 : 0) + (canWrite || canEdit ? 1 : 0)} className="px-4 py-10 text-center text-stone-500">
                   No collections recorded for {date}.
                 </td>
               </tr>
@@ -139,6 +143,9 @@ export function CollectionsPanel({
                 </td>
                 <td className="px-4 py-3">{CAT_LABEL[c.business_line] ?? c.business_line}</td>
                 <td className="px-4 py-3">{c.unit?.unit_number ?? "—"}</td>
+                <td className="px-4 py-3 text-xs">
+                  {c.charge_type ? (CHARGE_LABEL[c.charge_type] ?? c.charge_type) : (c.unit_id ? <span className="text-stone-400">—</span> : null)}
+                </td>
                 <td className="px-4 py-3">{PAY_LABEL[c.payment_type] ?? c.payment_type}</td>
                 <td className="px-4 py-3">{roleLabel(c.collected_by_role)}</td>
                 <td className="px-4 py-3 text-right tabular-nums">{peso(c.amount)}</td>

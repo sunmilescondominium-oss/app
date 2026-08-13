@@ -1,5 +1,59 @@
-import { COLLECTION_CATEGORIES } from "@/lib/config";
+import { COLLECTION_CATEGORIES, COLLECTION_CHARGE_TYPES } from "@/lib/config";
 import type { Collection, DailySummary } from "./types";
+
+export interface UnitChargeRow {
+  charge_type: string;
+  label: string;
+  count: number;
+  total: number;
+}
+
+export interface UnitSummaryRow {
+  unit_id: string;
+  unit_number: string;
+  property_name?: string;
+  charges: UnitChargeRow[];
+  subtotal: number;
+}
+
+const CHARGE_LABEL: Record<string, string> = Object.fromEntries(
+  COLLECTION_CHARGE_TYPES.map((c) => [c.key, c.label]),
+);
+
+/** Groups room-linked collections by unit then by charge_type for per-unit reporting. */
+export function summarizeByUnit(cols: Collection[]): UnitSummaryRow[] {
+  const byUnit = new Map<string, UnitSummaryRow>();
+  for (const c of cols) {
+    if (!c.unit_id || !c.unit) continue;
+    if (!byUnit.has(c.unit_id)) {
+      byUnit.set(c.unit_id, {
+        unit_id: c.unit_id,
+        unit_number: c.unit.unit_number,
+        property_name: c.unit.property_name,
+        charges: [],
+        subtotal: 0,
+      });
+    }
+    const row = byUnit.get(c.unit_id)!;
+    const chargeKey = c.charge_type ?? "miscellaneous";
+    const existing = row.charges.find((ch) => ch.charge_type === chargeKey);
+    if (existing) {
+      existing.count++;
+      existing.total += Number(c.amount) || 0;
+    } else {
+      row.charges.push({
+        charge_type: chargeKey,
+        label: CHARGE_LABEL[chargeKey] ?? chargeKey,
+        count: 1,
+        total: Number(c.amount) || 0,
+      });
+    }
+    row.subtotal += Number(c.amount) || 0;
+  }
+  return Array.from(byUnit.values()).sort((a, b) =>
+    a.unit_number.localeCompare(b.unit_number),
+  );
+}
 
 /** Pure — reused by the dashboard screen and the printable report. */
 export function summarizeCollections(
