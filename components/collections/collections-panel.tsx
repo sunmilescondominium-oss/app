@@ -112,7 +112,7 @@ export function CollectionsPanel({
           <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
             <tr>
               {canWrite && <th className="no-print px-3 py-3"><input type="checkbox" checked={allSelected} onChange={toggleAllSel} aria-label="Select all" className="h-4 w-4 accent-amber-600" /></th>}
-              <th className="px-4 py-3">OR #</th>
+              <th className="px-4 py-3">Receipt #</th>
               <th className="px-4 py-3">Category</th>
               <th className="px-4 py-3">Unit</th>
               <th className="px-4 py-3">Charge</th>
@@ -134,12 +134,26 @@ export function CollectionsPanel({
               <tr key={c.id} className="border-b border-stone-100 last:border-0">
                 {canWrite && <td className="no-print px-3 py-3">{(!c.transmittal_id || isConsultant) && <input type="checkbox" checked={selected.has(c.id)} onChange={() => toggleSel(c.id)} aria-label="Select" className="h-4 w-4 accent-amber-600" />}</td>}
                 <td className="px-4 py-3 font-medium text-stone-900">
-                  {c.or_number ?? "—"}
-                  {Number((c as unknown as Record<string, unknown>).reverted_count ?? 0) > 0 ? (
-                    <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800" title={`Previously in transmittal ${String((c as unknown as Record<string, unknown>).last_reverted_from_ref ?? "")}`}>
-                      reverted
-                    </span>
-                  ) : null}
+                  <div className="flex flex-col gap-0.5">
+                    <span>{c.or_number ?? "—"}</span>
+                    <div className="flex flex-wrap gap-1">
+                      {c.receipt_type && (
+                        <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${c.receipt_type === "PR" ? "bg-amber-100 text-amber-800" : c.receipt_type === "AR" ? "bg-sky-100 text-sky-800" : "bg-emerald-100 text-emerald-800"}`}>
+                          {c.receipt_type}
+                        </span>
+                      )}
+                      {c.check_date && (
+                        <span className="rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold text-violet-800" title={`Check #${c.check_number ?? "—"} ${c.check_bank ?? ""} due ${c.check_date}`}>
+                          chk {c.check_date}
+                        </span>
+                      )}
+                      {Number((c as unknown as Record<string, unknown>).reverted_count ?? 0) > 0 ? (
+                        <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800" title={`Previously in transmittal ${String((c as unknown as Record<string, unknown>).last_reverted_from_ref ?? "")}`}>
+                          reverted
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
                 </td>
                 <td className="px-4 py-3">{CAT_LABEL[c.business_line] ?? c.business_line}</td>
                 <td className="px-4 py-3">{c.unit?.unit_number ?? "—"}</td>

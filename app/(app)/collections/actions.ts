@@ -8,7 +8,147 @@ import { logAudit } from "@/lib/audit";
 import { verifyStepUp } from "@/lib/auth/step-up";
 import { COLLECTION_EDIT_ROLES } from "@/lib/rbac/modules";
 import { COLLECTION_CATEGORIES, COLLECTION_CHARGE_TYPES, PAYMENT_TYPES } from "@/lib/config";
+import { todayManila } from "@/lib/collections/summary";
 import type { BulkResult } from "@/lib/data/bulk";
+
+// ── Pre-fill helpers ────────────────────────────────────────────────────────
+
+export interface ChargeSuggestion {
+  key: string;
+  charge_type: string;
+  label: string;
+  amount: number | null;
+  or_number: string | null;
+  /** true = checked by default in the form */
+  include: boolean;
+}
+
+/**
+ * Returns pre-filled charge rows for a unit/category combo. Called from the
+ * client collection form as a server action (React 19 / Next.js 15 pattern).
+ */
+export async function getUnitCharges(
+  unitId: string,
+  category: string,
+): Promise<ChargeSuggestion[]> {
+  await requireAuth(); // gate — must be logged in
+  const admin = createAdminClient();
+  const out: ChargeSuggestion[] = [];
+
+  if (category === "rental" || category === "airbnb") {
+    // Active lease → rent
+    const { data: lease } = await admin
+      .from("leases")
+      .select("rent_amount, billing_cycle")
+      .eq("unit_id", unitId)
+      .eq("status", "active")
+      .maybeSingle();
+    if (lease) {
+      out.push({
+        key: "rent",
+        charge_type: "rent",
+        label: `Monthly Rent`,
+        amount: Number(lease.rent_amount),
+        or_number: null,
+        include: true,
+      });
+    }
+
+    // Latest meter readings that have a bill_amount (one per utility type)
+    const { data: meters } = await admin
+      .from("meter_readings")
+      .select("id, utility, bill_amount, billing_period, or_number")
+      .eq("unit_id", unitId)
+      .not("bill_amount", "is", null)
+      .order("read_on", { ascending: false })
+      .limit(6);
+    const seen = new Set<string>();
+    for (const m of meters ?? []) {
+      const u = m.utility as string;
+      if (seen.has(u)) continue;
+      seen.add(u);
+      out.push({
+        key: `meter-${m.id as string}`,
+        charge_type: u === "electric" ? "electric" : "water",
+        label: `${u === "electric" ? "Electricity (Meralco)" : "Water"}${m.billing_period ? ` — ${m.billing_period as string}` : ""}`,
+        amount: Number(m.bill_amount),
+        or_number: (m.or_number as string | null) ?? null,
+        include: true,
+      });
+    }
+
+    // Unpaid dues (unchecked by default — user opts in)
+    const { data: dues } = await admin
+      .from("rental_dues")
+      .select("id, category, amount, due_date")
+      .eq("unit_id", unitId)
+      .eq("status", "unpaid")
+      .order("due_date", { ascending: true })
+      .limit(10);
+    for (const d of dues ?? []) {
+      const cat = d.category as string;
+      const chargeType =
+        cat === "association_dues" ? "dues"
+        : cat === "electric" ? "electric"
+        : cat === "water" ? "water"
+        : cat === "parking" ? "parking"
+        : "miscellaneous";
+      out.push({
+        key: `due-${d.id as string}`,
+        charge_type: chargeType,
+        label: `${cat.replace(/_/g, " ")} due ${d.due_date as string}`,
+        amount: Number(d.amount),
+        or_number: null,
+        include: false,
+      });
+    }
+  } else if (category === "hotel") {
+    // Active folio: try to get the room's current rate
+    const { data: room } = await admin
+      .from("units")
+      .select("unit_number, status")
+      .eq("id", unitId)
+      .maybeSingle();
+    out.push({
+      key: "hotel_revenue",
+      charge_type: "rent",
+      label: `Hotel Revenue — ${(room?.unit_number as string) ?? "room"}`,
+      amount: null,
+      or_number: null,
+      include: true,
+    });
+  } else if (category === "condo_sales") {
+    // Try buyer monthly amortization
+    const { data: buyer } = await admin
+      .from("buyers")
+      .select("computation_params")
+      .eq("unit_id", unitId)
+      .eq("status", "current")
+      .maybeSingle();
+    const params = (buyer?.computation_params as Record<string, unknown> | null) ?? null;
+    const amort = params?.monthly_amortization ?? params?.monthlyAmortization ?? null;
+    out.push({
+      key: "condo_amort",
+      charge_type: "dues",
+      label: "Monthly Amortization",
+      amount: amort != null ? Number(amort) : null,
+      or_number: null,
+      include: true,
+    });
+  }
+
+  // Always add a blank miscellaneous row so user can add extras
+  out.push({
+    key: "misc",
+    charge_type: "miscellaneous",
+    label: "Miscellaneous / Other",
+    amount: null,
+    or_number: null,
+    include: false,
+  });
+
+  return out;
+}
 
 const HARD_DELETE_ROLES = ["admin", "managing_officer", "consultant", "accounting"];
 
@@ -81,7 +221,106 @@ export type ActionResult = { ok: true; pendingId?: string } | { ok: false; error
 const CATS: readonly string[] = COLLECTION_CATEGORIES.map((c) => c.key);
 const PAYS: readonly string[] = PAYMENT_TYPES.map((p) => p.key);
 const CHARGES: readonly string[] = COLLECTION_CHARGE_TYPES.map((c) => c.key);
+const RECEIPT_TYPES = ["OR", "AR", "PR"] as const;
 const COLLECTING_ROLES = ["hotel_rental_monitoring", "accounting", "hotel_cashier"];
+
+/**
+ * Create multiple collection records from one form submission (one per charge
+ * row). Called by the redesigned CollectionForm.
+ */
+export async function createCollectionBatch(
+  _prev: ActionResult | undefined,
+  formData: FormData,
+): Promise<ActionResult> {
+  const user = await requireModuleWrite("collections");
+  const supabase = await createClient();
+
+  const business_line = String(formData.get("business_line") ?? "").trim();
+  const unit_id = String(formData.get("unit_id") ?? "").trim() || null;
+  const payment_type = String(formData.get("payment_type") ?? "cash");
+  const receipt_type_raw = String(formData.get("receipt_type") ?? "").trim();
+  const receipt_type = (RECEIPT_TYPES as readonly string[]).includes(receipt_type_raw)
+    ? receipt_type_raw : null;
+  const collected_on = String(formData.get("collected_on") ?? "").trim();
+  const remarks = String(formData.get("remarks") ?? "").trim() || null;
+  const check_number = String(formData.get("check_number") ?? "").trim() || null;
+  const check_date = String(formData.get("check_date") ?? "").trim() || null;
+  const check_bank = String(formData.get("check_bank") ?? "").trim() || null;
+  const reference_no = String(formData.get("reference_no") ?? "").trim() || null;
+  const payment_confirmed = payment_type === "cash" || String(formData.get("payment_confirmed") ?? "") === "on";
+
+  let collected_by_role = String(formData.get("collected_by_role") ?? "").trim() || null;
+  if (!collected_by_role)
+    collected_by_role = user.roleKeys.find((r) => COLLECTING_ROLES.includes(r)) ?? "hotel_rental_monitoring";
+
+  if (!CATS.includes(business_line)) return { ok: false, error: "Choose a category." };
+  if (!PAYS.includes(payment_type)) return { ok: false, error: "Choose a payment type." };
+  if (payment_type !== "cash" && !reference_no && payment_type !== "check")
+    return { ok: false, error: "Enter the payment reference number." };
+  if (payment_type !== "cash" && payment_type !== "check" && !payment_confirmed)
+    return { ok: false, error: "Confirm you received/verified the online payment." };
+
+  // Parse charge rows from JSON
+  let rows: ChargeSuggestion[] = [];
+  try {
+    const raw = String(formData.get("batch_json") ?? "[]");
+    rows = JSON.parse(raw) as ChargeSuggestion[];
+  } catch { return { ok: false, error: "Invalid charge data." }; }
+
+  if (rows.length === 0) return { ok: false, error: "Add at least one charge with an amount." };
+
+  // Validate each row
+  for (const r of rows) {
+    if (!r.amount || !Number.isFinite(Number(r.amount)) || Number(r.amount) < 0)
+      return { ok: false, error: `Invalid amount for "${r.label}".` };
+  }
+
+  // Handle proof upload (shared for the batch)
+  let proof_path: string | null = null;
+  const proof = formData.get("proof");
+  if (payment_type !== "cash" && proof instanceof File && proof.size > 0) {
+    if (proof.size > 8 * 1024 * 1024) return { ok: false, error: "Proof image too large (max 8 MB)." };
+    const path = `${new Date().toISOString().slice(0, 10)}/${Date.now()}-${proof.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+    const up = await createAdminClient().storage
+      .from("payment-proofs")
+      .upload(path, new Uint8Array(await proof.arrayBuffer()), { contentType: proof.type || "image/jpeg" });
+    if (!up.error) proof_path = path;
+  }
+
+  const inserts = rows.map((r) => ({
+    business_line,
+    unit_id,
+    charge_type: unit_id ? (CHARGES.includes(r.charge_type) ? r.charge_type : null) : null,
+    amount: Number(r.amount),
+    or_number: (r.or_number ?? "").trim() || null,
+    receipt_type,
+    check_number,
+    check_date: check_date || null,
+    check_bank,
+    payment_type,
+    payment_confirmed,
+    reference_no,
+    proof_path,
+    remarks,
+    collected_by_role,
+    created_by: user.userId,
+    ...(collected_on ? { collected_on } : {}),
+  }));
+
+  const { error } = await supabase.from("collections").insert(inserts);
+  if (error) return { ok: false, error: error.message };
+
+  await logAudit({
+    actorUserId: user.userId,
+    actorRoles: user.roleKeys,
+    action: "create",
+    entity: "collections",
+    entityId: null,
+    diff: { batch: rows.length, business_line, unit_id, payment_type, receipt_type },
+  });
+  revalidatePath("/collections");
+  return { ok: true };
+}
 
 export async function createCollection(
   _prev: ActionResult | undefined,
@@ -202,6 +441,11 @@ export async function editCollection(
   const remarks = String(formData.get("remarks") ?? "").trim() || null;
   const charge_type_raw = String(formData.get("charge_type") ?? "").trim();
   const charge_type = CHARGES.includes(charge_type_raw) ? charge_type_raw : null;
+  const receipt_type_raw = String(formData.get("receipt_type") ?? "").trim();
+  const receipt_type = (RECEIPT_TYPES as readonly string[]).includes(receipt_type_raw) ? receipt_type_raw : null;
+  const check_number = String(formData.get("check_number") ?? "").trim() || null;
+  const check_date = String(formData.get("check_date") ?? "").trim() || null;
+  const check_bank = String(formData.get("check_bank") ?? "").trim() || null;
 
   if (!CATS.includes(business_line)) return { ok: false, error: "Choose a category." };
   if (!amountRaw || !Number.isFinite(amount) || amount < 0) return { ok: false, error: "Enter a valid amount." };
@@ -211,6 +455,10 @@ export async function editCollection(
   const patch = {
     business_line, amount, payment_type, or_number, remarks,
     charge_type: unitId ? charge_type : null,
+    receipt_type,
+    check_number,
+    check_date: check_date || null,
+    check_bank,
     ...(collected_on ? { collected_on } : {}),
   };
 

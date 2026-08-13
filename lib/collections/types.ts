@@ -5,6 +5,10 @@ export interface Collection {
   charge_type: string | null;
   amount: number;
   or_number: string | null;
+  receipt_type: string | null;
+  check_number: string | null;
+  check_date: string | null;
+  check_bank: string | null;
   payment_type: string;
   collected_by_role: string | null;
   collected_on: string;

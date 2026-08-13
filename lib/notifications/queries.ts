@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { todayManila } from "@/lib/collections/summary";
 
 export interface NotifRow {
   id: string;
@@ -105,6 +106,64 @@ export async function markNotificationRead(id: string): Promise<void> {
     .update({ read_at: new Date().toISOString() })
     .eq("id", id)
     .is("read_at", null);
+}
+
+/**
+ * Scan for postdated checks due today or tomorrow and create notifications for
+ * accounting + errand_liaison. Idempotent — skips if notification already exists
+ * for that collection. Called fire-and-forget from the app layout.
+ */
+export async function notifyPostdatedChecksDue(): Promise<void> {
+  try {
+    const admin = createAdminClient();
+    const today = todayManila();
+    const tomorrow = new Date(`${today}T00:00:00`);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStr = tomorrow.toISOString().slice(0, 10);
+
+    const { data: checks } = await admin
+      .from("collections")
+      .select("id, amount, check_number, check_date, check_bank, unit_id, units(unit_number)")
+      .not("check_date", "is", null)
+      .gte("check_date", today)
+      .lte("check_date", tomorrowStr)
+      .limit(50);
+
+    for (const c of checks ?? []) {
+      const { data: existing } = await admin
+        .from("notifications")
+        .select("id")
+        .eq("kind", "postdated_check_due")
+        .eq("entity_id", c.id as string)
+        .maybeSingle();
+      if (existing) continue;
+
+      const checkDate = c.check_date as string;
+      const isToday = checkDate === today;
+      const unitNum = ((c.units as { unit_number?: string } | null)?.unit_number as string | null) ?? "";
+      const amt = (Number(c.amount) || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 });
+      const detail = `Check #${(c.check_number as string | null) ?? "—"} (${(c.check_bank as string | null) ?? "—"}) ₱${amt}${unitNum ? ` — Unit ${unitNum}` : ""} — ${checkDate}`;
+
+      await createNotification({
+        kind: "postdated_check_due",
+        title: `Check due for deposit ${isToday ? "today" : "tomorrow"}`,
+        body: detail,
+        link: "/collections",
+        entityType: "collection",
+        entityId: c.id as string,
+        recipientRole: "accounting",
+      });
+      await createNotification({
+        kind: "postdated_check_due",
+        title: `Check ready for bank deposit ${isToday ? "today" : "tomorrow"}`,
+        body: detail,
+        link: "/collections",
+        entityType: "collection",
+        entityId: c.id as string,
+        recipientRole: "errand_liaison",
+      });
+    }
+  } catch { /* never block the layout render */ }
 }
 
 /** Mark ALL notifications for this user/role as read. */

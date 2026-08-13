@@ -1,8 +1,10 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useState, useTransition } from "react";
 import {
-  createCollection,
+  createCollectionBatch,
+  getUnitCharges,
+  type ChargeSuggestion,
   type ActionResult,
 } from "@/app/(app)/collections/actions";
 import { COLLECTION_CATEGORIES, COLLECTION_CHARGE_TYPES, PAYMENT_TYPES } from "@/lib/config";
@@ -13,15 +15,33 @@ const inputCls =
   "w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
 const labelCls = "mb-1 block text-xs font-medium text-stone-600";
 
-// TODO(client-confirm): which roles are attributable as "collected by".
+const RECEIPT_TYPES = [
+  { key: "OR", label: "OR — Official Receipt" },
+  { key: "AR", label: "AR — Acknowledgement Receipt" },
+  { key: "PR", label: "PR — Provisional Receipt (postdated check)" },
+] as const;
+
 const COLLECTED_BY = [
   { key: "hotel_rental_monitoring", label: "Hotel & Rental Monitoring" },
   { key: "hotel_cashier", label: "Hotel Cashier" },
   { key: "accounting", label: "Accounting" },
   { key: "guard", label: "Guard" },
-  { key: "utility", label: "Utility" },
   { key: "errand_liaison", label: "Errand & Liaison" },
 ];
+
+// Categories where a unit/room picker is shown
+const UNIT_CATS = new Set(["rental", "hotel", "airbnb", "condo_sales"]);
+
+const CHARGE_LABELS: Record<string, string> = Object.fromEntries(
+  COLLECTION_CHARGE_TYPES.map((c) => [c.key, c.label]),
+);
+
+interface ChargeRow extends ChargeSuggestion {
+  localAmount: string;
+  localOrNumber: string;
+  localChargeType: string;
+  localLabel: string;
+}
 
 export function CollectionForm({
   date,
@@ -32,118 +52,364 @@ export function CollectionForm({
   unitOptions: UnitOption[];
   onDone: () => void;
 }) {
-  const [state, action, pending] = useActionState<
-    ActionResult | undefined,
-    FormData
-  >(createCollection, undefined);
+  const [state, formAction, pending] = useActionState<ActionResult | undefined, FormData>(
+    createCollectionBatch,
+    undefined,
+  );
+
+  // Step 1 — category
+  const [category, setCategory] = useState("rental");
+  const needsUnit = UNIT_CATS.has(category);
+
+  // Step 2 — unit
+  const [unitId, setUnitId] = useState("");
+  const [chargeRows, setChargeRows] = useState<ChargeRow[]>([]);
+  const [loadingCharges, startChargeTransition] = useTransition();
+
+  // Step 3 — payment
   const [paymentType, setPaymentType] = useState("cash");
+  const isCheck = paymentType === "check";
   const isCash = paymentType === "cash";
+  const isOnline = !isCash && !isCheck;
+
+  // Auto-set receipt type to PR when postdated check detected
+  const [checkDate, setCheckDate] = useState("");
+  const today = date; // collected_on date
+  const isPostdated = isCheck && checkDate && checkDate > today;
+  const [receiptType, setReceiptType] = useState("OR");
+
+  // Sync receipt type when postdated status changes
+  useEffect(() => {
+    if (isPostdated && receiptType !== "PR") setReceiptType("PR");
+  }, [isPostdated, receiptType]);
+
   const [proof, setProof] = useState<{ file: File; at: string } | null>(null);
-  const [selectedUnit, setSelectedUnit] = useState("");
 
   useEffect(() => {
     if (state?.ok) { onDone(); setProof(null); }
   }, [state, onDone]);
 
+  // Load charge suggestions when unit changes
+  function handleUnitChange(id: string) {
+    setUnitId(id);
+    setChargeRows([]);
+    if (!id) return;
+    startChargeTransition(async () => {
+      const suggestions = await getUnitCharges(id, category);
+      setChargeRows(
+        suggestions.map((s) => ({
+          ...s,
+          localAmount: s.amount != null ? String(s.amount) : "",
+          localOrNumber: s.or_number ?? "",
+          localChargeType: s.charge_type,
+          localLabel: s.label,
+        })),
+      );
+    });
+  }
+
+  // Also reload when category changes (unit already selected)
+  function handleCategoryChange(cat: string) {
+    setCategory(cat);
+    setUnitId("");
+    setChargeRows([]);
+  }
+
+  function toggleRow(key: string) {
+    setChargeRows((rows) =>
+      rows.map((r) => (r.key === key ? { ...r, include: !r.include } : r)),
+    );
+  }
+  function updateAmount(key: string, val: string) {
+    setChargeRows((rows) =>
+      rows.map((r) => (r.key === key ? { ...r, localAmount: val } : r)),
+    );
+  }
+  function updateOrNumber(key: string, val: string) {
+    setChargeRows((rows) =>
+      rows.map((r) => (r.key === key ? { ...r, localOrNumber: val } : r)),
+    );
+  }
+  function updateChargeType(key: string, val: string) {
+    setChargeRows((rows) =>
+      rows.map((r) => (r.key === key ? { ...r, localChargeType: val } : r)),
+    );
+  }
+
+  // For non-unit categories: single amount row
+  const [singleAmount, setSingleAmount] = useState("");
+  const [singleOrNumber, setSingleOrNumber] = useState("");
+  const [singleChargeType, setSingleChargeType] = useState("miscellaneous");
+
+  function buildBatchJson(): string {
+    if (needsUnit && chargeRows.length > 0) {
+      return JSON.stringify(
+        chargeRows
+          .filter((r) => r.include && r.localAmount)
+          .map((r) => ({
+            key: r.key,
+            charge_type: r.localChargeType,
+            label: r.localLabel,
+            amount: parseFloat(r.localAmount),
+            or_number: r.localOrNumber || null,
+            include: true,
+          })),
+      );
+    }
+    // Single-row mode (no unit, or unit not yet loaded)
+    if (!singleAmount) return "[]";
+    return JSON.stringify([{
+      key: "single",
+      charge_type: singleChargeType,
+      label: CHARGE_LABELS[singleChargeType] ?? singleChargeType,
+      amount: parseFloat(singleAmount),
+      or_number: singleOrNumber || null,
+      include: true,
+    }]);
+  }
+
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
-    if (proof) {
-      fd.set("proof", proof.file);
-      fd.set("captured_at", proof.at);
-    }
-    action(fd);
+    fd.set("batch_json", buildBatchJson());
+    if (proof) { fd.set("proof", proof.file); fd.set("captured_at", proof.at); }
+    formAction(fd);
   }
 
+  const includedRows = chargeRows.filter((r) => r.include && r.localAmount);
+  const batchTotal = includedRows.reduce((s, r) => s + (parseFloat(r.localAmount) || 0), 0);
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-5">
       <input type="hidden" name="collected_on" value={date} />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      {/* ── Step 1: Category ── */}
+      <div>
+        <label className={labelCls}>Category *</label>
+        <select
+          name="business_line"
+          value={category}
+          onChange={(e) => handleCategoryChange(e.target.value)}
+          className={inputCls}
+        >
+          {COLLECTION_CATEGORIES.map((c) => (
+            <option key={c.key} value={c.key}>{c.label}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* ── Step 2: Unit/Room (for unit-linked categories) ── */}
+      {needsUnit && (
         <div>
-          <label className={labelCls}>Category *</label>
-          <select name="business_line" defaultValue="rental" className={inputCls}>
-            {COLLECTION_CATEGORIES.map((c) => (
-              <option key={c.key} value={c.key}>
-                {c.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className={labelCls}>Amount (₱) *</label>
-          <input name="amount" type="number" step="0.01" min="0" required className={inputCls} />
-        </div>
-        <div>
-          <label className={labelCls}>OR number</label>
-          <input name="or_number" className={inputCls} placeholder="Official receipt #" />
-        </div>
-        <div>
-          <label className={labelCls}>Payment type</label>
-          <select name="payment_type" value={paymentType} onChange={(e) => setPaymentType(e.target.value)} className={inputCls}>
-            {PAYMENT_TYPES.map((p) => (
-              <option key={p.key} value={p.key}>
-                {p.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className={labelCls}>Discount (₱)</label>
-          <input name="discount_amount" type="number" step="0.01" min="0" defaultValue="0" className={inputCls} />
-        </div>
-        <div>
-          <label className={labelCls}>Coupon code</label>
-          <input name="coupon_code" className={inputCls} placeholder="Optional" />
-        </div>
-        <div>
-          <label className={labelCls}>Unit / room (optional)</label>
-          <select name="unit_id" value={selectedUnit} onChange={(e) => setSelectedUnit(e.target.value)} className={inputCls}>
-            <option value="">— none —</option>
+          <label className={labelCls}>Unit / Room</label>
+          <select
+            name="unit_id"
+            value={unitId}
+            onChange={(e) => handleUnitChange(e.target.value)}
+            className={inputCls}
+          >
+            <option value="">— select unit —</option>
             {unitOptions.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.label}
-              </option>
+              <option key={u.id} value={u.id}>{u.label}</option>
             ))}
           </select>
         </div>
-        {selectedUnit && (
+      )}
+
+      {/* ── Step 3a: Charge rows (unit selected) ── */}
+      {needsUnit && unitId && (
+        <div className="rounded-xl border border-stone-200 bg-stone-50/50">
+          <div className="border-b border-stone-200 px-4 py-2.5 flex items-center justify-between">
+            <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">Charges</p>
+            {loadingCharges && <span className="text-xs text-stone-400">Loading…</span>}
+          </div>
+          {chargeRows.length === 0 && !loadingCharges && (
+            <p className="px-4 py-3 text-xs text-stone-400">No pre-filled charges found — enter manually below.</p>
+          )}
+          {chargeRows.map((row) => (
+            <div key={row.key} className={`border-b border-stone-100 last:border-0 px-4 py-3 ${row.include ? "" : "opacity-50"}`}>
+              <div className="flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={row.include}
+                  onChange={() => toggleRow(row.key)}
+                  className="mt-1 h-4 w-4 accent-amber-600"
+                />
+                <div className="flex-1 space-y-2">
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    <div className="sm:col-span-2">
+                      <label className={labelCls}>{row.localLabel}</label>
+                      <select
+                        value={row.localChargeType}
+                        onChange={(e) => updateChargeType(row.key, e.target.value)}
+                        disabled={!row.include}
+                        className={inputCls}
+                      >
+                        {COLLECTION_CHARGE_TYPES.map((ct) => (
+                          <option key={ct.key} value={ct.key}>{ct.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className={labelCls}>Amount (₱) {row.include ? "*" : ""}</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={row.localAmount}
+                        onChange={(e) => updateAmount(row.key, e.target.value)}
+                        disabled={!row.include}
+                        placeholder="0.00"
+                        className={inputCls}
+                      />
+                    </div>
+                    <div>
+                      <label className={labelCls}>OR / Receipt #</label>
+                      <input
+                        value={row.localOrNumber}
+                        onChange={(e) => updateOrNumber(row.key, e.target.value)}
+                        disabled={!row.include}
+                        placeholder="Optional"
+                        className={inputCls}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+          {includedRows.length > 1 && (
+            <div className="flex items-center justify-between border-t border-stone-200 px-4 py-2 text-sm font-semibold">
+              <span className="text-stone-500">{includedRows.length} charges</span>
+              <span className="tabular-nums text-stone-800">
+                Total ₱{batchTotal.toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Step 3b: Single charge (no unit or standalone) ── */}
+      {(!needsUnit || !unitId) && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label className={labelCls}>Charge type</label>
-            <select name="charge_type" defaultValue="" className={inputCls}>
-              <option value="">— select charge —</option>
+            <select
+              value={singleChargeType}
+              onChange={(e) => setSingleChargeType(e.target.value)}
+              className={inputCls}
+            >
               {COLLECTION_CHARGE_TYPES.map((ct) => (
                 <option key={ct.key} value={ct.key}>{ct.label}</option>
               ))}
             </select>
           </div>
-        )}
-        <div>
-          <label className={labelCls}>Collected by (role)</label>
-          <select name="collected_by_role" defaultValue={COLLECTED_BY[0].key} className={inputCls}>
-            {COLLECTED_BY.map((r) => (
-              <option key={r.key} value={r.key}>
-                {r.label}
-              </option>
-            ))}
-          </select>
+          <div>
+            <label className={labelCls}>Amount (₱) *</label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={singleAmount}
+              onChange={(e) => setSingleAmount(e.target.value)}
+              required
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>OR / Receipt #</label>
+            <input
+              value={singleOrNumber}
+              onChange={(e) => setSingleOrNumber(e.target.value)}
+              placeholder="Official receipt #"
+              className={inputCls}
+            />
+          </div>
         </div>
-        <div className="sm:col-span-2">
-          <label className={labelCls}>Remarks</label>
-          <input name="remarks" className={inputCls} />
+      )}
+
+      {/* ── Step 4: Payment & Receipt type ── */}
+      <div className="rounded-xl border border-stone-200 p-4">
+        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-stone-500">Payment & Accountable Form</p>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label className={labelCls}>Payment type *</label>
+            <select
+              name="payment_type"
+              value={paymentType}
+              onChange={(e) => setPaymentType(e.target.value)}
+              className={inputCls}
+            >
+              {PAYMENT_TYPES.map((p) => (
+                <option key={p.key} value={p.key}>{p.label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Accountable form (receipt type) *</label>
+            <select
+              name="receipt_type"
+              value={receiptType}
+              onChange={(e) => setReceiptType(e.target.value)}
+              className={inputCls}
+            >
+              {RECEIPT_TYPES.map((r) => (
+                <option key={r.key} value={r.key}>{r.label}</option>
+              ))}
+            </select>
+            {isPostdated && (
+              <p className="mt-1 text-xs text-amber-700">
+                ⚠ Check date is after collection date — auto-set to PR (Provisional Receipt).
+              </p>
+            )}
+          </div>
         </div>
       </div>
 
-      {!isCash && (
-        <div className="rounded-xl border border-sky-200 bg-sky-50/40 p-3">
-          <p className="mb-2 text-xs font-semibold text-sky-800">Online / GCash payment proof</p>
+      {/* ── Step 5a: Check details ── */}
+      {isCheck && (
+        <div className="rounded-xl border border-sky-200 bg-sky-50/40 p-4 space-y-3">
+          <p className="text-xs font-semibold text-sky-800">Check payment details</p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div>
+              <label className={labelCls}>Check number *</label>
+              <input name="check_number" required className={inputCls} placeholder="Check #" />
+            </div>
+            <div>
+              <label className={labelCls}>Check date *</label>
+              <input
+                name="check_date"
+                type="date"
+                required
+                value={checkDate}
+                onChange={(e) => setCheckDate(e.target.value)}
+                className={inputCls}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Bank *</label>
+              <input name="check_bank" required className={inputCls} placeholder="Bank name" />
+            </div>
+          </div>
+          {isPostdated && (
+            <div className="rounded-lg bg-amber-100 px-3 py-2 text-xs text-amber-800">
+              <strong>Postdated check</strong> — a Provisional Receipt (PR) will be issued now. Accounting and the errand/liaison will be notified when the check is due for deposit on <strong>{checkDate}</strong>.
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Step 5b: Online payment proof ── */}
+      {isOnline && (
+        <div className="rounded-xl border border-sky-200 bg-sky-50/40 p-4 space-y-3">
+          <p className="text-xs font-semibold text-sky-800">Online / digital payment proof</p>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className={labelCls}>Reference number *</label>
-              <input name="reference_no" className={inputCls} placeholder="GCash/bank ref #" />
+              <input name="reference_no" required className={inputCls} placeholder="GCash / bank ref #" />
             </div>
             <div>
-              <label className={labelCls}>Proof — live photo of the payment screen</label>
+              <label className={labelCls}>Proof photo</label>
               {proof ? (
                 <p className="text-sm text-emerald-700">
                   ✓ Captured {new Date(proof.at).toLocaleTimeString("en-PH", { timeZone: "Asia/Manila", hour: "2-digit", minute: "2-digit" })}{" "}
@@ -154,12 +420,28 @@ export function CollectionForm({
               )}
             </div>
           </div>
-          <label className="mt-2 flex items-center gap-2 text-sm text-stone-700">
+          <label className="flex items-center gap-2 text-sm text-stone-700">
             <input type="checkbox" name="payment_confirmed" className="h-4 w-4" />
             I received / verified this online payment.
           </label>
         </div>
       )}
+
+      {/* ── Step 6: Collected by + Remarks ── */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div>
+          <label className={labelCls}>Collected by (role)</label>
+          <select name="collected_by_role" defaultValue={COLLECTED_BY[0].key} className={inputCls}>
+            {COLLECTED_BY.map((r) => (
+              <option key={r.key} value={r.key}>{r.label}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className={labelCls}>Remarks</label>
+          <input name="remarks" className={inputCls} placeholder="Optional" />
+        </div>
+      </div>
 
       {state && !state.ok && (
         <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -177,10 +459,10 @@ export function CollectionForm({
         </button>
         <button
           type="submit"
-          disabled={pending}
+          disabled={pending || loadingCharges}
           className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-60"
         >
-          {pending ? "Saving…" : "Add collection"}
+          {pending ? "Saving…" : loadingCharges ? "Loading charges…" : "Add collection"}
         </button>
       </div>
     </form>

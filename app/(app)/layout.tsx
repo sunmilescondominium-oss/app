@@ -5,7 +5,7 @@ import { getFeatureFlags, MODULE_FLAG } from "@/lib/settings/flags";
 import { AppShell, type NavModule, type RoleOption } from "@/components/app-shell";
 import { getLang } from "@/lib/i18n-server";
 import { navLabel, navBlurb } from "@/lib/i18n";
-import { countUnreadNotifications } from "@/lib/notifications/queries";
+import { countUnreadNotifications, notifyPostdatedChecksDue } from "@/lib/notifications/queries";
 
 /**
  * Authenticated app shell. requireAuth() is the authoritative gate; the nav is
@@ -48,6 +48,7 @@ export default async function AppLayout({
   }));
 
   const commitSha = process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? null;
+  void notifyPostdatedChecksDue(); // fire-and-forget — never blocks render
   const unreadNotifications = await countUnreadNotifications(user.userId, user.roleKeys);
 
   return (

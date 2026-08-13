@@ -1,9 +1,15 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { editCollection } from "@/app/(app)/collections/actions";
 import { COLLECTION_CATEGORIES, COLLECTION_CHARGE_TYPES, PAYMENT_TYPES } from "@/lib/config";
 import type { Collection } from "@/lib/collections/types";
+
+const RECEIPT_TYPES = [
+  { key: "OR", label: "OR — Official Receipt" },
+  { key: "AR", label: "AR — Acknowledgement Receipt" },
+  { key: "PR", label: "PR — Provisional Receipt" },
+] as const;
 
 type ActionResult = { ok: true; pendingId?: string } | { ok: false; error: string };
 
@@ -14,6 +20,8 @@ const labelCls = "mb-1 block text-xs font-medium text-stone-600";
 export function EditCollectionForm({ collection, onDone }: { collection: Collection; onDone: () => void }) {
   const action = editCollection.bind(null, collection.id);
   const [state, formAction, pending] = useActionState<ActionResult | undefined, FormData>(action, undefined);
+  const [paymentType, setPaymentType] = useState(collection.payment_type ?? "cash");
+  const isCheck = paymentType === "check";
 
   useEffect(() => {
     // Do NOT auto-close — show the "awaiting approval" state instead.
@@ -71,8 +79,15 @@ export function EditCollectionForm({ collection, onDone }: { collection: Collect
         </div>
         <div>
           <label className={labelCls}>Payment type *</label>
-          <select name="payment_type" defaultValue={collection.payment_type} className={inputCls}>
+          <select name="payment_type" value={paymentType} onChange={(e) => setPaymentType(e.target.value)} className={inputCls}>
             {PAYMENT_TYPES.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className={labelCls}>Receipt type</label>
+          <select name="receipt_type" defaultValue={collection.receipt_type ?? ""} className={inputCls}>
+            <option value="">— unspecified —</option>
+            {RECEIPT_TYPES.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}
           </select>
         </div>
         <div>
@@ -99,6 +114,26 @@ export function EditCollectionForm({ collection, onDone }: { collection: Collect
           <input name="remarks" defaultValue={collection.remarks ?? ""} className={inputCls} />
         </div>
       </div>
+
+      {isCheck && (
+        <div className="rounded-xl border border-sky-200 bg-sky-50/40 p-3 space-y-2">
+          <p className="text-xs font-semibold text-sky-800">Check details</p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div>
+              <label className={labelCls}>Check number</label>
+              <input name="check_number" defaultValue={collection.check_number ?? ""} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Check date</label>
+              <input name="check_date" type="date" defaultValue={collection.check_date?.slice(0, 10) ?? ""} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Bank</label>
+              <input name="check_bank" defaultValue={collection.check_bank ?? ""} className={inputCls} />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Authorization gate — only for collections currently locked in a transmittal */}
       {isTransmitted && (
