@@ -210,9 +210,11 @@ export function CollectionForm({
             className={inputCls}
           >
             <option value="">— select unit —</option>
-            {unitOptions.map((u) => (
-              <option key={u.id} value={u.id}>{u.label}</option>
-            ))}
+            {unitOptions
+              .filter((u) => u.business_line === category)
+              .map((u) => (
+                <option key={u.id} value={u.id}>{u.label}</option>
+              ))}
           </select>
         </div>
       )}

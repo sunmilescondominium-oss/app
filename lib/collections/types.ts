@@ -62,4 +62,5 @@ export interface TransmittalDetail extends Transmittal {
 export interface UnitOption {
   id: string;
   label: string;
+  business_line: string;
 }

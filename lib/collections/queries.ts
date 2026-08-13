@@ -88,7 +88,7 @@ export async function listUnitOptions(): Promise<UnitOption[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("units")
-    .select("id, unit_number, properties(name)")
+    .select("id, unit_number, business_line, properties(name)")
     .eq("is_active", true)
     .order("unit_number", { ascending: true });
   if (error) throw new Error(error.message);
@@ -97,6 +97,7 @@ export async function listUnitOptions(): Promise<UnitOption[]> {
     return {
       id: u.id as string,
       label: `${u.unit_number as string}${prop?.name ? ` — ${prop.name}` : ""}`,
+      business_line: u.business_line as string,
     };
   });
 }
