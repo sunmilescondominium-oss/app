@@ -132,6 +132,31 @@ export function CollectionForm({
     setChargeRows([]);
   }
 
+  function addBlankRow() {
+    const key = `manual-${Date.now()}`;
+    setChargeRows((rows) => [
+      ...rows,
+      {
+        key,
+        charge_type: "miscellaneous",
+        label: "Additional charge",
+        amount: null,
+        outstanding: 0,
+        or_number: null,
+        bill_id: null,
+        include: true,
+        localAmount: "",
+        localOrNumber: "",
+        localChargeType: "miscellaneous",
+        localLabel: "Additional charge",
+      },
+    ]);
+  }
+
+  function removeRow(key: string) {
+    setChargeRows((rows) => rows.filter((r) => r.key !== key));
+  }
+
   function toggleRow(key: string) {
     setChargeRows((rows) =>
       rows.map((r) => (r.key === key ? { ...r, include: !r.include } : r)),
@@ -150,6 +175,11 @@ export function CollectionForm({
   function updateChargeType(key: string, val: string) {
     setChargeRows((rows) =>
       rows.map((r) => (r.key === key ? { ...r, localChargeType: val } : r)),
+    );
+  }
+  function updateLabel(key: string, val: string) {
+    setChargeRows((rows) =>
+      rows.map((r) => (r.key === key ? { ...r, localLabel: val } : r)),
     );
   }
 
@@ -262,14 +292,28 @@ export function CollectionForm({
                   className="mt-1 h-4 w-4 accent-amber-600"
                 />
                 <div className="flex-1 space-y-2">
+
                   {row.outstanding > 0 && (
                     <p className="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
                       ₱{row.outstanding.toLocaleString("en-PH", { minimumFractionDigits: 2 })} previous balance included
                     </p>
                   )}
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                    <div className="sm:col-span-2">
-                      <label className={labelCls}>{row.localLabel}</label>
+                    <div className="sm:col-span-2 space-y-1.5">
+                      {row.key.startsWith("manual-") ? (
+                        <>
+                          <label className={labelCls}>Description *</label>
+                          <input
+                            value={row.localLabel}
+                            onChange={(e) => updateLabel(row.key, e.target.value)}
+                            disabled={!row.include}
+                            placeholder="e.g. Penalty fee, Extra parking…"
+                            className={inputCls}
+                          />
+                        </>
+                      ) : (
+                        <label className={labelCls}>{row.localLabel}</label>
+                      )}
                       <select
                         value={row.localChargeType}
                         onChange={(e) => updateChargeType(row.key, e.target.value)}
@@ -306,9 +350,29 @@ export function CollectionForm({
                     </div>
                   </div>
                 </div>
+                {row.key.startsWith("manual-") && (
+                  <button
+                    type="button"
+                    onClick={() => removeRow(row.key)}
+                    className="mt-1 text-stone-400 hover:text-red-500 text-lg leading-none"
+                    title="Remove"
+                  >
+                    ×
+                  </button>
+                )}
               </div>
             </div>
           ))}
+          {/* Add item button */}
+          <div className="border-t border-stone-100 px-4 py-2.5">
+            <button
+              type="button"
+              onClick={addBlankRow}
+              className="text-sm font-medium text-amber-700 hover:text-amber-900"
+            >
+              + Add item
+            </button>
+          </div>
           {includedRows.length > 1 && (
             <div className="flex items-center justify-between border-t border-stone-200 px-4 py-2 text-sm font-semibold">
               <span className="text-stone-500">{includedRows.length} charges</span>
