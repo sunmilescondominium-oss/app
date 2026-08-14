@@ -8,6 +8,7 @@ import { logAudit } from "@/lib/audit";
 import { verifyStepUp } from "@/lib/auth/step-up";
 import { COLLECTION_EDIT_ROLES } from "@/lib/rbac/modules";
 import { COLLECTION_CATEGORIES, COLLECTION_CHARGE_TYPES, PAYMENT_TYPES } from "@/lib/config";
+import { bankForLine, getUnitBillSuggestions, payBill } from "@/lib/collections/billing";
 import { todayManila } from "@/lib/collections/summary";
 import type { BulkResult } from "@/lib/data/bulk";
 
@@ -18,132 +19,167 @@ export interface ChargeSuggestion {
   charge_type: string;
   label: string;
   amount: number | null;
+  /** Outstanding balance from prior months (carried forward). */
+  outstanding: number;
   or_number: string | null;
+  /** Linked unit_bill id (for payment tracking). */
+  bill_id: string | null;
   /** true = checked by default in the form */
   include: boolean;
 }
 
 /**
- * Returns pre-filled charge rows for a unit/category combo. Called from the
- * client collection form as a server action (React 19 / Next.js 15 pattern).
+ * Returns pre-filled charge rows for a unit/category combo.
+ * Pulls from unit_rate_cards + unit_bills (outstanding balance),
+ * then falls back to lease/meter/buyer data for unconfigured units.
  */
 export async function getUnitCharges(
   unitId: string,
   category: string,
 ): Promise<ChargeSuggestion[]> {
-  await requireAuth(); // gate — must be logged in
+  await requireAuth();
   const admin = createAdminClient();
   const out: ChargeSuggestion[] = [];
 
-  if (category === "rental" || category === "airbnb") {
-    // Active lease → rent
-    const { data: lease } = await admin
-      .from("leases")
-      .select("rent_amount, billing_cycle")
-      .eq("unit_id", unitId)
-      .eq("status", "active")
-      .maybeSingle();
-    if (lease) {
+  // --- Rate-card path (works for all categories) ---
+  const billingMonth =
+    new Date().toISOString().slice(0, 8) + "01"; // YYYY-MM-01
+  const billSuggestions = await getUnitBillSuggestions(unitId, billingMonth);
+
+  if (billSuggestions.length > 0) {
+    for (const s of billSuggestions) {
       out.push({
-        key: "rent",
-        charge_type: "rent",
-        label: `Monthly Rent`,
-        amount: Number(lease.rent_amount),
+        key: `bill-${s.item_key}`,
+        charge_type: s.item_key,
+        label: s.outstanding_balance > 0
+          ? `${s.label} (incl. ₱${s.outstanding_balance.toLocaleString("en-PH", { minimumFractionDigits: 2 })} prev. balance)`
+          : s.label,
+        amount: s.total_due > 0 ? s.total_due : null,
+        outstanding: s.outstanding_balance,
         or_number: null,
+        bill_id: s.bill_id,
         include: true,
       });
     }
+  } else {
+    // --- Fallback: lease / meter / buyer data for units without a rate card ---
+    if (category === "rental" || category === "airbnb") {
+      const { data: lease } = await admin
+        .from("leases")
+        .select("rent_amount, billing_cycle")
+        .eq("unit_id", unitId)
+        .eq("status", "active")
+        .maybeSingle();
+      if (lease) {
+        out.push({
+          key: "rent",
+          charge_type: "rent",
+          label: "Monthly Rent",
+          amount: Number(lease.rent_amount),
+          outstanding: 0,
+          or_number: null,
+          bill_id: null,
+          include: true,
+        });
+      }
 
-    // Latest meter readings that have a bill_amount (one per utility type)
-    const { data: meters } = await admin
-      .from("meter_readings")
-      .select("id, utility, bill_amount, billing_period, or_number")
-      .eq("unit_id", unitId)
-      .not("bill_amount", "is", null)
-      .order("read_on", { ascending: false })
-      .limit(6);
-    const seen = new Set<string>();
-    for (const m of meters ?? []) {
-      const u = m.utility as string;
-      if (seen.has(u)) continue;
-      seen.add(u);
+      const { data: meters } = await admin
+        .from("meter_readings")
+        .select("id, utility, bill_amount, billing_period, or_number")
+        .eq("unit_id", unitId)
+        .not("bill_amount", "is", null)
+        .order("read_on", { ascending: false })
+        .limit(6);
+      const seen = new Set<string>();
+      for (const m of meters ?? []) {
+        const u = m.utility as string;
+        if (seen.has(u)) continue;
+        seen.add(u);
+        out.push({
+          key: `meter-${m.id as string}`,
+          charge_type: u === "electric" ? "electric" : "water",
+          label: `${u === "electric" ? "Electricity (Meralco)" : "Water"}${m.billing_period ? ` — ${m.billing_period as string}` : ""}`,
+          amount: Number(m.bill_amount),
+          outstanding: 0,
+          or_number: (m.or_number as string | null) ?? null,
+          bill_id: null,
+          include: true,
+        });
+      }
+
+      const { data: dues } = await admin
+        .from("rental_dues")
+        .select("id, category, amount, due_date")
+        .eq("unit_id", unitId)
+        .eq("status", "unpaid")
+        .order("due_date", { ascending: true })
+        .limit(10);
+      for (const d of dues ?? []) {
+        const cat = d.category as string;
+        const chargeType =
+          cat === "association_dues" ? "dues"
+          : cat === "electric" ? "electric"
+          : cat === "water" ? "water"
+          : cat === "parking" ? "parking"
+          : "miscellaneous";
+        out.push({
+          key: `due-${d.id as string}`,
+          charge_type: chargeType,
+          label: `${cat.replace(/_/g, " ")} due ${d.due_date as string}`,
+          amount: Number(d.amount),
+          outstanding: Number(d.amount),
+          or_number: null,
+          bill_id: null,
+          include: false,
+        });
+      }
+    } else if (category === "hotel") {
+      const { data: room } = await admin
+        .from("units")
+        .select("unit_number")
+        .eq("id", unitId)
+        .maybeSingle();
       out.push({
-        key: `meter-${m.id as string}`,
-        charge_type: u === "electric" ? "electric" : "water",
-        label: `${u === "electric" ? "Electricity (Meralco)" : "Water"}${m.billing_period ? ` — ${m.billing_period as string}` : ""}`,
-        amount: Number(m.bill_amount),
-        or_number: (m.or_number as string | null) ?? null,
+        key: "hotel_revenue",
+        charge_type: "room_charge",
+        label: `Hotel Revenue — ${(room?.unit_number as string) ?? "room"}`,
+        amount: null,
+        outstanding: 0,
+        or_number: null,
+        bill_id: null,
+        include: true,
+      });
+    } else if (category === "condo_sales") {
+      const { data: buyer } = await admin
+        .from("buyers")
+        .select("computation_params")
+        .eq("unit_id", unitId)
+        .eq("status", "current")
+        .maybeSingle();
+      const params = (buyer?.computation_params as Record<string, unknown> | null) ?? null;
+      const amort = params?.monthly_amortization ?? params?.monthlyAmortization ?? null;
+      out.push({
+        key: "condo_amort",
+        charge_type: "amortization",
+        label: "Monthly Amortization",
+        amount: amort != null ? Number(amort) : null,
+        outstanding: 0,
+        or_number: null,
+        bill_id: null,
         include: true,
       });
     }
-
-    // Unpaid dues (unchecked by default — user opts in)
-    const { data: dues } = await admin
-      .from("rental_dues")
-      .select("id, category, amount, due_date")
-      .eq("unit_id", unitId)
-      .eq("status", "unpaid")
-      .order("due_date", { ascending: true })
-      .limit(10);
-    for (const d of dues ?? []) {
-      const cat = d.category as string;
-      const chargeType =
-        cat === "association_dues" ? "dues"
-        : cat === "electric" ? "electric"
-        : cat === "water" ? "water"
-        : cat === "parking" ? "parking"
-        : "miscellaneous";
-      out.push({
-        key: `due-${d.id as string}`,
-        charge_type: chargeType,
-        label: `${cat.replace(/_/g, " ")} due ${d.due_date as string}`,
-        amount: Number(d.amount),
-        or_number: null,
-        include: false,
-      });
-    }
-  } else if (category === "hotel") {
-    // Active folio: try to get the room's current rate
-    const { data: room } = await admin
-      .from("units")
-      .select("unit_number, status")
-      .eq("id", unitId)
-      .maybeSingle();
-    out.push({
-      key: "hotel_revenue",
-      charge_type: "rent",
-      label: `Hotel Revenue — ${(room?.unit_number as string) ?? "room"}`,
-      amount: null,
-      or_number: null,
-      include: true,
-    });
-  } else if (category === "condo_sales") {
-    // Try buyer monthly amortization
-    const { data: buyer } = await admin
-      .from("buyers")
-      .select("computation_params")
-      .eq("unit_id", unitId)
-      .eq("status", "current")
-      .maybeSingle();
-    const params = (buyer?.computation_params as Record<string, unknown> | null) ?? null;
-    const amort = params?.monthly_amortization ?? params?.monthlyAmortization ?? null;
-    out.push({
-      key: "condo_amort",
-      charge_type: "dues",
-      label: "Monthly Amortization",
-      amount: amort != null ? Number(amort) : null,
-      or_number: null,
-      include: true,
-    });
   }
 
-  // Always add a blank miscellaneous row so user can add extras
+  // Always add a blank miscellaneous row
   out.push({
     key: "misc",
     charge_type: "miscellaneous",
     label: "Miscellaneous / Other",
     amount: null,
+    outstanding: 0,
     or_number: null,
+    bill_id: null,
     include: false,
   });
 
@@ -368,6 +404,10 @@ export async function createCollectionBatch(
     if (!up.error) proof_path = path;
   }
 
+  const bank_account = bankForLine(business_line);
+  // All rows in this batch share a group id so they appear under one receipt
+  const collection_group_id = crypto.randomUUID();
+
   const inserts = rows.map((r) => ({
     business_line,
     unit_id,
@@ -384,12 +424,25 @@ export async function createCollectionBatch(
     proof_path,
     remarks,
     collected_by_role,
+    bank_account,
+    collection_group_id,
+    unit_bill_id: (r as ChargeSuggestion & { bill_id?: string }).bill_id ?? null,
     created_by: user.userId,
     ...(collected_on ? { collected_on } : {}),
   }));
 
-  const { error } = await supabase.from("collections").insert(inserts);
+  const { data: inserted, error } = await supabase
+    .from("collections")
+    .insert(inserts)
+    .select("id, amount, unit_bill_id");
   if (error) return { ok: false, error: error.message };
+
+  // Mark linked bills as paid
+  for (const col of inserted ?? []) {
+    if (col.unit_bill_id) {
+      await payBill(col.unit_bill_id as string, Number(col.amount));
+    }
+  }
 
   await logAudit({
     actorUserId: user.userId,

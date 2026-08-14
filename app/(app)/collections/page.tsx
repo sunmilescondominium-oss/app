@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireModule } from "@/lib/auth/dal";
 import { canWriteModule, canEditCollections } from "@/lib/rbac/modules";
 import { listCollections, listUnitOptions } from "@/lib/collections/queries";
@@ -66,6 +67,11 @@ export default async function CollectionsPage({
         <a href={`/api/export/collections?date=${date}`} className="ml-auto rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100">
           ⬇ Export to Sheets
         </a>
+        {canWrite && (
+          <Link href="/admin/rate-cards" className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-medium text-sky-700 hover:bg-sky-100">
+            Rate cards
+          </Link>
+        )}
       </form>
 
       {/* Summary */}

@@ -7,7 +7,13 @@ import {
   type ChargeSuggestion,
   type ActionResult,
 } from "@/app/(app)/collections/actions";
-import { COLLECTION_CATEGORIES, COLLECTION_CHARGE_TYPES, PAYMENT_TYPES } from "@/lib/config";
+import {
+  COLLECTION_CATEGORIES,
+  COLLECTION_CHARGE_TYPES,
+  BILLING_ITEM_TYPES,
+  BANK_BY_BUSINESS_LINE,
+  PAYMENT_TYPES,
+} from "@/lib/config";
 import type { UnitOption } from "@/lib/collections/types";
 import { CameraCapture } from "@/components/capture/camera-capture";
 
@@ -21,6 +27,12 @@ const RECEIPT_TYPES = [
   { key: "AR", label: "AR — Acknowledgement Receipt" },
   { key: "PR", label: "PR — Provisional Receipt (postdated check)" },
 ] as const;
+
+// Build charge type dropdown from all billing item types (unified)
+const ALL_CHARGE_TYPES = [
+  ...BILLING_ITEM_TYPES,
+  ...COLLECTION_CHARGE_TYPES.filter((c) => !BILLING_ITEM_TYPES.find((b) => b.key === c.key)),
+];
 
 const COLLECTED_BY = [
   { key: "hotel_rental_monitoring", label: "Hotel & Rental Monitoring" },
@@ -42,6 +54,8 @@ interface ChargeRow extends ChargeSuggestion {
   localOrNumber: string;
   localChargeType: string;
   localLabel: string;
+  bill_id: string | null;
+  outstanding: number;
 }
 
 export function CollectionForm({
@@ -104,6 +118,8 @@ export function CollectionForm({
           localOrNumber: s.or_number ?? "",
           localChargeType: s.charge_type,
           localLabel: s.label,
+          bill_id: s.bill_id ?? null,
+          outstanding: s.outstanding ?? 0,
         })),
       );
     });
@@ -153,6 +169,7 @@ export function CollectionForm({
             label: r.localLabel,
             amount: parseFloat(r.localAmount),
             or_number: r.localOrNumber || null,
+            bill_id: r.bill_id ?? null,
             include: true,
           })),
       );
@@ -165,6 +182,7 @@ export function CollectionForm({
       label: CHARGE_LABELS[singleChargeType] ?? singleChargeType,
       amount: parseFloat(singleAmount),
       or_number: singleOrNumber || null,
+      bill_id: null,
       include: true,
     }]);
   }
@@ -184,7 +202,7 @@ export function CollectionForm({
     <form onSubmit={handleSubmit} className="space-y-5">
       <input type="hidden" name="collected_on" value={date} />
 
-      {/* ── Step 1: Category ── */}
+      {/* ── Step 1: Category + bank assignment ── */}
       <div>
         <label className={labelCls}>Category *</label>
         <select
@@ -197,6 +215,11 @@ export function CollectionForm({
             <option key={c.key} value={c.key}>{c.label}</option>
           ))}
         </select>
+        {BANK_BY_BUSINESS_LINE[category] && (
+          <p className="mt-1 text-xs text-sky-700 font-medium">
+            Bank: {BANK_BY_BUSINESS_LINE[category]}
+          </p>
+        )}
       </div>
 
       {/* ── Step 2: Unit/Room (for unit-linked categories) ── */}
@@ -239,6 +262,11 @@ export function CollectionForm({
                   className="mt-1 h-4 w-4 accent-amber-600"
                 />
                 <div className="flex-1 space-y-2">
+                  {row.outstanding > 0 && (
+                    <p className="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                      ₱{row.outstanding.toLocaleString("en-PH", { minimumFractionDigits: 2 })} previous balance included
+                    </p>
+                  )}
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     <div className="sm:col-span-2">
                       <label className={labelCls}>{row.localLabel}</label>
@@ -248,7 +276,7 @@ export function CollectionForm({
                         disabled={!row.include}
                         className={inputCls}
                       >
-                        {COLLECTION_CHARGE_TYPES.map((ct) => (
+                        {ALL_CHARGE_TYPES.map((ct) => (
                           <option key={ct.key} value={ct.key}>{ct.label}</option>
                         ))}
                       </select>
@@ -302,7 +330,7 @@ export function CollectionForm({
               onChange={(e) => setSingleChargeType(e.target.value)}
               className={inputCls}
             >
-              {COLLECTION_CHARGE_TYPES.map((ct) => (
+              {ALL_CHARGE_TYPES.map((ct) => (
                 <option key={ct.key} value={ct.key}>{ct.label}</option>
               ))}
             </select>

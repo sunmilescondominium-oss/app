@@ -69,6 +69,56 @@ export const COLLECTION_CHARGE_TYPES = [
 
 export type CollectionChargeType = (typeof COLLECTION_CHARGE_TYPES)[number]["key"];
 
+/**
+ * Unified item types for the rate-card & billing ledger system.
+ * Each item_key maps to a label and which business lines it applies to.
+ * TODO(client-confirm): add/remove items as needed without migration — only labels and BL lists.
+ */
+export const BILLING_ITEM_TYPES = [
+  // --- Rental / Airbnb ---
+  { key: "rent",            label: "Monthly Rent",             lines: ["rental", "airbnb"] },
+  { key: "electric",        label: "Electricity (Meralco)",    lines: ["rental", "airbnb", "condo_sales"] },
+  { key: "water",           label: "Water",                    lines: ["rental", "airbnb", "condo_sales"] },
+  { key: "association_dues",label: "Association Dues",         lines: ["rental", "airbnb", "condo_sales"] },
+  { key: "parking",         label: "Parking Fee",              lines: ["rental", "airbnb", "condo_sales"] },
+  { key: "key_deposit",     label: "Key / Card Deposit",       lines: ["rental", "airbnb"] },
+  // --- Condo Sales ---
+  { key: "amortization",    label: "Monthly Amortization",     lines: ["condo_sales"] },
+  { key: "downpayment",     label: "Down Payment",             lines: ["condo_sales"] },
+  { key: "reservation",     label: "Reservation Fee",          lines: ["condo_sales"] },
+  { key: "processing_fee",  label: "Processing / Admin Fee",   lines: ["condo_sales"] },
+  { key: "transfer_fee",    label: "Transfer / Documentary",   lines: ["condo_sales"] },
+  // --- Hotel ---
+  { key: "room_charge",     label: "Room Charge",              lines: ["hotel"] },
+  { key: "food_orders",     label: "Food & Beverage Orders",   lines: ["hotel"] },
+  { key: "extra_services",  label: "Extra Services",           lines: ["hotel"] },
+  // --- All / misc ---
+  { key: "repairs",         label: "Repairs Charge",           lines: ["rental", "airbnb", "condo_sales"] },
+  { key: "miscellaneous",   label: "Miscellaneous / Other",    lines: ["rental", "airbnb", "condo_sales", "hotel"] },
+] as const;
+
+export type BillingItemKey = (typeof BILLING_ITEM_TYPES)[number]["key"];
+
+/** Returns item types that apply to a given business line. */
+export function billingItemsForLine(businessLine: string) {
+  return BILLING_ITEM_TYPES.filter((t) => (t.lines as readonly string[]).includes(businessLine));
+}
+
+/**
+ * Bank account assignment by business line.
+ * TODO(client-confirm): replace placeholder names with actual bank account names.
+ * Value format: "Bank Name — Account / Branch"
+ */
+export const BANK_BY_BUSINESS_LINE: Record<string, string> = {
+  condo_sales: "Sun Miles Condo Sales — BPI",       // TODO(client-confirm)
+  rental:      "Sun Miles Rental — BDO",             // TODO(client-confirm)
+  hotel:       "Sun Miles Hotel — BDO",              // TODO(client-confirm)
+  airbnb:      "Sun Miles Airbnb — BDO",             // TODO(client-confirm)
+  parking:     "Sun Miles Rental — BDO",             // parking under rental unless specified
+  utility:     "Sun Miles Rental — BDO",             // utility under rental unless specified
+  other:       "General — TBD",                      // TODO(client-confirm)
+};
+
 export const PAYMENT_TYPES = [
   { key: "cash", label: "Cash" },
   { key: "gcash", label: "GCash" },
