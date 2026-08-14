@@ -9,6 +9,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { todayManila } from "@/lib/collections/summary";
 import { HOTEL_PAYMENT_METHODS, ROOM_ASSET_CHECKLIST } from "@/lib/config";
 import { createCleaningTask } from "@/lib/housekeeping/create-task";
+import { createNotification } from "@/lib/notifications/queries";
 import type { ImportResult } from "@/lib/imports/types";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
@@ -608,6 +609,202 @@ export async function deleteStay(stayId: string): Promise<ActionResult> {
   await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "delete", entity: "stays", entityId: stayId });
   revalidatePath("/hotel");
   return { ok: true };
+}
+
+// ── Hotel shift handover ──────────────────────────────────────────────────────
+
+const HANDOVER_ROLES = ["hotel_cashier", "hotel_rental_monitoring", "admin", "managing_officer"];
+const MONITORING_ROLES = ["hotel_rental_monitoring", "admin", "managing_officer", "consultant"];
+
+/**
+ * Cashier (or monitoring covering for absent cashier) submits the end-of-shift
+ * bag handover. One record per shift_date — upsert so accidental double-taps
+ * are idempotent.
+ */
+export async function submitShiftHandover(
+  _prev: ActionResult | undefined,
+  formData: FormData,
+): Promise<ActionResult> {
+  const user = await requireAuth();
+  if (!userHasAnyRole(user, HANDOVER_ROLES))
+    return { ok: false, error: "Only hotel cashier or monitoring can submit a shift handover." };
+
+  const shift_date = String(formData.get("shift_date") ?? "").trim();
+  if (!shift_date) return { ok: false, error: "Shift date is required." };
+
+  const cashier_absent = formData.get("cashier_absent") === "on";
+  const countedRaw = String(formData.get("counted_amount") ?? "").trim();
+  const counted_amount = countedRaw ? Number(countedRaw) : null;
+  if (counted_amount != null && (!Number.isFinite(counted_amount) || counted_amount < 0))
+    return { ok: false, error: "Enter a valid counted amount." };
+
+  let denomination_counts: Record<string, number> | null = null;
+  const denomRaw = String(formData.get("denomination_counts") ?? "").trim();
+  if (denomRaw) {
+    try { denomination_counts = JSON.parse(denomRaw) as Record<string, number>; } catch { /* ignore */ }
+  }
+
+  const remarks = String(formData.get("remarks") ?? "").trim() || null;
+  const cashier_role = user.roleKeys.find((r) => HANDOVER_ROLES.includes(r)) ?? "hotel_cashier";
+
+  const admin = createAdminClient();
+  const { error } = await admin.from("hotel_shift_handovers").upsert(
+    {
+      shift_date,
+      cashier_user_id: user.userId,
+      cashier_role,
+      counted_amount,
+      denomination_counts,
+      remarks,
+      cashier_absent,
+      handed_over_at: new Date().toISOString(),
+    },
+    { onConflict: "shift_date" },
+  );
+  if (error) return { ok: false, error: error.message };
+
+  await logAudit({
+    actorUserId: user.userId,
+    actorRoles: user.roleKeys,
+    action: "create",
+    entity: "hotel_shift_handovers",
+    entityId: shift_date,
+    diff: { shift_date, cashier_absent, counted_amount },
+  });
+
+  // Notify monitoring that the bag is ready (only when cashier submits, not monitoring covering)
+  if (!cashier_absent && user.roleKeys.includes("hotel_cashier")) {
+    void createNotification({
+      kind: "shift_handover_ready",
+      title: `Hotel shift bag handed over — ${shift_date}`,
+      body: counted_amount != null
+        ? `Cashier counted ₱${counted_amount.toLocaleString("en-PH", { minimumFractionDigits: 2 })}. Please count and build the transmittal.`
+        : "Cashier did not count. Please count the bag and build the transmittal.",
+      link: `/hotel/day?date=${shift_date}`,
+      entityType: "hotel_shift_handover",
+      entityId: shift_date,
+      recipientRole: "hotel_rental_monitoring",
+      createdBy: user.userId,
+    });
+  }
+
+  revalidatePath("/hotel/day");
+  return { ok: true };
+}
+
+/**
+ * Monitoring counts the bag and builds the hotel shift transmittal.
+ * Enters the custody chain at monitoring_recount (monitoring IS the counter).
+ * All un-transmitted hotel collections for the shift_date are bundled.
+ */
+export async function buildHotelShiftTransmittal(
+  _prev: ActionResult | undefined,
+  formData: FormData,
+): Promise<ActionResult & { transmittalId?: string }> {
+  const user = await requireAuth();
+  if (!userHasAnyRole(user, MONITORING_ROLES))
+    return { ok: false, error: "Only hotel & rental monitoring can build the shift transmittal." };
+
+  const shift_date = String(formData.get("shift_date") ?? "").trim();
+  if (!shift_date) return { ok: false, error: "Shift date is required." };
+
+  const countedRaw = String(formData.get("counted_amount") ?? "").trim();
+  const counted_amount = countedRaw ? Number(countedRaw) : null;
+  if (counted_amount == null || !Number.isFinite(counted_amount) || counted_amount < 0)
+    return { ok: false, error: "Enter the amount counted." };
+
+  let denomination_counts: Record<string, number> | null = null;
+  const denomRaw = String(formData.get("denomination_counts") ?? "").trim();
+  if (denomRaw) {
+    try { denomination_counts = JSON.parse(denomRaw) as Record<string, number>; } catch { /* ignore */ }
+  }
+
+  const handover_id = String(formData.get("handover_id") ?? "").trim() || null;
+  const note = String(formData.get("note") ?? "").trim() || null;
+
+  const admin = createAdminClient();
+
+  // Fetch all untransmitted hotel collections for this shift date
+  const { data: cols, error: cErr } = await admin
+    .from("collections")
+    .select("id, amount")
+    .eq("business_line", "hotel")
+    .eq("collected_on", shift_date)
+    .is("transmittal_id", null);
+  if (cErr) return { ok: false, error: cErr.message };
+  if (!cols || cols.length === 0)
+    return { ok: false, error: "No hotel collections found for this date to transmit." };
+
+  const total = Math.round(cols.reduce((s, c) => s + Number(c.amount), 0) * 100) / 100;
+  const variance = Math.round((counted_amount - total) * 100) / 100;
+  const actor_role = user.roleKeys.find((r) => MONITORING_ROLES.includes(r)) ?? "hotel_rental_monitoring";
+
+  // Create transmittal, entering custody at monitoring_recount
+  const { data: t, error: tErr } = await admin
+    .from("transmittals")
+    .insert({
+      transmittal_date: shift_date,
+      total_amount: total,
+      counted_by_role: actor_role,
+      denomination_counts,
+      counted_cash: counted_amount,
+      payment_mode: "cash",
+      transmittal_source: "hotel_cashier_shift",
+      custody_stage: "monitoring_recount",
+      status: "submitted",
+      is_hotel_shift: true,
+      handover_id,
+      created_by: user.userId,
+    })
+    .select("id")
+    .single();
+  if (tErr) return { ok: false, error: tErr.message };
+
+  const transmittalId = t.id as string;
+
+  // Link all hotel collections to the transmittal
+  const { error: uErr } = await admin
+    .from("collections")
+    .update({ transmittal_id: transmittalId })
+    .in("id", cols.map((c) => c.id));
+  if (uErr) return { ok: false, error: uErr.message };
+
+  // Record the monitoring_recount custody step
+  await admin.from("transmittal_custody").insert({
+    transmittal_id: transmittalId,
+    stage: "monitoring_recount",
+    actor_user_id: user.userId,
+    actor_role,
+    counted_amount,
+    expected_amount: total,
+    variance,
+    note,
+  });
+
+  await logAudit({
+    actorUserId: user.userId,
+    actorRoles: user.roleKeys,
+    action: "create",
+    entity: "transmittals",
+    entityId: transmittalId,
+    diff: { shift_date, total, counted_amount, variance, count: cols.length, is_hotel_shift: true },
+  });
+
+  // Notify accounting that a hotel shift transmittal is ready for passbook
+  void createNotification({
+    kind: "transmittal_built",
+    title: `Hotel shift transmittal ready — ${shift_date}`,
+    body: `${cols.length} collection(s) · ₱${total.toLocaleString("en-PH", { minimumFractionDigits: 2 })}${variance !== 0 ? ` · variance ₱${variance.toLocaleString("en-PH", { minimumFractionDigits: 2 })}` : ""}`,
+    link: `/transmittals/${transmittalId}`,
+    entityType: "transmittal",
+    entityId: transmittalId,
+    recipientRole: "accounting",
+    createdBy: user.userId,
+  });
+
+  revalidatePath("/hotel/day");
+  revalidatePath("/transmittals");
+  return { ok: true, transmittalId };
 }
 
 /** Hard-delete a single stay payment record. */

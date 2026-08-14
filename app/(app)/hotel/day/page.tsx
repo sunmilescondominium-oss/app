@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { requireModule } from "@/lib/auth/dal";
 import { getHotelDaySummary } from "@/lib/hotel/queries";
+import { getShiftHandover, listHotelCollectionsForDate, getHotelShiftTransmittalId } from "@/lib/hotel/handover";
 import { todayManila, peso } from "@/lib/collections/summary";
 import { HOTEL_PAYMENT_METHODS, APP_BRAND_SHORT } from "@/lib/config";
 import { PageHeader } from "@/components/ui";
 import { PrintButton } from "@/components/print-button";
+import { ShiftHandoverForm } from "@/components/hotel/shift-handover-form";
+import { ShiftTransmittalForm } from "@/components/hotel/shift-transmittal-form";
 
 export const metadata = { title: "Hotel Day-end" };
 
@@ -15,10 +18,25 @@ export default async function HotelDayPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await requireModule("hotel");
+  const user = await requireModule("hotel");
   const sp = await searchParams;
   const date = (typeof sp.date === "string" && sp.date) || todayManila();
-  const s = await getHotelDaySummary(date);
+
+  const isCashier = user.roleKeys.includes("hotel_cashier");
+  const isMonitoring = user.roleKeys.some((r) =>
+    ["hotel_rental_monitoring", "admin", "managing_officer", "consultant"].includes(r),
+  );
+
+  const [s, handover, hotelCols] = await Promise.all([
+    getHotelDaySummary(date),
+    getShiftHandover(date),
+    isMonitoring ? listHotelCollectionsForDate(date) : Promise.resolve([]),
+  ]);
+
+  // Check if a hotel-shift transmittal has already been built for this handover
+  const existingTransmittalId =
+    isMonitoring && handover ? await getHotelShiftTransmittalId(handover.id) : null;
+  const alreadyTransmitted = !!existingTransmittalId;
 
   const inputCls =
     "rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
@@ -49,6 +67,7 @@ export default async function HotelDayPage({
         <PrintButton label="Print report" />
       </form>
 
+      {/* Summary tiles */}
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
           ["Check-ins", String(s.checkInCount)],
@@ -63,6 +82,7 @@ export default async function HotelDayPage({
         ))}
       </div>
 
+      {/* Remittance by payment method */}
       <div className="mb-6 table-wrap">
         <table className="w-full text-left text-sm">
           <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
@@ -95,16 +115,63 @@ export default async function HotelDayPage({
         </table>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <DayList title="Check-ins" rows={s.checkIns.map((c) => ({ a: `${c.unit} · ${c.guest}`, b: new Date(c.at).toLocaleTimeString() }))} />
+      {/* Check-in / check-out lists */}
+      <div className="mb-6 grid gap-4 sm:grid-cols-2">
+        <DayList title="Check-ins" rows={s.checkIns.map((c) => ({ a: `${c.unit} · ${c.guest}`, b: new Date(c.at).toLocaleTimeString("en-PH", { timeZone: "Asia/Manila" }) }))} />
         <DayList
           title="Check-outs"
-          rows={s.checkOuts.map((c) => ({ a: `${c.unit} · ${c.guest}`, b: `${new Date(c.at).toLocaleTimeString()} · ${c.hours}h` }))}
+          rows={s.checkOuts.map((c) => ({ a: `${c.unit} · ${c.guest}`, b: `${new Date(c.at).toLocaleTimeString("en-PH", { timeZone: "Asia/Manila" })} · ${c.hours}h` }))}
         />
       </div>
 
-      <p className="mt-6 text-xs text-stone-400">
-        Hotel payments post to Collections automatically, so this remittance is included in the daily transmittal.
+      {/* ── Shift handover section ── */}
+      <div className="no-print mb-6 space-y-4">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-stone-500">
+          Shift collection handover
+        </h2>
+
+        {/* Cashier: submit handover */}
+        {isCashier && (
+          <ShiftHandoverForm date={date} existing={handover} isMonitoring={false} />
+        )}
+
+        {/* Monitoring covering for absent cashier (before they build the transmittal) */}
+        {isMonitoring && !handover && (
+          <ShiftHandoverForm date={date} existing={null} isMonitoring={true} />
+        )}
+
+        {/* Monitoring: show handover status + build transmittal */}
+        {isMonitoring && (
+          <>
+            {handover && (
+              <ShiftHandoverForm date={date} existing={handover} isMonitoring={true} />
+            )}
+
+            {alreadyTransmitted ? (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 space-y-1">
+                <p className="text-sm font-semibold text-emerald-900">
+                  ✓ Hotel shift transmittal for {date} has been built.
+                </p>
+                <Link
+                  href={existingTransmittalId ? `/transmittals/${existingTransmittalId}` : "/transmittals"}
+                  className="text-sm text-amber-700 hover:underline"
+                >
+                  View transmittal →
+                </Link>
+              </div>
+            ) : (
+              <ShiftTransmittalForm
+                date={date}
+                handover={handover}
+                collections={hotelCols}
+              />
+            )}
+          </>
+        )}
+      </div>
+
+      <p className="text-xs text-stone-400">
+        Hotel payments post to Collections automatically. This remittance is included in the hotel shift transmittal built by Hotel &amp; Rental Monitoring.
       </p>
     </>
   );
