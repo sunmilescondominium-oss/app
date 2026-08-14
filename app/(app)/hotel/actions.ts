@@ -708,15 +708,20 @@ export async function buildHotelShiftTransmittal(
   const shift_date = String(formData.get("shift_date") ?? "").trim();
   if (!shift_date) return { ok: false, error: "Shift date is required." };
 
-  const countedRaw = String(formData.get("counted_amount") ?? "").trim();
-  const counted_amount = countedRaw ? Number(countedRaw) : null;
-  if (counted_amount == null || !Number.isFinite(counted_amount) || counted_amount < 0)
-    return { ok: false, error: "Enter the amount counted." };
-
+  // Compute counted_amount from the DenominationCounter JSON (no separate counted_amount field)
   let denomination_counts: Record<string, number> | null = null;
+  let counted_amount = 0;
   const denomRaw = String(formData.get("denomination_counts") ?? "").trim();
   if (denomRaw) {
-    try { denomination_counts = JSON.parse(denomRaw) as Record<string, number>; } catch { /* ignore */ }
+    try {
+      const parsed = JSON.parse(denomRaw) as Record<string, number>;
+      denomination_counts = parsed;
+      counted_amount = Object.entries(parsed).reduce((s, [key, qty]) => {
+        const val = Number(key.split("-").pop());
+        return s + (isNaN(val) ? 0 : val) * (Number(qty) || 0);
+      }, 0);
+      counted_amount = Math.round(counted_amount * 100) / 100;
+    } catch { /* ignore malformed */ }
   }
 
   const handover_id = String(formData.get("handover_id") ?? "").trim() || null;
