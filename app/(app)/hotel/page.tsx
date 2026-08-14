@@ -12,9 +12,8 @@ import {
 import { PageHeader, Badge } from "@/components/ui";
 import { HotelBoard } from "@/components/hotel/hotel-board";
 import { CsvImporter } from "@/components/data/csv-importer";
-import { RATE_PLAN_TEMPLATE, MENU_TEMPLATE, METER_READING_HEADERS, METER_READING_TEMPLATE } from "@/lib/imports/config";
+import { RATE_PLAN_TEMPLATE, MENU_TEMPLATE } from "@/lib/imports/config";
 import { bulkImportRatePlans, bulkImportMenu } from "@/app/(app)/hotel/actions";
-import { importMeterReadings } from "@/app/(app)/rentals/actions";
 
 export const metadata = { title: "Hotel Ops" };
 
@@ -52,17 +51,6 @@ export default async function HotelPage() {
         <Link href="/hotel/gift-cards" className="text-sm font-medium text-amber-700 hover:underline">
           Gift cards →
         </Link>
-        <Link href="/rentals/utilities" className="text-sm font-medium text-emerald-700 hover:underline">
-          ⚡ Utility monitoring →
-        </Link>
-        <CsvImporter
-          title="Bulk import meter readings"
-          label="Import meter readings"
-          templateName="meter_readings_template.csv"
-          templateCsv={METER_READING_TEMPLATE}
-          requiredHeaders={[...METER_READING_HEADERS]}
-          commit={importMeterReadings}
-        />
         {canManageConfig && (
           <>
             <CsvImporter title="Import rate plans from CSV" label="Import rate plans" templateName="rate_plans_template.csv" templateCsv={RATE_PLAN_TEMPLATE} requiredHeaders={["name", "base_rate"]} commit={bulkImportRatePlans} />
