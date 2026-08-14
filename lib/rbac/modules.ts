@@ -257,8 +257,8 @@ export const MODULES: Record<ModuleKey, ModuleDef> = {
     label: "Accountable Forms",
     blurb: "Serialized OR/AR/checks — custodian, status & reconciliation.",
     milestone: "Acct",
-    read: ["owner", "consultant", "admin", "managing_officer", "accounting", "hotel_rental_monitoring", "hotel_cashier"],
-    write: ["admin", "managing_officer", "accounting", "hotel_rental_monitoring", "hotel_cashier"],
+    read: ["owner", "consultant", "admin", "managing_officer", "accounting", "hotel_rental_monitoring"],
+    write: ["admin", "managing_officer", "accounting", "hotel_rental_monitoring"],
   },
   payables: {
     key: "payables",
