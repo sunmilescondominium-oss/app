@@ -246,8 +246,8 @@ export function CollectionForm({
           ))}
         </select>
         {BANK_BY_BUSINESS_LINE[category] && (
-          <p className="mt-1 text-xs text-sky-700 font-medium">
-            Bank: {BANK_BY_BUSINESS_LINE[category]}
+          <p className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-sky-100 px-2.5 py-0.5 text-xs font-semibold text-sky-800">
+            🏦 {BANK_BY_BUSINESS_LINE[category]}
           </p>
         )}
       </div>

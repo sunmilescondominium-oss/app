@@ -110,13 +110,13 @@ export function billingItemsForLine(businessLine: string) {
  * Value format: "Bank Name — Account / Branch"
  */
 export const BANK_BY_BUSINESS_LINE: Record<string, string> = {
-  condo_sales: "Sun Miles Condo Sales — BPI",       // TODO(client-confirm)
-  rental:      "Sun Miles Rental — BDO",             // TODO(client-confirm)
-  hotel:       "Sun Miles Hotel — BDO",              // TODO(client-confirm)
-  airbnb:      "Sun Miles Airbnb — PNB",
-  parking:     "Sun Miles Rental — BDO",             // parking under rental unless specified
-  utility:     "Sun Miles Rental — BDO",             // utility under rental unless specified
-  other:       "General — TBD",                      // TODO(client-confirm)
+  hotel:       "China Bank",
+  rental:      "BDO",
+  airbnb:      "PNB",
+  condo_sales: "PNB",
+  parking:     "PNB",
+  utility:     "BDO",
+  other:       "BDO",
 };
 
 export const PAYMENT_TYPES = [
