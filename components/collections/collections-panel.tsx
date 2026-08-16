@@ -7,7 +7,8 @@ import { CollectionForm } from "./collection-form";
 import { EditCollectionForm } from "./edit-collection-form";
 import { deleteCollection, bulkDeleteCollections, clearCheck } from "@/app/(app)/collections/actions";
 import { peso } from "@/lib/collections/summary";
-import { COLLECTION_CATEGORIES, COLLECTION_CHARGE_TYPES, PAYMENT_TYPES } from "@/lib/config";
+import { COLLECTION_CATEGORIES, PAYMENT_TYPES } from "@/lib/config";
+import type { CollectionItemType } from "@/lib/collections/item-types-shared";
 import type { Collection, UnitOption } from "@/lib/collections/types";
 
 const CAT_LABEL: Record<string, string> = Object.fromEntries(
@@ -15,9 +16,6 @@ const CAT_LABEL: Record<string, string> = Object.fromEntries(
 );
 const PAY_LABEL: Record<string, string> = Object.fromEntries(
   PAYMENT_TYPES.map((p) => [p.key, p.label]),
-);
-const CHARGE_LABEL: Record<string, string> = Object.fromEntries(
-  COLLECTION_CHARGE_TYPES.map((c) => [c.key, c.label]),
 );
 
 function roleLabel(rk: string | null): string {
@@ -28,6 +26,7 @@ function roleLabel(rk: string | null): string {
 export function CollectionsPanel({
   collections,
   unitOptions,
+  itemTypes = [],
   bankMap = {},
   bankItemsMap = {},
   canWrite,
@@ -38,6 +37,7 @@ export function CollectionsPanel({
 }: {
   collections: Collection[];
   unitOptions: UnitOption[];
+  itemTypes?: CollectionItemType[];
   bankMap?: Record<string, string>;
   bankItemsMap?: Record<string, string[]>;
   canWrite: boolean;
@@ -187,7 +187,7 @@ export function CollectionsPanel({
                 <td className="px-4 py-3">{CAT_LABEL[c.business_line] ?? c.business_line}</td>
                 <td className="px-4 py-3">{c.unit?.unit_number ?? "—"}</td>
                 <td className="px-4 py-3 text-xs">
-                  {c.charge_type ? (CHARGE_LABEL[c.charge_type] ?? c.charge_type) : (c.unit_id ? <span className="text-stone-400">—</span> : null)}
+                  {c.charge_type ? (itemTypes.find((t) => t.key === c.charge_type)?.label ?? c.charge_type) : (c.unit_id ? <span className="text-stone-400">—</span> : null)}
                 </td>
                 <td className="px-4 py-3">{PAY_LABEL[c.payment_type] ?? c.payment_type}</td>
                 <td className="px-4 py-3">{roleLabel(c.collected_by_role)}</td>
@@ -236,7 +236,7 @@ export function CollectionsPanel({
       </div>
 
       <Modal open={open} onClose={() => setOpen(false)} title={`Add collection — ${date}`}>
-        <CollectionForm date={date} unitOptions={unitOptions} bankMap={bankMap} bankItemsMap={bankItemsMap} onDone={done} />
+        <CollectionForm date={date} unitOptions={unitOptions} itemTypes={itemTypes} bankMap={bankMap} bankItemsMap={bankItemsMap} onDone={done} />
       </Modal>
 
       <Modal open={editing !== null} onClose={() => setEditing(null)} title={editing?.transmittal_id ? "Edit collection (authorized correction)" : "Edit collection"}>

@@ -9,11 +9,10 @@ import {
 } from "@/app/(app)/collections/actions";
 import {
   COLLECTION_CATEGORIES,
-  COLLECTION_CHARGE_TYPES,
-  BILLING_ITEM_TYPES,
   PAYMENT_TYPES,
 } from "@/lib/config";
 import type { UnitOption } from "@/lib/collections/types";
+import type { CollectionItemType } from "@/lib/collections/item-types-shared";
 import { CameraCapture } from "@/components/capture/camera-capture";
 
 const inputCls =
@@ -27,12 +26,6 @@ const RECEIPT_TYPES = [
   { key: "PR", label: "PR — Provisional Receipt (postdated check)" },
 ] as const;
 
-// Build charge type dropdown from all billing item types (unified)
-const ALL_CHARGE_TYPES = [
-  ...BILLING_ITEM_TYPES,
-  ...COLLECTION_CHARGE_TYPES.filter((c) => !BILLING_ITEM_TYPES.find((b) => b.key === c.key)),
-];
-
 const COLLECTED_BY = [
   { key: "hotel_rental_monitoring", label: "Hotel & Rental Monitoring" },
   { key: "hotel_cashier", label: "Hotel Cashier" },
@@ -44,10 +37,6 @@ const COLLECTED_BY = [
 // Categories where a unit/room picker is shown
 const UNIT_CATS = new Set(["rental", "hotel", "airbnb", "condo_sales"]);
 
-const CHARGE_LABELS: Record<string, string> = Object.fromEntries(
-  COLLECTION_CHARGE_TYPES.map((c) => [c.key, c.label]),
-);
-
 interface ChargeRow extends ChargeSuggestion {
   localAmount: string;
   localOrNumber: string;
@@ -58,19 +47,21 @@ interface ChargeRow extends ChargeSuggestion {
 }
 
 /** Returns charge types allowed for a category per bank config.
- *  Falls back to ALL when accounting hasn't configured items yet.
+ *  Falls back to full itemTypes list when accounting hasn't configured items yet.
  *  Always includes currentKey so a pre-filled row's value stays visible. */
 function allowedTypes(
+  itemTypes: CollectionItemType[],
   bankItemsMap: Record<string, string[]>,
   category: string,
   currentKey?: string,
 ) {
   const keys = bankItemsMap[category];
-  if (!keys || keys.length === 0) return ALL_CHARGE_TYPES;
-  const filtered = ALL_CHARGE_TYPES.filter((ct) => keys.includes(ct.key));
-  if (filtered.length === 0) return ALL_CHARGE_TYPES;
+  const base = keys && keys.length > 0
+    ? itemTypes.filter((ct) => keys.includes(ct.key))
+    : itemTypes;
+  const filtered = base.length > 0 ? base : itemTypes;
   if (currentKey && !filtered.find((ct) => ct.key === currentKey)) {
-    const extra = ALL_CHARGE_TYPES.find((ct) => ct.key === currentKey);
+    const extra = itemTypes.find((ct) => ct.key === currentKey);
     if (extra) return [...filtered, extra];
   }
   return filtered;
@@ -79,12 +70,14 @@ function allowedTypes(
 export function CollectionForm({
   date,
   unitOptions,
+  itemTypes = [],
   bankMap = {},
   bankItemsMap = {},
   onDone,
 }: {
   date: string;
   unitOptions: UnitOption[];
+  itemTypes?: CollectionItemType[];
   bankMap?: Record<string, string>;
   bankItemsMap?: Record<string, string[]>;
   onDone: () => void;
@@ -97,7 +90,7 @@ export function CollectionForm({
   // Step 1 — category
   const [category, setCategory] = useState("rental");
   const needsUnit = UNIT_CATS.has(category);
-  const catAllowed = allowedTypes(bankItemsMap, category);
+  const catAllowed = allowedTypes(itemTypes, bankItemsMap, category);
   const defaultChargeType = catAllowed[0]?.key ?? "miscellaneous";
 
   // Step 2 — unit
@@ -154,7 +147,7 @@ export function CollectionForm({
     setCategory(cat);
     setUnitId("");
     setChargeRows([]);
-    const first = allowedTypes(bankItemsMap, cat)[0]?.key ?? "miscellaneous";
+    const first = allowedTypes(itemTypes, bankItemsMap, cat)[0]?.key ?? "miscellaneous";
     setSingleChargeType(first);
   }
 
@@ -235,7 +228,7 @@ export function CollectionForm({
     return JSON.stringify([{
       key: "single",
       charge_type: singleChargeType,
-      label: CHARGE_LABELS[singleChargeType] ?? singleChargeType,
+      label: itemTypes.find((t) => t.key === singleChargeType)?.label ?? singleChargeType,
       amount: parseFloat(singleAmount),
       or_number: singleOrNumber || null,
       bill_id: null,
@@ -346,7 +339,7 @@ export function CollectionForm({
                         disabled={!row.include}
                         className={inputCls}
                       >
-                        {allowedTypes(bankItemsMap, category, row.localChargeType).map((ct) => (
+                        {allowedTypes(itemTypes, bankItemsMap, category, row.localChargeType).map((ct) => (
                           <option key={ct.key} value={ct.key}>{ct.label}</option>
                         ))}
                       </select>

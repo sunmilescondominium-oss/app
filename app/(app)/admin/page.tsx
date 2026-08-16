@@ -6,9 +6,16 @@ export const metadata = { title: "Admin" };
 
 const ADMIN_SECTIONS = [
   {
+    href: "/admin/collection-items",
+    title: "Collection Item Types",
+    blurb: "Define what can be collected — parking, utility, rent, hotel room, etc. Staff see only these items when entering collections.",
+    icon: "📋",
+    roles: ["accounting", "admin", "managing_officer", "consultant"],
+  },
+  {
     href: "/admin/bank-config",
     title: "Bank Deposit Config",
-    blurb: "Set which bank each collection category deposits to, and the default items per deposit.",
+    blurb: "Set which bank each collection category deposits to, and the allowed items per deposit.",
     icon: "🏦",
     roles: ["accounting", "admin", "managing_officer", "consultant"],
   },

@@ -3,6 +3,7 @@ import { requireModule } from "@/lib/auth/dal";
 import { canWriteModule, canEditCollections } from "@/lib/rbac/modules";
 import { listCollections, listUnitOptions } from "@/lib/collections/queries";
 import { getBankNameMap, getBankItemsMap } from "@/lib/collections/bank-config";
+import { getActiveItemTypes } from "@/lib/collections/item-types";
 import { summarizeCollections, peso, todayManila } from "@/lib/collections/summary";
 import { APP_BRAND_SHORT } from "@/lib/config";
 import { PageHeader, Badge } from "@/components/ui";
@@ -26,9 +27,10 @@ export default async function CollectionsPage({
   const sp = await searchParams;
   const date = (typeof sp.date === "string" && sp.date) || todayManila();
 
-  const [collections, unitOptions, bankMap, bankItemsMap] = await Promise.all([
+  const [collections, unitOptions, itemTypes, bankMap, bankItemsMap] = await Promise.all([
     listCollections(date),
     canWrite ? listUnitOptions() : Promise.resolve([]),
+    getActiveItemTypes(),
     getBankNameMap(),
     getBankItemsMap(),
   ]);
@@ -127,6 +129,7 @@ export default async function CollectionsPage({
       <CollectionsPanel
         collections={collections}
         unitOptions={unitOptions}
+        itemTypes={itemTypes}
         bankMap={bankMap}
         bankItemsMap={bankItemsMap}
         canWrite={canWrite}

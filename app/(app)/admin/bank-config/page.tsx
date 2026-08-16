@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireModule } from "@/lib/auth/dal";
 import { getBankDepositConfigs } from "@/lib/collections/bank-config";
+import { getActiveItemTypes } from "@/lib/collections/item-types";
 import { PageHeader } from "@/components/ui";
 import { BankConfigManager } from "@/components/admin/bank-config-manager";
 
@@ -9,7 +10,10 @@ export const metadata = { title: "Bank Deposit Config" };
 export default async function BankConfigPage() {
   await requireModule("collections");
 
-  const configs = await getBankDepositConfigs();
+  const [configs, itemTypes] = await Promise.all([
+    getBankDepositConfigs(),
+    getActiveItemTypes(),
+  ]);
 
   return (
     <>
@@ -35,7 +39,7 @@ export default async function BankConfigPage() {
         </ul>
       </div>
 
-      <BankConfigManager configs={configs} />
+      <BankConfigManager configs={configs} itemTypes={itemTypes} />
     </>
   );
 }

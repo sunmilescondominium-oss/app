@@ -3,15 +3,14 @@
 import { useState, useTransition } from "react";
 import { updateBankConfig } from "@/app/(app)/admin/bank-config/actions";
 import type { BankDepositConfig } from "@/lib/collections/bank-config";
-import { BILLING_ITEM_TYPES } from "@/lib/config";
+import type { CollectionItemType } from "@/lib/collections/item-types-shared";
 
 const inputCls =
   "w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
 const labelCls = "mb-1 block text-xs font-medium text-stone-600";
 
-const ITEM_LABEL = Object.fromEntries(BILLING_ITEM_TYPES.map((t) => [t.key, t.label]));
-
-export function BankConfigManager({ configs }: { configs: BankDepositConfig[] }) {
+export function BankConfigManager({ configs, itemTypes }: { configs: BankDepositConfig[]; itemTypes: CollectionItemType[] }) {
+  const ITEM_LABEL = Object.fromEntries(itemTypes.map((t) => [t.key, t.label]));
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
   const [bankName, setBankName] = useState("");
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
@@ -83,7 +82,7 @@ export function BankConfigManager({ configs }: { configs: BankDepositConfig[] })
               <div>
                 <label className={labelCls}>Default collection items</label>
                 <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
-                  {BILLING_ITEM_TYPES.map((t) => (
+                  {itemTypes.map((t) => (
                     <label key={t.key} className="flex items-center gap-2 rounded-lg border border-stone-200 px-2.5 py-1.5 text-xs cursor-pointer hover:bg-stone-50">
                       <input
                         type="checkbox"
@@ -96,8 +95,8 @@ export function BankConfigManager({ configs }: { configs: BankDepositConfig[] })
                   ))}
                 </div>
 
-                {/* Custom items (keys not in BILLING_ITEM_TYPES) */}
-                {selectedItems.filter((k) => !BILLING_ITEM_TYPES.find((t) => t.key === k)).map((k) => (
+                {/* Custom items (keys not in the standard item list) */}
+                {selectedItems.filter((k) => !itemTypes.find((t) => t.key === k)).map((k) => (
                   <div key={k} className="mt-1.5 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs">
                     <span className="flex-1 font-mono text-amber-800">{k}</span>
                     <button type="button" onClick={() => removeItem(k)} className="text-red-500 hover:text-red-700">×</button>
