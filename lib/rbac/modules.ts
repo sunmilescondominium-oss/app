@@ -57,7 +57,8 @@ export type ModuleKey =
   | "employees"
   | "advances"
   | "scheduling"
-  | "users";
+  | "users"
+  | "settings";
 
 /**
  * Role groups for the permission matrix admin UI.
@@ -398,6 +399,15 @@ export const MODULES: Record<ModuleKey, ModuleDef> = {
     // TODO(client-confirm): should managing_officer also be able to edit users?
     read: ["admin", "managing_officer", "accounting"],
     write: ["admin"],
+  },
+  settings: {
+    key: "settings",
+    path: "/admin",
+    label: "Settings",
+    blurb: "Collection items, bank config, rate cards.",
+    milestone: "Admin",
+    read: ["admin", "managing_officer", "consultant", "accounting"],
+    write: ["admin", "managing_officer", "accounting"],
   },
 };
 
