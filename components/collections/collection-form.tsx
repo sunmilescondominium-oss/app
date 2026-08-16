@@ -57,15 +57,36 @@ interface ChargeRow extends ChargeSuggestion {
   outstanding: number;
 }
 
+/** Returns charge types allowed for a category per bank config.
+ *  Falls back to ALL when accounting hasn't configured items yet.
+ *  Always includes currentKey so a pre-filled row's value stays visible. */
+function allowedTypes(
+  bankItemsMap: Record<string, string[]>,
+  category: string,
+  currentKey?: string,
+) {
+  const keys = bankItemsMap[category];
+  if (!keys || keys.length === 0) return ALL_CHARGE_TYPES;
+  const filtered = ALL_CHARGE_TYPES.filter((ct) => keys.includes(ct.key));
+  if (filtered.length === 0) return ALL_CHARGE_TYPES;
+  if (currentKey && !filtered.find((ct) => ct.key === currentKey)) {
+    const extra = ALL_CHARGE_TYPES.find((ct) => ct.key === currentKey);
+    if (extra) return [...filtered, extra];
+  }
+  return filtered;
+}
+
 export function CollectionForm({
   date,
   unitOptions,
   bankMap = {},
+  bankItemsMap = {},
   onDone,
 }: {
   date: string;
   unitOptions: UnitOption[];
   bankMap?: Record<string, string>;
+  bankItemsMap?: Record<string, string[]>;
   onDone: () => void;
 }) {
   const [state, formAction, pending] = useActionState<ActionResult | undefined, FormData>(
@@ -76,6 +97,8 @@ export function CollectionForm({
   // Step 1 — category
   const [category, setCategory] = useState("rental");
   const needsUnit = UNIT_CATS.has(category);
+  const catAllowed = allowedTypes(bankItemsMap, category);
+  const defaultChargeType = catAllowed[0]?.key ?? "miscellaneous";
 
   // Step 2 — unit
   const [unitId, setUnitId] = useState("");
@@ -131,6 +154,8 @@ export function CollectionForm({
     setCategory(cat);
     setUnitId("");
     setChargeRows([]);
+    const first = allowedTypes(bankItemsMap, cat)[0]?.key ?? "miscellaneous";
+    setSingleChargeType(first);
   }
 
   function addBlankRow() {
@@ -139,7 +164,7 @@ export function CollectionForm({
       ...rows,
       {
         key,
-        charge_type: "miscellaneous",
+        charge_type: defaultChargeType,
         label: "Additional charge",
         amount: null,
         outstanding: 0,
@@ -148,7 +173,7 @@ export function CollectionForm({
         include: true,
         localAmount: "",
         localOrNumber: "",
-        localChargeType: "miscellaneous",
+        localChargeType: defaultChargeType,
         localLabel: "Additional charge",
       },
     ]);
@@ -321,7 +346,7 @@ export function CollectionForm({
                         disabled={!row.include}
                         className={inputCls}
                       >
-                        {ALL_CHARGE_TYPES.map((ct) => (
+                        {allowedTypes(bankItemsMap, category, row.localChargeType).map((ct) => (
                           <option key={ct.key} value={ct.key}>{ct.label}</option>
                         ))}
                       </select>
@@ -395,7 +420,7 @@ export function CollectionForm({
               onChange={(e) => setSingleChargeType(e.target.value)}
               className={inputCls}
             >
-              {ALL_CHARGE_TYPES.map((ct) => (
+              {catAllowed.map((ct) => (
                 <option key={ct.key} value={ct.key}>{ct.label}</option>
               ))}
             </select>
