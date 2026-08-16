@@ -2,8 +2,7 @@
 
 import { requireAuth, userHasAnyRole } from "@/lib/auth/dal";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { revalidatePath } from "next/cache";
-import { revalidateTag } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 
 const ALLOWED = ["admin", "managing_officer"] as const;
 
@@ -43,7 +42,7 @@ export async function setRolePermission(
     );
   if (error) return { ok: false, error: error.message };
 
-  revalidateTag("module-role-permissions");
+  revalidateTag("module-role-permissions", {});
   revalidatePath("/admin/role-permissions");
   return { ok: true };
 }
@@ -65,7 +64,7 @@ export async function clearRolePermission(
     .eq("role_key", roleKey);
   if (error) return { ok: false, error: error.message };
 
-  revalidateTag("module-role-permissions");
+  revalidateTag("module-role-permissions", {});
   revalidatePath("/admin/role-permissions");
   return { ok: true };
 }
@@ -96,7 +95,7 @@ export async function setGroupPermission(
     .upsert(rows, { onConflict: "module_key,role_key" });
   if (error) return { ok: false, error: error.message };
 
-  revalidateTag("module-role-permissions");
+  revalidateTag("module-role-permissions", {});
   revalidatePath("/admin/role-permissions");
   return { ok: true };
 }

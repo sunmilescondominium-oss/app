@@ -49,5 +49,5 @@ export async function getBankItemsMap(): Promise<Record<string, string[]>> {
 
 /** Invalidate the cache after an admin update. */
 export function invalidateBankConfigs() {
-  revalidateTag("bank-deposit-configs");
+  revalidateTag("bank-deposit-configs", {});
 }
