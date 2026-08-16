@@ -59,6 +59,47 @@ export type ModuleKey =
   | "scheduling"
   | "users";
 
+/**
+ * Role groups for the permission matrix admin UI.
+ * Each group can be toggled on/off per module; changes write to
+ * module_role_permissions in the DB so no code deployment is needed.
+ * New roles: add to the appropriate group here AND to ALL_ROLE_KEYS above.
+ */
+export const ROLE_GROUPS = [
+  {
+    key: "management",
+    label: "Management",
+    description: "Admin, managing officer, operations manager, consultant",
+    roles: ["admin", "managing_officer", "operations_manager", "consultant"] as string[],
+  },
+  {
+    key: "hotel_ops",
+    label: "Hotel Operations",
+    description: "Hotel cashier, monitoring, room attendant",
+    roles: ["hotel_cashier", "hotel_rental_monitoring", "room_attendant"] as string[],
+  },
+  {
+    key: "finance",
+    label: "Finance & Accounting",
+    description: "Accounting and errand/liaison staff",
+    roles: ["accounting", "errand_liaison"] as string[],
+  },
+  {
+    key: "support",
+    label: "Security & Support",
+    description: "Guard, warehouse, timekeeper",
+    roles: ["guard", "warehouse_timekeeper"] as string[],
+  },
+  {
+    key: "external",
+    label: "External",
+    description: "Property owners and buyer portal access",
+    roles: ["owner"] as string[],
+  },
+] as const;
+
+export type RoleGroupKey = (typeof ROLE_GROUPS)[number]["key"];
+
 /** Roles that may approve/reject leave — TODO(client-confirm). Owner included so
  *  the owner can act on requests surfaced in the Owner Dashboard. */
 export const LEAVE_APPROVER_ROLES: RoleKey[] = ["owner", "admin", "managing_officer", "operations_manager"];

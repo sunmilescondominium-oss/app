@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireModule } from "@/lib/auth/dal";
 import { canWriteModule, canEditCollections } from "@/lib/rbac/modules";
 import { listCollections, listUnitOptions } from "@/lib/collections/queries";
+import { getBankNameMap } from "@/lib/collections/bank-config";
 import { summarizeCollections, peso, todayManila } from "@/lib/collections/summary";
 import { APP_BRAND_SHORT } from "@/lib/config";
 import { PageHeader, Badge } from "@/components/ui";
@@ -25,9 +26,10 @@ export default async function CollectionsPage({
   const sp = await searchParams;
   const date = (typeof sp.date === "string" && sp.date) || todayManila();
 
-  const [collections, unitOptions] = await Promise.all([
+  const [collections, unitOptions, bankMap] = await Promise.all([
     listCollections(date),
     canWrite ? listUnitOptions() : Promise.resolve([]),
+    getBankNameMap(),
   ]);
   const summary = summarizeCollections(date, collections);
 
@@ -124,6 +126,7 @@ export default async function CollectionsPage({
       <CollectionsPanel
         collections={collections}
         unitOptions={unitOptions}
+        bankMap={bankMap}
         canWrite={canWrite}
         canEdit={canEdit}
         canClearChecks={canClearChecks}

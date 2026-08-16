@@ -85,7 +85,10 @@ export default async function RateCardsPage() {
           ))}
         </div>
         <p className="mt-2 text-xs text-stone-400">
-          To change bank names, update <code className="bg-stone-100 px-1 rounded">lib/config.ts</code> → <code className="bg-stone-100 px-1 rounded">BANK_BY_BUSINESS_LINE</code>.
+          To change bank assignments,{" "}
+          <Link href="/admin/bank-config" className="font-medium text-amber-700 hover:underline">
+            update Bank Deposit Config →
+          </Link>
         </p>
       </div>
 

@@ -28,6 +28,7 @@ function roleLabel(rk: string | null): string {
 export function CollectionsPanel({
   collections,
   unitOptions,
+  bankMap = {},
   canWrite,
   canEdit = false,
   canClearChecks = false,
@@ -36,6 +37,7 @@ export function CollectionsPanel({
 }: {
   collections: Collection[];
   unitOptions: UnitOption[];
+  bankMap?: Record<string, string>;
   canWrite: boolean;
   canEdit?: boolean;
   canClearChecks?: boolean;
@@ -232,7 +234,7 @@ export function CollectionsPanel({
       </div>
 
       <Modal open={open} onClose={() => setOpen(false)} title={`Add collection — ${date}`}>
-        <CollectionForm date={date} unitOptions={unitOptions} onDone={done} />
+        <CollectionForm date={date} unitOptions={unitOptions} bankMap={bankMap} onDone={done} />
       </Modal>
 
       <Modal open={editing !== null} onClose={() => setEditing(null)} title={editing?.transmittal_id ? "Edit collection (authorized correction)" : "Edit collection"}>

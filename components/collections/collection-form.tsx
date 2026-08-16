@@ -11,7 +11,6 @@ import {
   COLLECTION_CATEGORIES,
   COLLECTION_CHARGE_TYPES,
   BILLING_ITEM_TYPES,
-  BANK_BY_BUSINESS_LINE,
   PAYMENT_TYPES,
 } from "@/lib/config";
 import type { UnitOption } from "@/lib/collections/types";
@@ -61,10 +60,12 @@ interface ChargeRow extends ChargeSuggestion {
 export function CollectionForm({
   date,
   unitOptions,
+  bankMap = {},
   onDone,
 }: {
   date: string;
   unitOptions: UnitOption[];
+  bankMap?: Record<string, string>;
   onDone: () => void;
 }) {
   const [state, formAction, pending] = useActionState<ActionResult | undefined, FormData>(
@@ -245,9 +246,9 @@ export function CollectionForm({
             <option key={c.key} value={c.key}>{c.label}</option>
           ))}
         </select>
-        {BANK_BY_BUSINESS_LINE[category] && (
+        {bankMap[category] && (
           <p className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-sky-100 px-2.5 py-0.5 text-xs font-semibold text-sky-800">
-            🏦 {BANK_BY_BUSINESS_LINE[category]}
+            🏦 {bankMap[category]}
           </p>
         )}
       </div>
