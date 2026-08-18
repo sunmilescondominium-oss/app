@@ -10,6 +10,7 @@ import {
 import { BUSINESS_LINES, UNIT_STATUSES } from "@/lib/config";
 import { PageHeader, Badge } from "@/components/ui";
 import { InventoryTable } from "@/components/inventory/inventory-table";
+import { InactiveCheckbox } from "@/components/inventory/inactive-checkbox";
 import { AdjustableColumns } from "@/components/adjustable-columns";
 
 export const metadata = { title: "Inventory" };
@@ -152,13 +153,7 @@ export default async function InventoryPage({
           </select>
         </div>
         <label className="flex items-center gap-2 text-sm text-stone-600">
-          <input
-            type="checkbox"
-            name="inactive"
-            value="1"
-            defaultChecked={filters.includeInactive}
-            className="h-4 w-4 rounded border-stone-300"
-          />
+          <InactiveCheckbox checked={filters.includeInactive} />
           Include inactive
         </label>
         <div className="flex gap-2">
