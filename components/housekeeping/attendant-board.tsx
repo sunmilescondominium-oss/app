@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { HousekeepingTask, OccupiedRoom } from "@/lib/housekeeping/types";
 import { t, type Lang } from "@/lib/i18n";
+import { HKAlarm } from "@/components/housekeeping/hk-alarm";
 
 const STATUS_CLS: Record<string, string> = {
   pending: "bg-amber-100 text-amber-800",
@@ -50,6 +51,8 @@ export function AttendantBoard({
   };
 
   return (
+    <div>
+      <HKAlarm tasks={open} />
     <div className="space-y-6">
       {/* Occupancy watch */}
       <section>
@@ -146,6 +149,7 @@ export function AttendantBoard({
           </table>
         </div>
       </section>
+    </div>
     </div>
   );
 }
