@@ -5,7 +5,8 @@ import { canWriteModule, canReadModule } from "@/lib/rbac/modules";
 import { getStayDetail, listMenuItems, getLatestRoomCheck } from "@/lib/hotel/queries";
 import { stayTotals } from "@/lib/hotel/rates";
 import { computeTax } from "@/lib/hotel/tax";
-import { peso, fmtDateTimeManila } from "@/lib/collections/summary";
+import { peso, fmtDateTime } from "@/lib/collections/summary";
+import { getAppTimezone } from "@/lib/settings/app-settings";
 import { APP_BRAND_SHORT, HOTEL_PAYMENT_METHODS } from "@/lib/config";
 import { OrdersPanel } from "@/components/hotel/orders-panel";
 import { ReceiptFrame } from "@/components/hotel/receipt-frame";
@@ -28,11 +29,12 @@ export default async function StayFolioPage({
   const user = await requireModule("hotel");
   const canWrite = canWriteModule(user.roleKeys, "hotel");
   const isConsultant = user.roleKeys.includes("consultant");
-  const [detail, menu, roomCheck, damagePhotos] = await Promise.all([
+  const [detail, menu, roomCheck, damagePhotos, tz] = await Promise.all([
     getStayDetail(stayId),
     listMenuItems(),
     getLatestRoomCheck(stayId),
     listDocPhotos("stay", stayId),
+    getAppTimezone(),
   ]);
   if (!detail) notFound();
 
@@ -105,8 +107,8 @@ export default async function StayFolioPage({
             <Line k="Room" v={detail.unit_number ?? "—"} />
             <Line k="Plan" v={detail.rate_plan_name ?? "—"} />
             <Line k="Hours" v={`${stay.planned_hours}h`} />
-            <Line k="In" v={fmtDateTimeManila(stay.check_in_at)} />
-            {stay.check_out_at && <Line k="Out" v={fmtDateTimeManila(stay.check_out_at)} />}
+            <Line k="In" v={fmtDateTime(stay.check_in_at, tz)} />
+            {stay.check_out_at && <Line k="Out" v={fmtDateTime(stay.check_out_at, tz)} />}
           </div>
 
           <div className="mt-2 space-y-0.5 border-t border-dashed border-stone-300 pt-2">
@@ -162,7 +164,7 @@ export default async function StayFolioPage({
             </div>
           )}
           <p className="mt-3 text-center text-[10px] text-stone-400">
-            Thank you! · {fmtDateTimeManila(new Date())}
+            Thank you! · {fmtDateTime(new Date(), tz)}
           </p>
         </ReceiptFrame>
       </div>

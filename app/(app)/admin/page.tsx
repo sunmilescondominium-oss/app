@@ -33,6 +33,13 @@ const ADMIN_SECTIONS = [
     icon: "💳",
     roles: ["accounting", "admin", "managing_officer", "consultant"],
   },
+  {
+    href: "/admin/settings",
+    title: "App Settings",
+    blurb: "Global system settings: operating timezone, and other location-specific configuration.",
+    icon: "⚙️",
+    roles: ["admin", "managing_officer"],
+  },
 ] as const;
 
 export default async function AdminPage() {

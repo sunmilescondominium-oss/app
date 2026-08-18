@@ -96,12 +96,22 @@ export function todayManila(): string {
 const PH_LOCALE = "en-PH";
 const PH_TZ = { timeZone: "Asia/Manila" } as const;
 
-/** Format an ISO timestamp as a full date + time string in Philippine time. */
+/** Format a timestamp as full date + time in any IANA timezone. */
+export function fmtDateTime(iso: string | Date, tz: string): string {
+  return new Date(iso).toLocaleString(PH_LOCALE, { timeZone: tz });
+}
+
+/** Format a timestamp as time-only (HH:MM AM/PM) in any IANA timezone. */
+export function fmtTime(iso: string | Date, tz: string): string {
+  return new Date(iso).toLocaleTimeString(PH_LOCALE, { timeZone: tz });
+}
+
+/** @deprecated Use fmtDateTime(iso, tz) with getAppTimezone(). */
 export function fmtDateTimeManila(iso: string | Date): string {
   return new Date(iso).toLocaleString(PH_LOCALE, PH_TZ);
 }
 
-/** Format an ISO timestamp as time-only (HH:MM AM/PM) in Philippine time. */
+/** @deprecated Use fmtTime(iso, tz) with getAppTimezone(). */
 export function fmtTimeManila(iso: string | Date): string {
   return new Date(iso).toLocaleTimeString(PH_LOCALE, PH_TZ);
 }

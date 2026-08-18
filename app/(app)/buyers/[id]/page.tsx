@@ -4,7 +4,8 @@ import { requireModule } from "@/lib/auth/dal";
 import { canWriteModule } from "@/lib/rbac/modules";
 import { getBuyerDetail } from "@/lib/buyers/queries";
 import { listUnitOptions } from "@/lib/collections/queries";
-import { peso, fmtDateTimeManila } from "@/lib/collections/summary";
+import { peso, fmtDateTime } from "@/lib/collections/summary";
+import { getAppTimezone } from "@/lib/settings/app-settings";
 import { APP_BRAND_SHORT, BUYER_STATUSES, PAYMENT_SCHEMES } from "@/lib/config";
 import { PrintButton } from "@/components/print-button";
 import { BuyerDetailActions } from "@/components/buyers/buyer-detail-actions";
@@ -37,7 +38,10 @@ export default async function BuyerDetailPage({
   const detail = await getBuyerDetail(id);
   if (!detail) notFound();
 
-  const unitOptions = canWrite ? await listUnitOptions() : [];
+  const [unitOptions, tz] = await Promise.all([
+    canWrite ? listUnitOptions() : Promise.resolve([]),
+    getAppTimezone(),
+  ]);
   const { buyer, payments, soa, soaMeta } = detail;
 
   const info: [string, string][] = [
@@ -161,7 +165,7 @@ export default async function BuyerDetailPage({
             {soaMeta && (
               <p className="mt-4 text-[10px] text-stone-400">
                 Computed via {soaMeta.source} driver · params v{soaMeta.params_version ?? "?"} ·{" "}
-                {fmtDateTimeManila(soaMeta.created_at)}
+                {fmtDateTime(soaMeta.created_at, tz)}
               </p>
             )}
           </>

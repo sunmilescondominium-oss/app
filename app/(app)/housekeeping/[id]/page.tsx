@@ -4,7 +4,8 @@ import { requireModule } from "@/lib/auth/dal";
 import { canWriteModule, canReadModule } from "@/lib/rbac/modules";
 import { getTaskDetail } from "@/lib/housekeeping/queries";
 import { HOUSEKEEPING_STATUSES } from "@/lib/config";
-import { fmtDateTimeManila } from "@/lib/collections/summary";
+import { fmtDateTime } from "@/lib/collections/summary";
+import { getAppTimezone } from "@/lib/settings/app-settings";
 import { PageHeader, Badge } from "@/components/ui";
 import { TaskActions } from "@/components/housekeeping/task-actions";
 import { CleaningPhotos } from "@/components/housekeeping/cleaning-photos";
@@ -60,7 +61,7 @@ export default async function TaskDetailPage({
     .filter((e) => e.event_type === "replaced")
     .map((e) => String((e.detail ?? {}).supply ?? ""))
     .filter(Boolean);
-  const [hardStop, shiftEnd] = await Promise.all([isHousekeepingHardStop(), getShiftEndToday(user.userId)]);
+  const [hardStop, shiftEnd, tz] = await Promise.all([isHousekeepingHardStop(), getShiftEndToday(user.userId), getAppTimezone()]);
 
   return (
     <>
@@ -108,7 +109,7 @@ export default async function TaskDetailPage({
                       <span className="text-stone-800">{eventText(e.event_type, e.detail)}</span>
                       <span className="mt-0.5 block text-xs text-stone-400">
                         {e.actor_role ? `${e.actor_role.replace(/_/g, " ")} · ` : ""}
-                        {fmtDateTimeManila(e.at)}
+                        {fmtDateTime(e.at, tz)}
                       </span>
                     </span>
                   </li>
