@@ -6,6 +6,7 @@ export interface ShiftHandover {
   shift_date: string;
   cashier_user_id: string | null;
   cashier_role: string;
+  cashier_name: string | null;
   counted_amount: number | null;
   denomination_counts: Record<string, number> | null;
   remarks: string | null;
@@ -18,6 +19,7 @@ export interface HotelShiftCollection {
   or_number: string | null;
   amount: number;
   payment_type: string;
+  charge_type: string | null;
   unit_number: string | null;
   collected_on: string;
 }
@@ -28,6 +30,7 @@ function mapHandover(r: Record<string, unknown>): ShiftHandover {
     shift_date: r.shift_date as string,
     cashier_user_id: (r.cashier_user_id as string) ?? null,
     cashier_role: r.cashier_role as string,
+    cashier_name: null,
     counted_amount: r.counted_amount != null ? Number(r.counted_amount) : null,
     denomination_counts: r.denomination_counts
       ? (r.denomination_counts as Record<string, number>)
@@ -38,6 +41,21 @@ function mapHandover(r: Record<string, unknown>): ShiftHandover {
   };
 }
 
+async function resolveCashierNames(
+  admin: ReturnType<typeof import("@/lib/supabase/admin").createAdminClient>,
+  handovers: ShiftHandover[],
+): Promise<void> {
+  const userIds = [...new Set(handovers.map((h) => h.cashier_user_id).filter(Boolean) as string[])];
+  if (userIds.length === 0) return;
+  const { data } = await admin.from("profiles").select("id, full_name").in("id", userIds);
+  const nameMap = Object.fromEntries(
+    (data ?? []).map((p: Record<string, unknown>) => [p.id as string, p.full_name as string | null]),
+  );
+  for (const h of handovers) {
+    if (h.cashier_user_id) h.cashier_name = nameMap[h.cashier_user_id] ?? null;
+  }
+}
+
 /** Get the handover record for a specific shift date (null if not yet submitted). */
 export async function getShiftHandover(date: string): Promise<ShiftHandover | null> {
   const admin = createAdminClient();
@@ -46,7 +64,10 @@ export async function getShiftHandover(date: string): Promise<ShiftHandover | nu
     .select("*")
     .eq("shift_date", date)
     .maybeSingle();
-  return data ? mapHandover(data as Record<string, unknown>) : null;
+  if (!data) return null;
+  const handover = mapHandover(data as Record<string, unknown>);
+  await resolveCashierNames(admin, [handover]);
+  return handover;
 }
 
 /** List recent handovers (last 14 days) for the monitoring queue. */
@@ -57,7 +78,9 @@ export async function listRecentHandovers(limit = 14): Promise<ShiftHandover[]> 
     .select("*")
     .order("shift_date", { ascending: false })
     .limit(limit);
-  return (data ?? []).map((r) => mapHandover(r as Record<string, unknown>));
+  const handovers = (data ?? []).map((r) => mapHandover(r as Record<string, unknown>));
+  await resolveCashierNames(admin, handovers);
+  return handovers;
 }
 
 /** Return the hotel-shift transmittal id for a given handover, or null if not yet built. */
@@ -77,7 +100,7 @@ export async function listHotelCollectionsForDate(date: string): Promise<HotelSh
   const admin = createAdminClient();
   const { data } = await admin
     .from("collections")
-    .select("id, or_number, amount, payment_type, collected_on, units(unit_number)")
+    .select("id, or_number, amount, payment_type, charge_type, collected_on, units(unit_number)")
     .eq("business_line", "hotel")
     .eq("collected_on", date)
     .is("transmittal_id", null)
@@ -87,6 +110,7 @@ export async function listHotelCollectionsForDate(date: string): Promise<HotelSh
     or_number: (r.or_number as string) ?? null,
     amount: Number(r.amount),
     payment_type: r.payment_type as string,
+    charge_type: (r.charge_type as string) ?? null,
     unit_number: (r.units as { unit_number?: string } | null)?.unit_number ?? null,
     collected_on: r.collected_on as string,
   }));

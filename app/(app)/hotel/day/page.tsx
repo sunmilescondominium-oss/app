@@ -3,6 +3,7 @@ import { requireModule } from "@/lib/auth/dal";
 import { getHotelDaySummary } from "@/lib/hotel/queries";
 import { getShiftHandover, listHotelCollectionsForDate, getHotelShiftTransmittalId } from "@/lib/hotel/handover";
 import { todayManila, peso } from "@/lib/collections/summary";
+import { getActiveItemTypes } from "@/lib/collections/item-types";
 import { HOTEL_PAYMENT_METHODS, APP_BRAND_SHORT } from "@/lib/config";
 import { PageHeader } from "@/components/ui";
 import { PrintButton } from "@/components/print-button";
@@ -27,11 +28,13 @@ export default async function HotelDayPage({
     ["hotel_rental_monitoring", "admin", "managing_officer", "consultant"].includes(r),
   );
 
-  const [s, handover, hotelCols] = await Promise.all([
+  const [s, handover, hotelCols, itemTypes] = await Promise.all([
     getHotelDaySummary(date),
     getShiftHandover(date),
-    isMonitoring ? listHotelCollectionsForDate(date) : Promise.resolve([]),
+    (isCashier || isMonitoring) ? listHotelCollectionsForDate(date) : Promise.resolve([]),
+    getActiveItemTypes(),
   ]);
+  const itemTypeLabels = Object.fromEntries(itemTypes.map((t) => [t.key, t.label]));
 
   // Check if a hotel-shift transmittal has already been built for this handover
   const existingTransmittalId =
@@ -130,6 +133,38 @@ export default async function HotelDayPage({
           Shift collection handover
         </h2>
 
+        {/* Cashier: my shift collections summary */}
+        {isCashier && hotelCols.length > 0 && (
+          <div className="rounded-xl border border-stone-200 bg-white overflow-hidden">
+            <div className="border-b border-stone-100 px-4 py-2.5 flex items-center justify-between bg-stone-50">
+              <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">My shift collections</p>
+              <span className="text-xs text-stone-400">{hotelCols.length} entries · {peso(hotelCols.reduce((s, c) => s + c.amount, 0))}</span>
+            </div>
+            <table className="w-full text-left text-xs">
+              <thead className="border-b border-stone-100 text-stone-400 uppercase">
+                <tr>
+                  <th className="px-4 py-2">Room</th>
+                  <th className="px-4 py-2">Type</th>
+                  <th className="px-4 py-2">OR #</th>
+                  <th className="px-4 py-2">Method</th>
+                  <th className="px-4 py-2 text-right">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {hotelCols.map((c) => (
+                  <tr key={c.id} className="border-t border-stone-50">
+                    <td className="px-4 py-1.5 font-medium text-stone-700">{c.unit_number ?? "—"}</td>
+                    <td className="px-4 py-1.5 text-stone-500">{c.charge_type ? (itemTypeLabels[c.charge_type] ?? c.charge_type) : "—"}</td>
+                    <td className="px-4 py-1.5 font-mono">{c.or_number ?? "—"}</td>
+                    <td className="px-4 py-1.5">{METHOD_LABEL[c.payment_type] ?? c.payment_type}</td>
+                    <td className="px-4 py-1.5 text-right tabular-nums">{peso(c.amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
         {/* Cashier: submit handover */}
         {isCashier && (
           <ShiftHandoverForm date={date} existing={handover} isMonitoring={false} />
@@ -164,6 +199,7 @@ export default async function HotelDayPage({
                 date={date}
                 handover={handover}
                 collections={hotelCols}
+                itemTypeLabels={itemTypeLabels}
               />
             )}
           </>

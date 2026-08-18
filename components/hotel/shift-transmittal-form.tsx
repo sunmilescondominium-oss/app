@@ -19,10 +19,12 @@ export function ShiftTransmittalForm({
   date,
   handover,
   collections,
+  itemTypeLabels = {},
 }: {
   date: string;
   handover: ShiftHandover | null;
   collections: HotelShiftCollection[];
+  itemTypeLabels?: Record<string, string>;
 }) {
   const router = useRouter();
   const [state, formAction, pending] = useActionState<ActionResult | undefined, FormData>(
@@ -83,13 +85,27 @@ export function ShiftTransmittalForm({
       {handover && (
         <div className="rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs text-stone-600 space-y-0.5">
           <p className="font-semibold text-stone-700">Cashier handover reference</p>
+          {handover.cashier_name && (
+            <p>Cashier: <strong>{handover.cashier_name}</strong></p>
+          )}
           {handover.cashier_absent ? (
             <p className="text-amber-700">Cashier was absent — bag taken over by monitoring.</p>
           ) : (
             <>
               <p>Handed over at {new Date(handover.handed_over_at).toLocaleTimeString("en-PH", { timeZone: "Asia/Manila", hour: "2-digit", minute: "2-digit" })}</p>
               {handover.counted_amount != null ? (
-                <p>Cashier count: <strong>{peso(handover.counted_amount)}</strong></p>
+                <div className="flex items-center gap-2">
+                  <span>Cashier count: <strong>{peso(handover.counted_amount)}</strong></span>
+                  {(() => {
+                    const variance = Math.round((handover.counted_amount - collectionsTotal) * 100) / 100;
+                    if (variance === 0) return <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">exact match</span>;
+                    return (
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${variance > 0 ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-700"}`}>
+                        {variance > 0 ? `+${peso(variance)} over` : `${peso(variance)} short`}
+                      </span>
+                    );
+                  })()}
+                </div>
               ) : (
                 <p className="text-amber-600">Cashier did not count.</p>
               )}
@@ -114,6 +130,7 @@ export function ShiftTransmittalForm({
           <thead className="border-b border-stone-100 text-stone-400 uppercase">
             <tr>
               <th className="px-4 py-2">Room</th>
+              <th className="px-4 py-2">Type</th>
               <th className="px-4 py-2">OR #</th>
               <th className="px-4 py-2">Method</th>
               <th className="px-4 py-2 text-right">Amount</th>
@@ -123,6 +140,7 @@ export function ShiftTransmittalForm({
             {collections.map((c) => (
               <tr key={c.id} className="border-t border-stone-50">
                 <td className="px-4 py-1.5 font-medium text-stone-700">{c.unit_number ?? "—"}</td>
+                <td className="px-4 py-1.5 text-stone-500">{c.charge_type ? (itemTypeLabels[c.charge_type] ?? c.charge_type) : "—"}</td>
                 <td className="px-4 py-1.5 font-mono">{c.or_number ?? "—"}</td>
                 <td className="px-4 py-1.5">{PAY_LABEL[c.payment_type] ?? c.payment_type}</td>
                 <td className="px-4 py-1.5 text-right tabular-nums">{peso(c.amount)}</td>
@@ -131,12 +149,12 @@ export function ShiftTransmittalForm({
           </tbody>
           <tfoot className="border-t border-stone-200 font-semibold text-stone-800">
             <tr>
-              <td colSpan={3} className="px-4 py-2">Total (system)</td>
+              <td colSpan={4} className="px-4 py-2">Total (system)</td>
               <td className="px-4 py-2 text-right tabular-nums">{peso(collectionsTotal)}</td>
             </tr>
             {Object.entries(byMethod).map(([method, amt]) => (
               <tr key={method} className="text-stone-500 font-normal">
-                <td colSpan={3} className="px-4 py-1 text-xs pl-8">{PAY_LABEL[method] ?? method}</td>
+                <td colSpan={4} className="px-4 py-1 text-xs pl-8">{PAY_LABEL[method] ?? method}</td>
                 <td className="px-4 py-1 text-right tabular-nums text-xs">{peso(amt)}</td>
               </tr>
             ))}
@@ -149,11 +167,7 @@ export function ShiftTransmittalForm({
         <label className={labelCls}>Monitoring count (authoritative) *</label>
         <DenominationCounter />
         <p className="mt-1.5 text-xs text-stone-400">
-          System total: {peso(collectionsTotal)}.
-          {handover?.counted_amount != null
-            ? ` Cashier counted: ${peso(handover.counted_amount)}.`
-            : ""}
-          {" "}Any variance will be recorded on the transmittal.
+          System total: {peso(collectionsTotal)}. Any variance will be recorded on the transmittal.
         </p>
       </div>
 
