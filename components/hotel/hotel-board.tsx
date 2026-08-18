@@ -9,6 +9,7 @@ import { RatePromoManager } from "./rate-promo-manager";
 import { MenuManager } from "./menu-manager";
 import { TaxSettings } from "./tax-settings";
 import { CheckoutAlarm } from "@/components/checkout-alarm";
+import { OverdueAlarm } from "@/components/hotel/overdue-alarm";
 import type { RoomBoardItem, RatePlan, Promo, MenuItem, TaxSetting, RoomTaxRow } from "@/lib/hotel/types";
 
 type Unit = RoomBoardItem["unit"];
@@ -43,10 +44,20 @@ export function HotelBoard({
   };
   const units = board.map((b) => b.unit);
   const pendingCheckouts = board.filter((b) => b.stay?.checkout_requested).length;
+  const alarmStays = board
+    .filter((b) => b.stay !== null && b.stay.status === "active")
+    .map((b) => ({
+      id: b.stay!.id,
+      unit_number: b.unit.unit_number,
+      guest_label: b.stay!.guest_label,
+      check_in_at: b.stay!.check_in_at,
+      planned_hours: b.stay!.planned_hours,
+    }));
 
   return (
     <div>
       <CheckoutAlarm count={pendingCheckouts} />
+      <OverdueAlarm stays={alarmStays} />
       {(canManageConfig || canManageTax) && (
         <div className="mb-3">
           <button
