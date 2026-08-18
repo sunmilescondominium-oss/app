@@ -40,6 +40,13 @@ const ADMIN_SECTIONS = [
     icon: "⚙️",
     roles: ["admin", "managing_officer"],
   },
+  {
+    href: "/admin/health",
+    title: "System Health",
+    blurb: "Connectivity, configuration, free tier usage, and error log. Copy diagnostics to share with your developer.",
+    icon: "🩺",
+    roles: ["admin", "managing_officer", "consultant"],
+  },
 ] as const;
 
 export default async function AdminPage() {
