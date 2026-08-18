@@ -4,6 +4,7 @@ import { requireModule } from "@/lib/auth/dal";
 import { canWriteModule, canReadModule } from "@/lib/rbac/modules";
 import { getTaskDetail } from "@/lib/housekeeping/queries";
 import { HOUSEKEEPING_STATUSES } from "@/lib/config";
+import { fmtDateTimeManila } from "@/lib/collections/summary";
 import { PageHeader, Badge } from "@/components/ui";
 import { TaskActions } from "@/components/housekeeping/task-actions";
 import { CleaningPhotos } from "@/components/housekeeping/cleaning-photos";
@@ -107,7 +108,7 @@ export default async function TaskDetailPage({
                       <span className="text-stone-800">{eventText(e.event_type, e.detail)}</span>
                       <span className="mt-0.5 block text-xs text-stone-400">
                         {e.actor_role ? `${e.actor_role.replace(/_/g, " ")} · ` : ""}
-                        {new Date(e.at).toLocaleString()}
+                        {fmtDateTimeManila(e.at)}
                       </span>
                     </span>
                   </li>

@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { requireModule } from "@/lib/auth/dal";
 import { canWriteModule, canReadModule, canEditCollections } from "@/lib/rbac/modules";
 import { getTransmittal, listCustody } from "@/lib/collections/queries";
-import { summarizeCollections, summarizeByUnit, peso } from "@/lib/collections/summary";
+import { summarizeCollections, summarizeByUnit, peso, fmtDateTimeManila } from "@/lib/collections/summary";
 import { canActOnStage, nextStage, type CustodyStage } from "@/lib/collections/custody";
 import { listAccountOptions } from "@/lib/banking/queries";
 import { APP_BRAND, APP_BRAND_SHORT, PHP_DENOMINATIONS } from "@/lib/config";
@@ -229,7 +229,7 @@ export default async function TransmittalDetailPage({
         <p className="mt-8 text-[10px] text-stone-400">{APP_BRAND}</p>
         {t.printed_at && (
           <p className="text-[10px] text-stone-400">
-            Printed {new Date(t.printed_at).toLocaleString()}
+            Printed {fmtDateTimeManila(t.printed_at)}
           </p>
         )}
       </div>

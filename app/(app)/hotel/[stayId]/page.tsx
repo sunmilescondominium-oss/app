@@ -5,7 +5,7 @@ import { canWriteModule, canReadModule } from "@/lib/rbac/modules";
 import { getStayDetail, listMenuItems, getLatestRoomCheck } from "@/lib/hotel/queries";
 import { stayTotals } from "@/lib/hotel/rates";
 import { computeTax } from "@/lib/hotel/tax";
-import { peso } from "@/lib/collections/summary";
+import { peso, fmtDateTimeManila } from "@/lib/collections/summary";
 import { APP_BRAND_SHORT, HOTEL_PAYMENT_METHODS } from "@/lib/config";
 import { OrdersPanel } from "@/components/hotel/orders-panel";
 import { ReceiptFrame } from "@/components/hotel/receipt-frame";
@@ -105,8 +105,8 @@ export default async function StayFolioPage({
             <Line k="Room" v={detail.unit_number ?? "—"} />
             <Line k="Plan" v={detail.rate_plan_name ?? "—"} />
             <Line k="Hours" v={`${stay.planned_hours}h`} />
-            <Line k="In" v={new Date(stay.check_in_at).toLocaleString()} />
-            {stay.check_out_at && <Line k="Out" v={new Date(stay.check_out_at).toLocaleString()} />}
+            <Line k="In" v={fmtDateTimeManila(stay.check_in_at)} />
+            {stay.check_out_at && <Line k="Out" v={fmtDateTimeManila(stay.check_out_at)} />}
           </div>
 
           <div className="mt-2 space-y-0.5 border-t border-dashed border-stone-300 pt-2">
@@ -162,7 +162,7 @@ export default async function StayFolioPage({
             </div>
           )}
           <p className="mt-3 text-center text-[10px] text-stone-400">
-            Thank you! · {new Date().toLocaleString()}
+            Thank you! · {fmtDateTimeManila(new Date())}
           </p>
         </ReceiptFrame>
       </div>
