@@ -168,11 +168,13 @@ export const MODULES: Record<ModuleKey, ModuleDef> = {
   transmittals: {
     key: "transmittals",
     path: "/transmittals",
+    // hotel_cashier intentionally excluded — cashier's job ends at shift handover;
+    // hotel_rental_monitoring builds the transmittal from the verified handover.
     label: "Transmittals",
     blurb: "Cash transmittal & bank deposit.",
     milestone: "M2",
-    read: ["accounting", "errand_liaison", "hotel_rental_monitoring", "managing_officer", "hotel_cashier"],
-    write: ["hotel_rental_monitoring", "accounting", "errand_liaison", "managing_officer", "hotel_cashier"],
+    read: ["accounting", "errand_liaison", "hotel_rental_monitoring", "managing_officer"],
+    write: ["hotel_rental_monitoring", "accounting", "errand_liaison", "managing_officer"],
   },
   buyers: {
     key: "buyers",
