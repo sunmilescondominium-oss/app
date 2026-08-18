@@ -11,6 +11,6 @@
     {
       "path": "/api/cron/gift-card-noshow",
       "schedule": "0 1 * * *"
-    },
+    }
   ]
 }
