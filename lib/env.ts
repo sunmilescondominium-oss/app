@@ -87,4 +87,12 @@ export const serverEnv = {
   get cronSecret() {
     return process.env.CRON_SECRET ?? "";
   },
+  /** VAPID private key for Web Push (kept server-side only). */
+  get vapidPrivateKey() {
+    return process.env.VAPID_PRIVATE_KEY ?? "";
+  },
+  /** VAPID subject (mailto: or https: URL identifying the push sender). */
+  get vapidSubject() {
+    return process.env.VAPID_SUBJECT ?? "mailto:admin@example.com";
+  },
 };

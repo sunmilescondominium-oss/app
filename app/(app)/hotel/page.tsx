@@ -11,6 +11,7 @@ import {
 } from "@/lib/hotel/queries";
 import { PageHeader, Badge } from "@/components/ui";
 import { HotelBoard } from "@/components/hotel/hotel-board";
+import { PushSubscribeButton } from "@/components/push-subscribe-button";
 import { CsvImporter } from "@/components/data/csv-importer";
 import { RATE_PLAN_TEMPLATE, MENU_TEMPLATE } from "@/lib/imports/config";
 import { bulkImportRatePlans, bulkImportMenu } from "@/app/(app)/hotel/actions";
@@ -45,6 +46,7 @@ export default async function HotelPage() {
       />
 
       <div className="no-print mb-4 flex flex-wrap items-center gap-4">
+        <PushSubscribeButton label="Enable overdue alerts" />
         <Link href="/hotel/day" className="text-sm font-medium text-amber-700 hover:underline">
           Day-end / remittance report →
         </Link>

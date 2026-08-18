@@ -3,6 +3,7 @@ import { canReadModule } from "@/lib/rbac/modules";
 import { listHousekeepingTasks, listSupplies, listStockMovements, listOccupiedRooms, listRoomTypes } from "@/lib/housekeeping/queries";
 import { getShiftEndToday } from "@/lib/housekeeping/shift";
 import { AttendantBoard } from "@/components/housekeeping/attendant-board";
+import { PushSubscribeButton } from "@/components/push-subscribe-button";
 import { RoomTypeSettings } from "@/components/housekeeping/room-type-settings";
 import { PageHeader, Badge } from "@/components/ui";
 import { SuppliesPanel } from "@/components/housekeeping/supplies-panel";
@@ -51,6 +52,9 @@ export default async function HousekeepingPage() {
         ]}
       />
 
+      <div className="mb-3">
+        <PushSubscribeButton label="Enable cleaning SLA alerts" />
+      </div>
       <AttendantBoard tasks={tasks} occupied={occupied} shiftEndIso={shiftEnd} lang={lang} />
 
       {canSetDefaults && <RoomTypeSettings roomTypes={roomTypes} lang={lang} />}
