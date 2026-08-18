@@ -89,6 +89,7 @@ export function OverdueAlarm({ stays }: { stays: AlarmStay[] }) {
   const snoozeRef     = useRef(0);           // absolute ms timestamp — snooze expires at
   const lastBeepRef   = useRef(0);           // last time alarm beep was played
   const warnedRef     = useRef(new Set<string>()); // stay IDs that already triggered 5-min warning
+  const pushedRef     = useRef(new Set<string>()); // stay IDs for which push has been triggered
 
   // `now` drives re-renders every second; `snoozedUntil` drives the countdown text
   const [now, setNow]               = useState(Date.now);
@@ -120,10 +121,22 @@ export function OverdueAlarm({ stays }: { stays: AlarmStay[] }) {
         }
       }
 
-      const hasOverdue = stays.some((s) => {
+      let hasOverdue = false;
+      for (const s of stays) {
         const remMs = new Date(s.check_in_at).getTime() + s.planned_hours * 3_600_000 - n;
-        return remMs < 0;
-      });
+        if (remMs >= 0) continue;
+        hasOverdue = true;
+        // Push notification: fire once per stay when it first crosses into overdue
+        if (!pushedRef.current.has(s.id)) {
+          pushedRef.current.add(s.id);
+          const overByMin = Math.floor(-remMs / 60_000);
+          fetch("/api/push/alarm", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ kind: "hotel_overdue", id: s.id, unit: s.unit_number, overByMin }),
+          }).catch(() => {});
+        }
+      }
 
       // Overdue alarm: beep every BEEP_GAP ms while ringing and not snoozed
       if (ctx && hasOverdue && !snoozed && n - lastBeepRef.current >= BEEP_GAP) {

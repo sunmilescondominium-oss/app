@@ -125,6 +125,7 @@ export function HKAlarm({ tasks }: { tasks: HousekeepingTask[] }) {
   const snoozeRef     = useRef(0);
   const lastBeepRef   = useRef(0);
   const warnedRef     = useRef(new Set<string>()); // "taskId:kind" already warned
+  const pushedRef     = useRef(new Set<string>()); // "taskId:kind" for which push was triggered
 
   const [now, setNow]               = useState(Date.now);
   const [snoozedUntil, setSnoozedUntil] = useState(0);
@@ -162,6 +163,25 @@ export function HKAlarm({ tasks }: { tasks: HousekeepingTask[] }) {
             playWarning(ctx);
             warnedRef.current.add(key);
           }
+        }
+      }
+
+      // Push notifications — fire once per task:kind when it first goes overdue
+      for (const { task, kind, remMs } of overdues) {
+        const key = `${task.id}:${kind}`;
+        if (!pushedRef.current.has(key)) {
+          pushedRef.current.add(key);
+          const overByMin = Math.floor(-remMs / 60_000);
+          fetch("/api/push/alarm", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              kind: kind === "start" ? "hk_start" : "hk_finish",
+              id: task.id,
+              unit: task.unit_number ?? "—",
+              overByMin,
+            }),
+          }).catch(() => {});
         }
       }
 
