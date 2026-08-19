@@ -132,9 +132,12 @@ export async function checkIn(
 
   // Record the advance payment + post to collections (initial receipt).
   const admin = createAdminClient();
-  const { data: arNo } = await admin.rpc("next_receipt_no", { ctx: "hotel" });
-  const receipt_no = `OR-${Date.now().toString(36).toUpperCase()}`;
-  await admin.from("stay_payments").insert({ stay_id: data.id, method: advanceMethod, amount: advanceAmount, receipt_no, ar_no: (arNo as string | null) ?? null, created_by: user.userId });
+  // Cashier enters AR/OR from physical booklet; fall back to auto-generated if blank.
+  let ar_no = String(formData.get("advance_ar_no") ?? "").trim() || null;
+  if (!ar_no) { const { data: seq } = await admin.rpc("next_receipt_no", { ctx: "hotel" }); ar_no = (seq as string | null); }
+  let receipt_no = String(formData.get("advance_or_no") ?? "").trim();
+  if (!receipt_no) receipt_no = `OR-${Date.now().toString(36).toUpperCase()}`;
+  await admin.from("stay_payments").insert({ stay_id: data.id, method: advanceMethod, amount: advanceAmount, receipt_no, ar_no, created_by: user.userId });
   await admin.from("collections").insert({
     business_line: "hotel", unit_id: unitId, amount: advanceAmount, or_number: receipt_no,
     payment_type: advanceMethod, collected_by_role: user.roleKeys.find((r) => ["hotel_cashier", "hotel_rental_monitoring"].includes(r)) ?? "hotel_cashier",
@@ -213,10 +216,10 @@ export async function recordStayPayment(
   let receipt_no = String(formData.get("receipt_no") ?? "").trim();
   if (!receipt_no) receipt_no = `OR-${Date.now().toString(36).toUpperCase()}`;
 
-  // Internal Acknowledgement Receipt from the monitoring-configured hotel series.
+  // Cashier may override the AR from the physical booklet; fall back to sequence if blank.
   const adminForAr = createAdminClient();
-  const { data: arNo } = await adminForAr.rpc("next_receipt_no", { ctx: "hotel" });
-  const ar_no = (arNo as string | null) ?? null;
+  let ar_no = String(formData.get("ar_no") ?? "").trim() || null;
+  if (!ar_no) { const { data: seq } = await adminForAr.rpc("next_receipt_no", { ctx: "hotel" }); ar_no = (seq as string | null); }
 
   const { error } = await supabase.from("stay_payments").insert({
     stay_id: stayId,
@@ -259,7 +262,11 @@ export async function recordStayPayment(
   return { ok: true };
 }
 
-export async function checkOut(stayId: string): Promise<ActionResult> {
+export async function checkOut(
+  stayId: string,
+  shortStayType?: "test" | "early",
+  shortStayReason?: string,
+): Promise<ActionResult> {
   const user = await requireModuleWrite("hotel");
   const isSupervisor = userHasAnyRole(user, ["hotel_rental_monitoring", "admin", "managing_officer", "consultant", "accounting"]);
   if (!isSupervisor) {
@@ -267,18 +274,24 @@ export async function checkOut(stayId: string): Promise<ActionResult> {
     if (gate) return gate;
   }
   const supabase = await createClient();
+
+  const isTest = shortStayType === "test";
+  const extraFields: Record<string, unknown> = {};
+  if (isTest) extraFields.voided_as_test = true;
+  if (shortStayType === "early" && shortStayReason) extraFields.short_stay_reason = shortStayReason.trim();
+
   const { error } = await supabase
     .from("stays")
-    .update({ status: "checked_out", check_out_at: new Date().toISOString(), portal_token: null })
+    .update({ status: "checked_out", check_out_at: new Date().toISOString(), portal_token: null, ...extraFields })
     .eq("id", stayId)
     .eq("status", "active");
   if (error) return { ok: false, error: error.message };
 
-  // Auto-create the post-checkout housekeeping task with its room-type SLA
-  // (buffer to start + target clean time). The attendant must start it right
-  // away; the board decides from the timers + their shift end what carries over.
-  const { data: outStay } = await supabase.from("stays").select("unit_id").eq("id", stayId).maybeSingle();
-  await createCleaningTask({ unitId: outStay?.unit_id ?? null, stayId, actorUserId: user.userId, via: "checkout" });
+  if (!isTest) {
+    // Auto-create post-checkout housekeeping task (skip for test check-ins — room unchanged).
+    const { data: outStay } = await supabase.from("stays").select("unit_id").eq("id", stayId).maybeSingle();
+    await createCleaningTask({ unitId: outStay?.unit_id ?? null, stayId, actorUserId: user.userId, via: "checkout" });
+  }
 
   await logAudit({
     actorUserId: user.userId,
@@ -286,11 +299,51 @@ export async function checkOut(stayId: string): Promise<ActionResult> {
     action: "update",
     entity: "stays",
     entityId: stayId,
-    diff: { status: "checked_out" },
+    diff: { status: "checked_out", shortStayType: shortStayType ?? "normal" },
   });
   revalidatePath("/hotel");
   revalidatePath(`/hotel/${stayId}`);
   revalidatePath("/housekeeping");
+  return { ok: true };
+}
+
+export async function adjustPaymentAR(
+  paymentId: string,
+  newArNo: string,
+  newOrNo: string,
+  reason: string,
+): Promise<ActionResult> {
+  const user = await requireAuth();
+  if (!userHasAnyRole(user, ["admin", "managing_officer", "accounting", "consultant"]))
+    return { ok: false, error: "Only accounting/admin may adjust AR assignments." };
+
+  const trimReason = reason.trim();
+  if (!trimReason) return { ok: false, error: "A reason is required." };
+
+  const admin = createAdminClient();
+  const { data: payment } = await admin
+    .from("stay_payments")
+    .select("id, ar_no, receipt_no")
+    .eq("id", paymentId)
+    .maybeSingle();
+  if (!payment) return { ok: false, error: "Payment not found." };
+
+  const trimAr = newArNo.trim() || null;
+  const trimOr = newOrNo.trim() || (payment.receipt_no as string | null);
+
+  await admin.from("stay_payments").update({ ar_no: trimAr, receipt_no: trimOr }).eq("id", paymentId);
+  await admin.from("hotel_ar_edits").insert({
+    payment_id: paymentId,
+    old_ar_no: (payment.ar_no as string | null) ?? null,
+    new_ar_no: trimAr,
+    old_or_no: (payment.receipt_no as string | null) ?? null,
+    new_or_no: trimOr,
+    reason: trimReason,
+    edited_by: user.userId,
+  });
+
+  revalidatePath("/hotel/ar-register");
+  revalidatePath("/hotel");
   return { ok: true };
 }
 

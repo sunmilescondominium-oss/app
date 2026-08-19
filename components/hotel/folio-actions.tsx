@@ -15,14 +15,20 @@ const inputCls =
   "rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
 const labelCls = "mb-1 block text-xs font-medium text-stone-600";
 
+const SHORT_STAY_MS = 30 * 60 * 1000; // 30 minutes
+
 export function FolioActions({
   stayId,
   status,
   balance,
+  checkInAt,
+  suggestedArNo,
 }: {
   stayId: string;
   status: string;
   balance: number;
+  checkInAt?: string;
+  suggestedArNo?: string;
 }) {
   const router = useRouter();
   const [payState, payAction, payPending] = useActionState<ActionResult | undefined, FormData>(
@@ -32,39 +38,59 @@ export function FolioActions({
   const [hours, setHours] = useState(1);
   const [busy, setBusy] = useState(false);
 
+  // Short-stay checkout prompt state
+  const [shortPrompt, setShortPrompt] = useState(false);
+  const [earlyReason, setEarlyReason] = useState("");
+  const [checkoutErr, setCheckoutErr] = useState("");
+
   useEffect(() => {
     if (payState?.ok) router.refresh();
   }, [payState, router]);
 
   const active = status === "active";
-  // Keep the payment card available while the guest still owes a balance, even
-  // after check-out and until the gate pass is issued/printed.
   const showPayment = active || balance > 0;
   if (!showPayment) return null;
+
+  function isShortStay() {
+    if (!checkInAt) return false;
+    return Date.now() - new Date(checkInAt).getTime() < SHORT_STAY_MS;
+  }
 
   async function extend() {
     if (hours <= 0) return;
     setBusy(true);
     const r = await extendStay(stayId, hours);
     setBusy(false);
-    if (!r.ok) {
-      window.alert(r.error);
-      return;
-    }
+    if (!r.ok) { window.alert(r.error); return; }
     router.refresh();
   }
 
   async function doCheckout() {
-    const msg =
-      balance > 0 ? `Balance is ${peso(balance)}. Check out anyway?` : "Check out this guest?";
+    if (isShortStay()) { setShortPrompt(true); return; }
+    const msg = balance > 0 ? `Balance is ${peso(balance)}. Check out anyway?` : "Check out this guest?";
     if (!window.confirm(msg)) return;
     setBusy(true);
     const r = await checkOut(stayId);
     setBusy(false);
-    if (!r.ok) {
-      window.alert(r.error);
-      return;
-    }
+    if (!r.ok) { setCheckoutErr(r.error); return; }
+    router.refresh();
+  }
+
+  async function voidAsTest() {
+    if (!window.confirm("Mark this as a TEST check-in? The stay will be voided with no housekeeping task.")) return;
+    setBusy(true); setCheckoutErr("");
+    const r = await checkOut(stayId, "test");
+    setBusy(false);
+    if (!r.ok) { setCheckoutErr(r.error); return; }
+    router.refresh();
+  }
+
+  async function earlyCheckout() {
+    if (!earlyReason.trim()) { setCheckoutErr("Please enter a reason for the early checkout."); return; }
+    setBusy(true); setCheckoutErr("");
+    const r = await checkOut(stayId, "early", earlyReason);
+    setBusy(false);
+    if (!r.ok) { setCheckoutErr(r.error); return; }
     router.refresh();
   }
 
@@ -104,9 +130,7 @@ export function FolioActions({
           <label className={labelCls}>Method</label>
           <select name="method" defaultValue="cash" className={inputCls}>
             {HOTEL_PAYMENT_METHODS.map((m) => (
-              <option key={m.key} value={m.key}>
-                {m.label}
-              </option>
+              <option key={m.key} value={m.key}>{m.label}</option>
             ))}
           </select>
         </div>
@@ -115,7 +139,11 @@ export function FolioActions({
           <input name="amount" type="number" step="0.01" min="0" className={`${inputCls} w-28`} />
         </div>
         <div>
-          <label className={labelCls}>OR # (optional)</label>
+          <label className={labelCls}>AR No</label>
+          <input name="ar_no" defaultValue={suggestedArNo ?? ""} placeholder={suggestedArNo ?? "e.g. AR-002384"} className={`${inputCls} w-32`} />
+        </div>
+        <div>
+          <label className={labelCls}>OR No (optional)</label>
           <input name="receipt_no" className={`${inputCls} w-32`} />
         </div>
         <button
@@ -128,7 +156,7 @@ export function FolioActions({
         {payState && !payState.ok && <p className="w-full text-sm text-red-700">{payState.error}</p>}
       </form>
 
-      {active && (
+      {active && !shortPrompt && (
         <button
           type="button"
           onClick={doCheckout}
@@ -138,6 +166,47 @@ export function FolioActions({
           Check out
         </button>
       )}
+
+      {/* Short-stay prompt (< 30 min) */}
+      {shortPrompt && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 space-y-3">
+          <p className="text-sm font-semibold text-amber-900">⚠ This guest has been here less than 30 minutes.</p>
+          <p className="text-xs text-amber-800">Was this a system test or a real early checkout?</p>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={voidAsTest}
+              disabled={busy}
+              className="rounded-lg border border-stone-300 bg-white px-3 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-100 disabled:opacity-60"
+            >
+              🧪 Test — void this check-in
+            </button>
+            <div className="space-y-1">
+              <input
+                value={earlyReason}
+                onChange={(e) => setEarlyReason(e.target.value)}
+                placeholder="Reason for early checkout"
+                className={`${inputCls} text-xs`}
+              />
+              <button
+                type="button"
+                onClick={earlyCheckout}
+                disabled={busy}
+                className="w-full rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+              >
+                Real early checkout
+              </button>
+            </div>
+          </div>
+          {checkoutErr && <p className="text-xs text-red-600">{checkoutErr}</p>}
+          <button type="button" onClick={() => { setShortPrompt(false); setCheckoutErr(""); }}
+            className="text-xs text-stone-500 hover:underline">
+            Cancel
+          </button>
+        </div>
+      )}
+
+      {checkoutErr && !shortPrompt && <p className="text-sm text-red-600">{checkoutErr}</p>}
     </div>
   );
 }

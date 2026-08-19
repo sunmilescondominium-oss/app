@@ -9,7 +9,7 @@ import {
   getGlobalTax,
   listRoomTax,
 } from "@/lib/hotel/queries";
-import { getActiveSession } from "@/lib/hotel/session";
+import { getActiveSession, getSuggestedNextArNo } from "@/lib/hotel/session";
 import { PageHeader, Badge } from "@/components/ui";
 import { HotelBoard } from "@/components/hotel/hotel-board";
 import { PushSubscribeButton } from "@/components/push-subscribe-button";
@@ -27,7 +27,7 @@ export default async function HotelPage() {
   const canManageConfig = user.roleKeys.some((r) => ["admin", "consultant"].includes(r));
   const canManageTax = user.roleKeys.some((r) => ["admin", "accounting", "consultant"].includes(r));
 
-  const [board, ratePlans, promos, menu, globalTax, roomTax, activeSession] = await Promise.all([
+  const [board, ratePlans, promos, menu, globalTax, roomTax, activeSession, suggestedArNo] = await Promise.all([
     listRoomBoard(),
     listRatePlans(),
     listPromos(),
@@ -35,6 +35,7 @@ export default async function HotelPage() {
     getGlobalTax(),
     listRoomTax(),
     getActiveSession(),
+    getSuggestedNextArNo(),
   ]);
   const occupied = board.filter((b) => b.stay).length;
   const isCashier    = userHasAnyRole(user, ["hotel_cashier"]);
@@ -87,6 +88,9 @@ export default async function HotelPage() {
         <Link href="/hotel/day" className="text-sm font-medium text-amber-700 hover:underline">
           Day-end / remittance report →
         </Link>
+        <Link href="/hotel/ar-register" className="text-sm font-medium text-amber-700 hover:underline">
+          AR / OR register →
+        </Link>
         <Link href="/hotel/gift-cards" className="text-sm font-medium text-amber-700 hover:underline">
           Gift cards →
         </Link>
@@ -113,6 +117,7 @@ export default async function HotelPage() {
           canWrite={canWrite}
           canManageConfig={canManageConfig}
           canManageTax={canManageTax}
+          suggestedArNo={suggestedArNo}
         />
       )}
     </>

@@ -16,11 +16,13 @@ export function CheckInForm({
   unitId,
   ratePlans,
   promos,
+  suggestedArNo,
   onDone,
 }: {
   unitId: string;
   ratePlans: RatePlan[];
   promos: Promo[];
+  suggestedArNo?: string;
   onDone: () => void;
 }) {
   const router = useRouter();
@@ -133,6 +135,14 @@ export function CheckInForm({
           <div>
             <label className={labelCls}>Amount collected</label>
             <input name="advance_amount" type="number" step="0.01" min={required} value={advanceAmount} onChange={(e) => setAdvanceAmount(Number(e.target.value))} className={inputCls} />
+          </div>
+          <div>
+            <label className={labelCls}>AR No (from booklet)</label>
+            <input name="advance_ar_no" defaultValue={suggestedArNo ?? ""} className={inputCls} placeholder={suggestedArNo ?? "e.g. AR-002384"} />
+          </div>
+          <div>
+            <label className={labelCls}>OR No (optional)</label>
+            <input name="advance_or_no" className={inputCls} placeholder="Official Receipt #" />
           </div>
         </div>
         <p className="mt-1 text-[11px] text-amber-800">A thermal receipt with a QR (for the guest&rsquo;s online bill) prints on the folio after check-in.</p>

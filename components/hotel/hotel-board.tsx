@@ -25,6 +25,7 @@ export function HotelBoard({
   canWrite,
   canManageConfig,
   canManageTax,
+  suggestedArNo,
 }: {
   board: RoomBoardItem[];
   ratePlans: RatePlan[];
@@ -35,6 +36,7 @@ export function HotelBoard({
   canWrite: boolean;
   canManageConfig: boolean;
   canManageTax: boolean;
+  suggestedArNo?: string;
 }) {
   const router = useRouter();
   const [modal, setModal] = useState<ModalState>(null);
@@ -82,7 +84,7 @@ export function HotelBoard({
         title={modal?.kind === "checkin" ? `Check in — ${modal.unit.unit_number}` : "Check in"}
       >
         {modal?.kind === "checkin" && (
-          <CheckInForm unitId={modal.unit.id} ratePlans={ratePlans} promos={promos} onDone={done} />
+          <CheckInForm unitId={modal.unit.id} ratePlans={ratePlans} promos={promos} suggestedArNo={suggestedArNo} onDone={done} />
         )}
       </Modal>
 

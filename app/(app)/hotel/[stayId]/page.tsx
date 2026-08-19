@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requireModule } from "@/lib/auth/dal";
 import { canWriteModule, canReadModule } from "@/lib/rbac/modules";
 import { getStayDetail, listMenuItems, getLatestRoomCheck } from "@/lib/hotel/queries";
+import { getSuggestedNextArNo } from "@/lib/hotel/session";
 import { stayTotals } from "@/lib/hotel/rates";
 import { computeTax } from "@/lib/hotel/tax";
 import { peso, fmtDateTime } from "@/lib/collections/summary";
@@ -29,12 +30,13 @@ export default async function StayFolioPage({
   const user = await requireModule("hotel");
   const canWrite = canWriteModule(user.roleKeys, "hotel");
   const isConsultant = user.roleKeys.includes("consultant");
-  const [detail, menu, roomCheck, damagePhotos, tz] = await Promise.all([
+  const [detail, menu, roomCheck, damagePhotos, tz, suggestedArNo] = await Promise.all([
     getStayDetail(stayId),
     listMenuItems(),
     getLatestRoomCheck(stayId),
     listDocPhotos("stay", stayId),
     getAppTimezone(),
+    getSuggestedNextArNo(),
   ]);
   if (!detail) notFound();
 
@@ -82,7 +84,7 @@ export default async function StayFolioPage({
           {stay.status === "active" && canWrite && (
             <RoomCheck stayId={stay.id} gatepassNo={roomCheck?.gatepass_no ?? null} />
           )}
-          {canWrite && <FolioActions stayId={stay.id} status={stay.status} balance={t.balance} />}
+          {canWrite && <FolioActions stayId={stay.id} status={stay.status} balance={t.balance} checkInAt={stay.check_in_at} suggestedArNo={suggestedArNo} />}
           <PhotoDocPanel
             entity="stay"
             entityId={stay.id}
