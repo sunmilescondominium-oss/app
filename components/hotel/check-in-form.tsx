@@ -161,15 +161,15 @@ export function CheckInForm({
 
       {/* Step 1: Recompute button — appears after selecting a discount type */}
       {isPendingDisc && (
-        <div className="flex items-center gap-3 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3">
-          <div className="flex-1 text-xs text-sky-800">
+        <div className="flex items-center gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3">
+          <div className="flex-1 text-xs text-amber-900">
             <strong>{govDiscType === "pwd" ? "PWD" : "Senior Citizen"} 20% discount selected.</strong>{" "}
-            Click to recompute the room fee and open the camera to capture proof.
+            Click to recompute the room fee and open the camera to capture the ID card.
           </div>
           <button
             type="button"
             onClick={applyDiscount}
-            className="shrink-0 rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700"
+            className="shrink-0 rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700"
           >
             Recompute &amp; Capture ID →
           </button>
