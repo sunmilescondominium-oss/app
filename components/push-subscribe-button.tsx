@@ -86,14 +86,7 @@ export function PushSubscribeButton({ label = "Enable push alerts" }: { label?: 
 
   if (state === "unsupported") return null;
 
-  if (state === "loading") {
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-lg border border-stone-200 px-3 py-1.5 text-xs text-stone-400">
-        <span className="h-3 w-3 animate-spin rounded-full border border-stone-300 border-t-stone-500" />
-        Checking…
-      </span>
-    );
-  }
+  if (state === "loading") return null;
 
   if (state === "denied") {
     return (
