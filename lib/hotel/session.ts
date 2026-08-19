@@ -1,4 +1,5 @@
 import "server-only";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -27,16 +28,27 @@ export interface SessionSummary extends CashierSession {
   cancellations: ArCancellation[];
 }
 
+/** Batch-fetch full_name for a set of user IDs from the profiles table. */
+async function resolveNames(admin: SupabaseClient, userIds: (string | null | undefined)[]): Promise<Map<string, string>> {
+  const ids = [...new Set(userIds.filter(Boolean) as string[])];
+  if (!ids.length) return new Map();
+  const { data } = await admin.from("profiles").select("id, full_name").in("id", ids);
+  const map = new Map<string, string>();
+  (data ?? []).forEach((p) => map.set(p.id as string, (p.full_name as string) ?? "Unknown"));
+  return map;
+}
+
 /** Returns the currently open (unclosed) cashier session, or null if no one is on duty. */
 export async function getActiveSession(): Promise<CashierSession | null> {
   const admin = createAdminClient();
   const { data } = await admin
     .from("hotel_cashier_sessions")
-    .select("*, cashier:cashier_user_id(full_name), closer:closed_by(full_name)")
+    .select("*")
     .is("closed_at", null)
     .maybeSingle();
   if (!data) return null;
-  return mapSession(data);
+  const names = await resolveNames(admin, [data.cashier_user_id as string, data.closed_by as string | null]);
+  return mapSessionRaw(data, names);
 }
 
 /** Returns ALL open sessions (closed_at IS NULL). Normally 0 or 1, but may be more if data is stuck. */
@@ -44,10 +56,13 @@ export async function getAllOpenSessions(): Promise<CashierSession[]> {
   const admin = createAdminClient();
   const { data } = await admin
     .from("hotel_cashier_sessions")
-    .select("*, cashier:cashier_user_id(full_name), closer:closed_by(full_name)")
+    .select("*")
     .is("closed_at", null)
     .order("opened_at", { ascending: false });
-  return (data ?? []).map(mapSession);
+  const rows = data ?? [];
+  const userIds = rows.flatMap((r) => [r.cashier_user_id as string, r.closed_by as string | null]);
+  const names = await resolveNames(admin, userIds);
+  return rows.map((r) => mapSessionRaw(r, names));
 }
 
 /** Returns paginated session history (most recent first). */
@@ -55,10 +70,13 @@ export async function getSessionHistory(limit = 20): Promise<CashierSession[]> {
   const admin = createAdminClient();
   const { data } = await admin
     .from("hotel_cashier_sessions")
-    .select("*, cashier:cashier_user_id(full_name), closer:closed_by(full_name)")
+    .select("*")
     .order("opened_at", { ascending: false })
     .limit(limit);
-  return (data ?? []).map(mapSession);
+  const rows = data ?? [];
+  const userIds = rows.flatMap((r) => [r.cashier_user_id as string, r.closed_by as string | null]);
+  const names = await resolveNames(admin, userIds);
+  return rows.map((r) => mapSessionRaw(r, names));
 }
 
 /** Full session detail: session + payments with AR nos + cancelled ARs. */
@@ -67,7 +85,7 @@ export async function getSessionSummary(sessionId: string): Promise<SessionSumma
   const [{ data: s }, { data: pays }, { data: cancels }] = await Promise.all([
     admin
       .from("hotel_cashier_sessions")
-      .select("*, cashier:cashier_user_id(full_name), closer:closed_by(full_name)")
+      .select("*")
       .eq("id", sessionId)
       .maybeSingle(),
     admin
@@ -77,11 +95,17 @@ export async function getSessionSummary(sessionId: string): Promise<SessionSumma
       .order("created_at", { ascending: true }),
     admin
       .from("hotel_ar_cancellations")
-      .select("id, ar_no, reason, cancelled_at, canceller:cancelled_by(full_name)")
+      .select("id, ar_no, reason, cancelled_at, cancelled_by")
       .eq("session_id", sessionId)
       .order("cancelled_at", { ascending: true }),
   ]);
   if (!s) return null;
+  const cancellerIds = (cancels ?? []).map((c) => c.cancelled_by as string);
+  const names = await resolveNames(admin, [
+    s.cashier_user_id as string,
+    s.closed_by as string | null,
+    ...cancellerIds,
+  ]);
 
   // Re-query payments within session time window
   const { data: sessionPays } = await admin
@@ -94,7 +118,7 @@ export async function getSessionSummary(sessionId: string): Promise<SessionSumma
   void pays; // unused, replaced by sessionPays
 
   return {
-    ...mapSession(s),
+    ...mapSessionRaw(s, names),
     payments: (sessionPays ?? []).map((p) => ({
       arNo: (p.ar_no as string | null) ?? null,
       amount: Number(p.amount),
@@ -105,7 +129,7 @@ export async function getSessionSummary(sessionId: string): Promise<SessionSumma
       id: c.id as string,
       arNo: c.ar_no as string,
       reason: c.reason as string,
-      cancelledBy: (c.canceller && !Array.isArray(c.canceller) ? (c.canceller as { full_name: string }).full_name : null) ?? "Unknown",
+      cancelledBy: names.get(c.cancelled_by as string) ?? "Unknown",
       cancelledAt: c.cancelled_at as string,
     })),
   };
@@ -125,20 +149,18 @@ export async function getSuggestedNextArNo(): Promise<string> {
   return `${pfx}${String(no).padStart(6, "0")}`;
 }
 
-function mapSession(data: Record<string, unknown>): CashierSession {
-  const cashierRaw = data.cashier;
-  const closerRaw  = data.closer;
-  const cashier = (cashierRaw && !Array.isArray(cashierRaw)) ? cashierRaw as { full_name: string } : null;
-  const closer  = (closerRaw  && !Array.isArray(closerRaw))  ? closerRaw  as { full_name: string } : null;
+function mapSessionRaw(data: Record<string, unknown>, names: Map<string, string>): CashierSession {
+  const cashierId = data.cashier_user_id as string;
+  const closerId  = data.closed_by as string | null;
   return {
     id: data.id as string,
-    cashierUserId: data.cashier_user_id as string,
-    cashierName: cashier?.full_name ?? "Unknown",
+    cashierUserId: cashierId,
+    cashierName: names.get(cashierId) ?? "Unknown",
     openedAt: data.opened_at as string,
     beginningArNo: data.beginning_ar_no as string,
     endingArNo: (data.ending_ar_no as string | null) ?? null,
     closedAt: (data.closed_at as string | null) ?? null,
-    closedByName: closer?.full_name ?? null,
+    closedByName: closerId ? (names.get(closerId) ?? null) : null,
     notes: (data.notes as string | null) ?? null,
   };
 }
