@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { buildHotelShiftTransmittal } from "@/app/(app)/hotel/actions";
 import { DenominationCounter } from "@/components/transmittals/denomination-counter";
@@ -27,10 +27,11 @@ export function ShiftTransmittalForm({
   itemTypeLabels?: Record<string, string>;
 }) {
   const router = useRouter();
-  const [state, formAction, pending] = useActionState<ActionResult | undefined, FormData>(
-    buildHotelShiftTransmittal,
-    undefined,
-  );
+  const [state, setState] = useState<ActionResult | undefined>(undefined);
+  const [pending, startTransition] = useTransition();
+  const [confirming, setConfirming] = useState(false);
+  const [denomTotal, setDenomTotal] = useState(0);
+  const pendingFd = useRef<FormData | null>(null);
 
   const collectionsTotal = collections.reduce((s, c) => s + c.amount, 0);
   const byMethod = collections.reduce<Record<string, number>>((acc, c) => {
@@ -38,18 +39,31 @@ export function ShiftTransmittalForm({
     return acc;
   }, {});
 
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    pendingFd.current = fd;
+    setConfirming(true);
+  }
+
+  function doSubmit() {
+    if (!pendingFd.current) return;
+    const fd = pendingFd.current;
+    startTransition(async () => {
+      const res = await buildHotelShiftTransmittal(undefined, fd);
+      setState(res);
+      if (res?.ok) router.refresh();
+      else setConfirming(false);
+    });
+  }
+
   if (state?.ok) {
     return (
       <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 space-y-2">
-        <p className="text-sm font-semibold text-emerald-900">
-          ✓ Hotel shift transmittal built — accounting has been notified.
-        </p>
+        <p className="text-sm font-semibold text-emerald-900">✓ Hotel shift transmittal built — accounting has been notified.</p>
         {state.transmittalId && (
-          <a
-            href={`/transmittals/${state.transmittalId}`}
-            onClick={() => router.refresh()}
-            className="text-sm font-medium text-amber-700 hover:underline"
-          >
+          <a href={`/transmittals/${state.transmittalId}`} onClick={() => router.refresh()}
+            className="text-sm font-medium text-amber-700 hover:underline">
             View transmittal →
           </a>
         )}
@@ -60,22 +74,64 @@ export function ShiftTransmittalForm({
   if (collections.length === 0) {
     return (
       <div className="rounded-xl border border-stone-200 bg-stone-50 p-4">
-        <p className="text-sm text-stone-500">
-          No hotel collections recorded for {date} that have not yet been transmitted.
-        </p>
+        <p className="text-sm text-stone-500">No hotel collections recorded for {date} that have not yet been transmitted.</p>
       </div>
     );
   }
 
+  // --- Confirm panel ---
+  if (confirming) {
+    const variance = Math.round((denomTotal - collectionsTotal) * 100) / 100;
+    const hasDiscrepancy = variance !== 0;
+    return (
+      <div className="space-y-4 rounded-xl border border-stone-300 bg-white p-4">
+        <p className="text-sm font-semibold text-stone-800">Confirm: Build hotel shift transmittal — {date}</p>
+
+        <div className="rounded-lg border border-stone-200 bg-stone-50 p-3 space-y-1.5 text-sm">
+          <div className="flex justify-between">
+            <span className="text-stone-500">System total ({collections.length} collections)</span>
+            <span className="tabular-nums font-medium">{peso(collectionsTotal)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-stone-500">Monitoring count (denomination)</span>
+            <span className="tabular-nums font-medium">{peso(denomTotal)}</span>
+          </div>
+          <div className={`flex justify-between border-t pt-1.5 font-semibold ${hasDiscrepancy ? (variance < 0 ? "text-rose-700" : "text-amber-700") : "text-emerald-700"}`}>
+            <span>{hasDiscrepancy ? (variance < 0 ? "⚠ Shortage" : "⚠ Overage") : "✓ Exact match"}</span>
+            <span className="tabular-nums">{hasDiscrepancy ? peso(Math.abs(variance)) : peso(0)}</span>
+          </div>
+        </div>
+
+        {hasDiscrepancy && (
+          <div className={`rounded-lg border px-3 py-2 text-xs ${variance < 0 ? "border-rose-200 bg-rose-50 text-rose-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
+            {variance < 0
+              ? `Monitoring count is ${peso(Math.abs(variance))} short of the system total. Recount the bag before proceeding, or submit with the discrepancy recorded for accounting to investigate.`
+              : `Monitoring count is ${peso(variance)} over the system total. Please verify before proceeding.`}
+          </div>
+        )}
+
+        {state && !state.ok && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{state.error}</p>}
+
+        <div className="flex gap-2">
+          <button type="button" onClick={() => setConfirming(false)} disabled={pending}
+            className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100 disabled:opacity-60">
+            ← Edit
+          </button>
+          <button type="button" onClick={doSubmit} disabled={pending}
+            className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:opacity-60 ${hasDiscrepancy ? "bg-rose-600 hover:bg-rose-700" : "bg-violet-700 hover:bg-violet-800"}`}>
+            {pending ? "Building…" : hasDiscrepancy ? "Submit with discrepancy" : "Confirm & Build transmittal"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // --- Main form ---
   return (
-    <form action={formAction} className="space-y-5 rounded-xl border border-violet-200 bg-violet-50/30 p-4">
+    <form onSubmit={handleSubmit} className="space-y-5 rounded-xl border border-violet-200 bg-violet-50/30 p-4">
       <div>
-        <p className="text-sm font-semibold text-stone-800 mb-1">
-          Count &amp; build hotel shift transmittal — {date}
-        </p>
-        <p className="text-xs text-stone-500">
-          Monitoring enters the authoritative cash count. All hotel collections for this date will be bundled.
-        </p>
+        <p className="text-sm font-semibold text-stone-800 mb-1">Count &amp; build hotel shift transmittal — {date}</p>
+        <p className="text-xs text-stone-500">Monitoring enters the authoritative cash count. All hotel collections for this date will be bundled.</p>
       </div>
 
       <input type="hidden" name="shift_date" value={date} />
@@ -85,9 +141,7 @@ export function ShiftTransmittalForm({
       {handover && (
         <div className="rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs text-stone-600 space-y-0.5">
           <p className="font-semibold text-stone-700">Cashier handover reference</p>
-          {handover.cashier_name && (
-            <p>Cashier: <strong>{handover.cashier_name}</strong></p>
-          )}
+          {handover.cashier_name && <p>Cashier: <strong>{handover.cashier_name}</strong></p>}
           {handover.cashier_absent ? (
             <p className="text-amber-700">Cashier was absent — bag taken over by monitoring.</p>
           ) : (
@@ -99,16 +153,10 @@ export function ShiftTransmittalForm({
                   {(() => {
                     const variance = Math.round((handover.counted_amount - collectionsTotal) * 100) / 100;
                     if (variance === 0) return <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">exact match</span>;
-                    return (
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${variance > 0 ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-700"}`}>
-                        {variance > 0 ? `+${peso(variance)} over` : `${peso(variance)} short`}
-                      </span>
-                    );
+                    return <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${variance > 0 ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-700"}`}>{variance > 0 ? `+${peso(variance)} over` : `${peso(variance)} short`}</span>;
                   })()}
                 </div>
-              ) : (
-                <p className="text-amber-600">Cashier did not count.</p>
-              )}
+              ) : <p className="text-amber-600">Cashier did not count.</p>}
               {handover.remarks && <p>Remarks: {handover.remarks}</p>}
             </>
           )}
@@ -165,9 +213,14 @@ export function ShiftTransmittalForm({
       {/* Monitoring's authoritative cash count */}
       <div>
         <label className={labelCls}>Monitoring count (authoritative) *</label>
-        <DenominationCounter />
+        <DenominationCounter onTotalChange={setDenomTotal} />
         <p className="mt-1.5 text-xs text-stone-400">
-          System total: {peso(collectionsTotal)}. Any variance will be recorded on the transmittal.
+          System total: {peso(collectionsTotal)}.{" "}
+          {denomTotal > 0 && (
+            <span className={Math.round((denomTotal - collectionsTotal) * 100) / 100 !== 0 ? "font-semibold text-rose-600" : "text-emerald-600"}>
+              Counted: {peso(denomTotal)} {Math.round((denomTotal - collectionsTotal) * 100) / 100 !== 0 ? `(${Math.round((denomTotal - collectionsTotal) * 100) / 100 > 0 ? "+" : ""}${peso(Math.round((denomTotal - collectionsTotal) * 100) / 100)} variance)` : "— exact match"}
+            </span>
+          )}
         </p>
       </div>
 
@@ -176,16 +229,11 @@ export function ShiftTransmittalForm({
         <input name="note" className={inputCls} placeholder="e.g. short by 50 — cashier advised" />
       </div>
 
-      {state && !state.ok && (
-        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{state.error}</p>
-      )}
+      {state && !state.ok && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{state.error}</p>}
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="rounded-lg bg-violet-700 px-5 py-2 text-sm font-semibold text-white hover:bg-violet-800 disabled:opacity-60"
-      >
-        {pending ? "Building transmittal…" : `Build transmittal — ${collections.length} collection(s) · ${peso(collectionsTotal)}`}
+      <button type="submit"
+        className="rounded-lg bg-violet-700 px-5 py-2 text-sm font-semibold text-white hover:bg-violet-800">
+        Review &amp; Build transmittal — {collections.length} collection(s) · {peso(collectionsTotal)}
       </button>
     </form>
   );

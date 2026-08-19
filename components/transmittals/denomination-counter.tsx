@@ -1,20 +1,23 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PHP_DENOMINATIONS } from "@/lib/config";
 import { peso } from "@/lib/collections/summary";
 
 /**
  * PHP bill/coin counter. Emits a hidden `denomination_counts` field (JSON map of
  * value → quantity) that the build action sums into the transmittal's counted cash.
+ * Pass `onTotalChange` to track the running total in a parent for a confirm panel.
  */
-export function DenominationCounter() {
+export function DenominationCounter({ onTotalChange }: { onTotalChange?: (total: number) => void } = {}) {
   const [counts, setCounts] = useState<Record<string, number>>({});
 
   const total = useMemo(
     () => PHP_DENOMINATIONS.reduce((s, d) => s + d.value * (counts[`${d.kind}-${d.value}`] ?? 0), 0),
     [counts],
   );
+
+  useEffect(() => { onTotalChange?.(total); }, [total, onTotalChange]);
 
   function set(key: string, qty: number) {
     setCounts((c) => ({ ...c, [key]: Math.max(0, Math.floor(qty) || 0) }));
