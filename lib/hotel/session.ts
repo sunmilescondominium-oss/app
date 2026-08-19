@@ -39,6 +39,17 @@ export async function getActiveSession(): Promise<CashierSession | null> {
   return mapSession(data);
 }
 
+/** Returns ALL open sessions (closed_at IS NULL). Normally 0 or 1, but may be more if data is stuck. */
+export async function getAllOpenSessions(): Promise<CashierSession[]> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("hotel_cashier_sessions")
+    .select("*, cashier:cashier_user_id(full_name), closer:closed_by(full_name)")
+    .is("closed_at", null)
+    .order("opened_at", { ascending: false });
+  return (data ?? []).map(mapSession);
+}
+
 /** Returns paginated session history (most recent first). */
 export async function getSessionHistory(limit = 20): Promise<CashierSession[]> {
   const admin = createAdminClient();

@@ -3,6 +3,7 @@ import { requireAuth, userHasAnyRole } from "@/lib/auth/dal";
 import { PageHeader } from "@/components/ui";
 import {
   getActiveSession,
+  getAllOpenSessions,
   getSessionHistory,
   getSessionSummary,
   getSuggestedNextArNo,
@@ -38,8 +39,9 @@ export default async function ShiftsPage() {
   const isSupervisor = userHasAnyRole(user, [...SUPERVISOR]);
   const isCashier    = userHasAnyRole(user, ["hotel_cashier"]);
 
-  const [active, suggested, history, reports] = await Promise.all([
+  const [active, allOpen, suggested, history, reports] = await Promise.all([
     getActiveSession(),
+    isSupervisor ? getAllOpenSessions() : Promise.resolve([]),
     getSuggestedNextArNo(),
     getSessionHistory(10),
     isSupervisor ? listShiftReports(10) : Promise.resolve([]),
@@ -49,6 +51,9 @@ export default async function ShiftsPage() {
   const isOnDuty = active?.cashierUserId === user.userId;
 
   const pendingReports = reports.filter((r) => r.status === "pending");
+
+  // Stuck sessions: open in DB but not picked up by getActiveSession() (e.g. multiple rows)
+  const stuckSessions = allOpen.filter((s) => s.id !== active?.id);
 
   return (
     <>
@@ -107,6 +112,31 @@ export default async function ShiftsPage() {
           <p className="mt-0.5 text-xs text-stone-400">
             Hotel check-in, check-out, and payments are locked until a cashier opens their shift.
           </p>
+        </div>
+      )}
+
+      {/* ── Stuck / ghost sessions (supervisor only) ────────────────────────── */}
+      {isSupervisor && stuckSessions.length > 0 && (
+        <div className="mb-5 rounded-xl border border-rose-300 bg-rose-50 p-4">
+          <p className="mb-1 text-sm font-semibold text-rose-900">
+            ⚠ {stuckSessions.length} stuck session{stuckSessions.length > 1 ? "s" : ""} found
+          </p>
+          <p className="mb-3 text-xs text-rose-700">
+            These sessions are open in the database but not displayed as the active shift. They are blocking new shifts from opening. Force-close them below.
+          </p>
+          <div className="space-y-2">
+            {stuckSessions.map((s) => (
+              <div key={s.id} className="rounded-lg border border-rose-200 bg-white p-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="text-xs">
+                    <p className="font-semibold text-stone-800">{s.cashierName}</p>
+                    <p className="text-stone-500">Opened {fmt(s.openedAt)} · Beginning AR: {s.beginningArNo}</p>
+                  </div>
+                  <SupervisorPanel sessionId={s.id} cashierName={s.cashierName} isOnDuty={false} compact />
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

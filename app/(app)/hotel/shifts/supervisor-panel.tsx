@@ -8,10 +8,12 @@ export function SupervisorPanel({
   sessionId,
   cashierName,
   isOnDuty,
+  compact = false,
 }: {
   sessionId: string;
   cashierName: string;
   isOnDuty: boolean;
+  compact?: boolean;
 }) {
   const router = useRouter();
   const [showVoid, setShowVoid] = useState(false);
@@ -29,20 +31,50 @@ export function SupervisorPanel({
     router.refresh();
   }
 
+  // Compact mode: used inline inside the stuck-sessions panel
+  if (compact) {
+    return showVoid ? (
+      <div className="mt-2 space-y-2 w-full">
+        <textarea
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          rows={2}
+          placeholder="Reason for voiding"
+          className="w-full rounded-lg border border-rose-300 px-3 py-2 text-xs outline-none focus:border-rose-500"
+        />
+        {err && <p className="text-xs text-red-600">{err}</p>}
+        <div className="flex gap-2">
+          <button onClick={voidShift} disabled={busy}
+            className="rounded-lg bg-rose-600 px-3 py-1 text-xs font-semibold text-white hover:bg-rose-700 disabled:opacity-60">
+            {busy ? "Voiding…" : "Confirm void"}
+          </button>
+          <button onClick={() => { setShowVoid(false); setErr(""); setReason(""); }}
+            className="rounded-lg border border-stone-300 px-3 py-1 text-xs text-stone-600">
+            Cancel
+          </button>
+        </div>
+      </div>
+    ) : (
+      <button onClick={() => setShowVoid(true)}
+        className="shrink-0 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-700">
+        Force close
+      </button>
+    );
+  }
+
+  // Full panel mode: shown at bottom of the action column when a normal shift is active
   return (
     <div className="rounded-xl border border-rose-200 bg-rose-50 p-4">
       <p className="mb-1 text-sm font-semibold text-rose-900">Supervisor Override</p>
       <p className="mb-3 text-xs text-rose-700">
         {isOnDuty
-          ? "You can end your own shift using the End Shift form above, or void it below."
+          ? "You can end your own shift using End Shift above, or void it below."
           : `You can end ${cashierName}'s shift using End Shift above, or void it entirely below.`}
       </p>
 
       {!showVoid ? (
-        <button
-          onClick={() => setShowVoid(true)}
-          className="rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100"
-        >
+        <button onClick={() => setShowVoid(true)}
+          className="rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100">
           Void / cancel this shift
         </button>
       ) : (
@@ -60,17 +92,12 @@ export function SupervisorPanel({
           />
           {err && <p className="text-xs text-red-600">{err}</p>}
           <div className="flex gap-2">
-            <button
-              onClick={voidShift}
-              disabled={busy}
-              className="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-700 disabled:opacity-60"
-            >
+            <button onClick={voidShift} disabled={busy}
+              className="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-700 disabled:opacity-60">
               {busy ? "Voiding…" : "Confirm void shift"}
             </button>
-            <button
-              onClick={() => { setShowVoid(false); setErr(""); setReason(""); }}
-              className="rounded-lg border border-stone-300 px-3 py-1.5 text-xs text-stone-600"
-            >
+            <button onClick={() => { setShowVoid(false); setErr(""); setReason(""); }}
+              className="rounded-lg border border-stone-300 px-3 py-1.5 text-xs text-stone-600">
               Cancel
             </button>
           </div>
