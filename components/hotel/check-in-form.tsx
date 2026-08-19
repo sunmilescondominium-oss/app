@@ -1,12 +1,13 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { checkIn, type CheckInResult } from "@/app/(app)/hotel/actions";
-import { roomCharge, promoDiscount } from "@/lib/hotel/rates";
+import { roomCharge, promoDiscount, round2 } from "@/lib/hotel/rates";
 import { peso } from "@/lib/collections/summary";
 import { HOTEL_PAYMENT_METHODS } from "@/lib/config";
 import type { RatePlan, Promo } from "@/lib/hotel/types";
+import { DiscountIdCapture } from "@/components/hotel/discount-id-capture";
 
 const inputCls =
   "w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
@@ -36,24 +37,43 @@ export function CheckInForm({
   const [hours, setHours] = useState<number>(ratePlans[0]?.base_hours ?? 3);
   const [promoId, setPromoId] = useState("");
   const promo = promos.find((p) => p.id === promoId);
+  const [govDiscType, setGovDiscType] = useState<string>("");
   const [advanceMethod, setAdvanceMethod] = useState<string>(HOTEL_PAYMENT_METHODS[0]?.key ?? "cash");
+  const [photoCaptured, setPhotoCaptured] = useState(false);
+  const [clientError, setClientError] = useState("");
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   const effHours = plan ? Math.max(hours, plan.base_hours) : hours;
   const rc = plan ? roomCharge(plan.base_rate, plan.extra_hour_rate, plan.base_hours, effHours) : 0;
-  const disc = promo ? promoDiscount(rc, promo.disc_type, promo.disc_value) : 0;
-  const required = Math.max(0, Math.round((rc - disc) * 100) / 100);
+  const promoDisc = promo ? promoDiscount(rc, promo.disc_type, promo.disc_value) : 0;
+  const afterPromo = round2(rc - promoDisc);
+  const govDisc = (govDiscType === "pwd" || govDiscType === "senior_citizen") ? round2(afterPromo * 0.20) : 0;
+  const required = Math.max(0, round2(rc - promoDisc - govDisc));
   const [advanceAmount, setAdvanceAmount] = useState<number>(required);
 
-  // Keep the advance in step with the room fee as the plan/hours/promo change.
   useEffect(() => { setAdvanceAmount(required); }, [required]);
 
-  // On success, jump to the folio to print the initial receipt (with QR).
   useEffect(() => {
     if (state?.ok) { onDone(); router.push(`/hotel/${state.stayId}`); }
   }, [state, onDone, router]);
 
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    setClientError("");
+    const needsPhoto = govDiscType === "pwd" || govDiscType === "senior_citizen";
+    if (needsPhoto && !photoCaptured) {
+      e.preventDefault();
+      setClientError("A photo of the government ID is required to avail of this discount.");
+      return;
+    }
+  }
+
+  const needsPhoto = govDiscType === "pwd" || govDiscType === "senior_citizen";
+
   return (
-    <form action={action} className="space-y-4">
+    <form action={action} onSubmit={handleSubmit} className="space-y-4">
+      {/* Hidden file input — populated by DiscountIdCapture via DataTransfer */}
+      <input ref={photoInputRef} type="file" name="discount_id_photo" accept="image/jpeg" className="hidden" />
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label className={labelCls}>Guest label</label>
@@ -106,7 +126,16 @@ export function CheckInForm({
         </div>
         <div>
           <label className={labelCls}>Gov&apos;t discount (optional)</label>
-          <select name="discount_type" defaultValue="" className={inputCls}>
+          <select
+            name="discount_type"
+            value={govDiscType}
+            onChange={(e) => {
+              setGovDiscType(e.target.value);
+              setPhotoCaptured(false);
+              setClientError("");
+            }}
+            className={inputCls}
+          >
             <option value="">— none —</option>
             <option value="pwd">PWD — 20% discount</option>
             <option value="senior_citizen">Senior Citizen — 20% discount</option>
@@ -114,15 +143,31 @@ export function CheckInForm({
         </div>
       </div>
 
+      {/* Government ID capture — shown only when PWD/SC is selected */}
+      {needsPhoto && (
+        <DiscountIdCapture
+          discountType={govDiscType as "pwd" | "senior_citizen"}
+          fileInputRef={photoInputRef}
+          onCaptured={() => setPhotoCaptured(true)}
+          onCleared={() => setPhotoCaptured(false)}
+        />
+      )}
+
       <div className="rounded-lg bg-stone-50 px-4 py-3 text-sm">
         <div className="flex justify-between">
           <span className="text-stone-500">Room charge</span>
           <span className="tabular-nums">{peso(rc)}</span>
         </div>
-        {disc > 0 && (
+        {promoDisc > 0 && (
           <div className="flex justify-between text-emerald-700">
-            <span>Discount</span>
-            <span className="tabular-nums">− {peso(disc)}</span>
+            <span>Promo discount</span>
+            <span className="tabular-nums">− {peso(promoDisc)}</span>
+          </div>
+        )}
+        {govDisc > 0 && (
+          <div className="flex justify-between text-sky-700">
+            <span>{govDiscType === "pwd" ? "PWD" : "Senior Citizen"} 20% discount</span>
+            <span className="tabular-nums">− {peso(govDisc)}</span>
           </div>
         )}
         <div className="mt-1 flex justify-between border-t border-stone-200 pt-1 font-semibold">
@@ -156,6 +201,11 @@ export function CheckInForm({
         <p className="mt-1 text-[11px] text-amber-800">A thermal receipt with a QR (for the guest&rsquo;s online bill) prints on the folio after check-in.</p>
       </div>
 
+      {clientError && (
+        <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          {clientError}
+        </p>
+      )}
       {state && !state.ok && (
         <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
           {state.error}

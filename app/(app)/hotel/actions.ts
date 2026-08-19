@@ -79,6 +79,12 @@ export async function checkIn(
   const discount_type_raw = String(formData.get("discount_type") ?? "").trim();
   const discount_type = (discount_type_raw === "pwd" || discount_type_raw === "senior_citizen") ? discount_type_raw : null;
 
+  // Government discount requires an ID photo for audit.
+  const photoFile = formData.get("discount_id_photo") as File | null;
+  if (discount_type && (!photoFile || photoFile.size === 0)) {
+    return { ok: false, error: "A photo of the government ID card is required to avail of the PWD or Senior Citizen discount." };
+  }
+
   const rc0 = roomCharge(base_rate, extra_hour_rate, base_hours, planned_hours);
   let discount_amount = 0;
   if (promo_id) {
@@ -142,6 +148,20 @@ export async function checkIn(
     .select("id")
     .single();
   if (error) return { ok: false, error: error.message };
+
+  // Upload government ID photo to private storage (48-hour audit copy).
+  if (discount_type && photoFile && photoFile.size > 0) {
+    try {
+      const admin2 = createAdminClient();
+      const bytes = await photoFile.arrayBuffer();
+      const photoPath = `${data.id}.jpg`;
+      await admin2.storage.from("discount-id-photos").upload(photoPath, Buffer.from(bytes), { contentType: "image/jpeg", upsert: true });
+      const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
+      await admin2.from("stays").update({ discount_id_photo_path: photoPath, discount_id_photo_expires_at: expiresAt }).eq("id", data.id);
+    } catch {
+      // Non-fatal: check-in proceeds even if photo upload fails; cashier should retake manually.
+    }
+  }
 
   // Record the advance payment + post to collections (initial receipt).
   const admin = createAdminClient();

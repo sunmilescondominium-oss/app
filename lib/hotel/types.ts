@@ -29,6 +29,8 @@ export interface Stay {
   promo_id: string | null;
   discount_amount: number;
   discount_type: string | null;
+  discount_id_photo_path: string | null;
+  discount_id_photo_expires_at: string | null;
   tax_mode: string;
   tax_rate: number;
   check_in_at: string;
