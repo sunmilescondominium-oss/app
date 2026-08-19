@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireModule } from "@/lib/auth/dal";
+import { requireModule, userHasAnyRole } from "@/lib/auth/dal";
 import { canWriteModule } from "@/lib/rbac/modules";
 import {
   listRoomBoard,
@@ -9,6 +9,7 @@ import {
   getGlobalTax,
   listRoomTax,
 } from "@/lib/hotel/queries";
+import { getActiveSession } from "@/lib/hotel/session";
 import { PageHeader, Badge } from "@/components/ui";
 import { HotelBoard } from "@/components/hotel/hotel-board";
 import { PushSubscribeButton } from "@/components/push-subscribe-button";
@@ -26,15 +27,20 @@ export default async function HotelPage() {
   const canManageConfig = user.roleKeys.some((r) => ["admin", "consultant"].includes(r));
   const canManageTax = user.roleKeys.some((r) => ["admin", "accounting", "consultant"].includes(r));
 
-  const [board, ratePlans, promos, menu, globalTax, roomTax] = await Promise.all([
+  const [board, ratePlans, promos, menu, globalTax, roomTax, activeSession] = await Promise.all([
     listRoomBoard(),
     listRatePlans(),
     listPromos(),
     listMenuItems(),
     getGlobalTax(),
     listRoomTax(),
+    getActiveSession(),
   ]);
   const occupied = board.filter((b) => b.stay).length;
+  const isCashier    = userHasAnyRole(user, ["hotel_cashier"]);
+  const isSupervisor = userHasAnyRole(user, ["hotel_rental_monitoring", "admin", "managing_officer", "consultant"]);
+  const isOnDuty     = activeSession?.cashierUserId === user.userId;
+  const hotelOpsLocked = !activeSession && isCashier && !isSupervisor;
 
   return (
     <>
@@ -45,8 +51,39 @@ export default async function HotelPage() {
         badge={<Badge tone="amber">{occupied}/{board.length} occupied</Badge>}
       />
 
+      {/* Cashier session banner */}
+      {activeSession ? (
+        <div className="no-print mb-4 flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm">
+          <span className="text-amber-900">
+            🟢 <strong>{isOnDuty ? "You are" : activeSession.cashierName + " is"}</strong> on duty &nbsp;·&nbsp;
+            <span className="text-amber-700 font-mono text-xs">Beginning AR: {activeSession.beginningArNo}</span>
+          </span>
+          <Link href="/hotel/shifts" className="text-xs font-semibold text-amber-700 hover:underline">
+            Manage shift →
+          </Link>
+        </div>
+      ) : (
+        <div className={`no-print mb-4 flex items-center justify-between rounded-xl border px-4 py-2.5 text-sm ${
+          hotelOpsLocked ? "border-rose-200 bg-rose-50" : "border-stone-200 bg-stone-50"
+        }`}>
+          <span className={hotelOpsLocked ? "text-rose-800" : "text-stone-600"}>
+            {hotelOpsLocked
+              ? "⚠ Hotel ops locked — open your shift to check in guests and process payments."
+              : "⚪ No cashier on duty — hotel ops are locked for cashiers."}
+          </span>
+          {(isCashier || isSupervisor) && (
+            <Link href="/hotel/shifts" className="text-xs font-semibold text-amber-700 hover:underline">
+              Open shift →
+            </Link>
+          )}
+        </div>
+      )}
+
       <div className="no-print mb-4 flex flex-wrap items-center gap-4">
         <PushSubscribeButton label="Enable overdue alerts" />
+        <Link href="/hotel/shifts" className="text-sm font-medium text-amber-700 hover:underline">
+          Cashier shifts →
+        </Link>
         <Link href="/hotel/day" className="text-sm font-medium text-amber-700 hover:underline">
           Day-end / remittance report →
         </Link>

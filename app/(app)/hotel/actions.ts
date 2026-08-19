@@ -11,8 +11,16 @@ import { HOTEL_PAYMENT_METHODS, ROOM_ASSET_CHECKLIST } from "@/lib/config";
 import { createCleaningTask } from "@/lib/housekeeping/create-task";
 import { createNotification } from "@/lib/notifications/queries";
 import type { ImportResult } from "@/lib/imports/types";
+import { getActiveSession } from "@/lib/hotel/session";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
+
+async function requireCashierOnDuty(userId: string): Promise<ActionResult | null> {
+  const session = await getActiveSession();
+  if (!session) return { ok: false, error: "No cashier is currently on duty. A cashier must open their shift before hotel operations can proceed." };
+  if (session.cashierUserId !== userId) return { ok: false, error: `${session.cashierName} is the cashier on duty. Only the on-duty cashier or a supervisor can process hotel transactions.` };
+  return null;
+}
 const METHODS: readonly string[] = HOTEL_PAYMENT_METHODS.map((m) => m.key);
 
 export type CheckInResult = { ok: true; stayId: string } | { ok: false; error: string };
@@ -23,6 +31,11 @@ export async function checkIn(
   formData: FormData,
 ): Promise<CheckInResult> {
   const user = await requireModuleWrite("hotel");
+  const isSupervisor = userHasAnyRole(user, ["hotel_rental_monitoring", "admin", "managing_officer"]);
+  if (!isSupervisor) {
+    const gate = await requireCashierOnDuty(user.userId);
+    if (gate) return gate as CheckInResult;
+  }
   const supabase = await createClient();
 
   const rate_plan_id = String(formData.get("rate_plan_id") ?? "").trim();
@@ -185,6 +198,11 @@ export async function recordStayPayment(
   formData: FormData,
 ): Promise<ActionResult> {
   const user = await requireModuleWrite("hotel");
+  const isSupervisor = userHasAnyRole(user, ["hotel_rental_monitoring", "admin", "managing_officer"]);
+  if (!isSupervisor) {
+    const gate = await requireCashierOnDuty(user.userId);
+    if (gate) return gate;
+  }
   const supabase = await createClient();
 
   const method = String(formData.get("method") ?? "cash");
@@ -243,6 +261,11 @@ export async function recordStayPayment(
 
 export async function checkOut(stayId: string): Promise<ActionResult> {
   const user = await requireModuleWrite("hotel");
+  const isSupervisor = userHasAnyRole(user, ["hotel_rental_monitoring", "admin", "managing_officer"]);
+  if (!isSupervisor) {
+    const gate = await requireCashierOnDuty(user.userId);
+    if (gate) return gate;
+  }
   const supabase = await createClient();
   const { error } = await supabase
     .from("stays")
