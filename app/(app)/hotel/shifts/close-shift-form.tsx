@@ -6,7 +6,7 @@ import { closeShift } from "./actions";
 
 const cls = "rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200 w-full";
 
-export function CloseShiftForm({ sessionId }: { sessionId: string }) {
+export function CloseShiftForm({ sessionId, activeStayCount = 0 }: { sessionId: string; activeStayCount?: number }) {
   const router = useRouter();
   const [arNo, setArNo]   = useState("");
   const [notes, setNotes] = useState("");
@@ -41,6 +41,12 @@ export function CloseShiftForm({ sessionId }: { sessionId: string }) {
         <input value={notes} onChange={(e) => setNotes(e.target.value)} className={cls} placeholder="e.g. Turnover remarks" />
       </div>
       {err && <p className="text-xs text-rose-600">{err}</p>}
+      {activeStayCount > 0 && (
+        <div className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-800">
+          <strong>{activeStayCount} room{activeStayCount > 1 ? "s" : ""} still checked in.</strong>{" "}
+          Your shift will close and these stays remain active. The next cashier will handle any new payments or checkout — those will appear in their shift report, not yours.
+        </div>
+      )}
       {confirm && (
         <p className="rounded-lg bg-amber-50 border border-amber-200 p-2 text-xs text-amber-800 font-medium">
           Confirm: closing shift with ending AR <strong>{arNo}</strong>. This will release the hotel ops lock.

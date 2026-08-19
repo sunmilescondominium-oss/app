@@ -93,7 +93,7 @@ export function CheckInForm({
             className={inputCls}
           />
         </div>
-        <div className="sm:col-span-2">
+        <div>
           <label className={labelCls}>Promo (optional)</label>
           <select name="promo_id" value={promoId} onChange={(e) => setPromoId(e.target.value)} className={inputCls}>
             <option value="">— none —</option>
@@ -102,6 +102,14 @@ export function CheckInForm({
                 {p.name} ({p.disc_type === "percent" ? `${p.disc_value}%` : peso(p.disc_value)})
               </option>
             ))}
+          </select>
+        </div>
+        <div>
+          <label className={labelCls}>Gov&apos;t discount (optional)</label>
+          <select name="discount_type" defaultValue="" className={inputCls}>
+            <option value="">— none —</option>
+            <option value="pwd">PWD — 20% discount</option>
+            <option value="senior_citizen">Senior Citizen — 20% discount</option>
           </select>
         </div>
       </div>

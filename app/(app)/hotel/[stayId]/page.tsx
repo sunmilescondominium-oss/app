@@ -118,7 +118,12 @@ export default async function StayFolioPage({
             {orders.map((o) => (
               <Line key={o.id} k={`${o.qty}× ${o.name}`} v={peso(o.qty * o.unit_price)} />
             ))}
-            {t.discount > 0 && <Line k="Discount" v={`- ${peso(t.discount)}`} />}
+            {t.discount > 0 && (
+                <Line
+                  k={stay.discount_type === "pwd" ? "Discount (PWD 20%)" : stay.discount_type === "senior_citizen" ? "Discount (Senior Citizen 20%)" : "Discount"}
+                  v={`- ${peso(t.discount)}`}
+                />
+              )}
             <div className="flex justify-between border-t border-stone-300 pt-1 font-bold">
               <span>TOTAL</span>
               <span className="tabular-nums">{peso(t.total)}</span>

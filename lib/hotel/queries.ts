@@ -31,6 +31,7 @@ function mapStay(r: Record<string, unknown>): Stay {
     extra_hour_rate: Number(r.extra_hour_rate),
     promo_id: (r.promo_id as string) ?? null,
     discount_amount: Number(r.discount_amount),
+    discount_type: (r.discount_type as string | null) ?? null,
     tax_mode: (r.tax_mode as string) ?? "none",
     tax_rate: Number(r.tax_rate ?? 0),
     check_in_at: r.check_in_at as string,

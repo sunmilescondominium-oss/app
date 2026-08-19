@@ -83,10 +83,10 @@ export async function closeShift(
   // Get cashier name
   const { data: cashierProfile } = await admin
     .from("profiles")
-    .select("full_name")
+    .select("display_label")
     .eq("id", session.cashier_user_id as string)
     .maybeSingle();
-  const cashierName = (cashierProfile?.full_name as string | null) ?? "Unknown";
+  const cashierName = (cashierProfile?.display_label as string | null) ?? "Unknown";
 
   // Payments during shift window, joined with stays for guest name
   const { data: pays } = await admin
@@ -226,10 +226,10 @@ export async function cancelShift(
   // Get cashier name
   const { data: cashierProfile } = await admin
     .from("profiles")
-    .select("full_name")
+    .select("display_label")
     .eq("id", session.cashier_user_id as string)
     .maybeSingle();
-  const cashierName = (cashierProfile?.full_name as string | null) ?? "Unknown";
+  const cashierName = (cashierProfile?.display_label as string | null) ?? "Unknown";
 
   // Insert a voided report so monitoring can see it
   await admin.from("hotel_shift_reports").insert({

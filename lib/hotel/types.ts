@@ -28,6 +28,7 @@ export interface Stay {
   extra_hour_rate: number;
   promo_id: string | null;
   discount_amount: number;
+  discount_type: string | null;
   tax_mode: string;
   tax_rate: number;
   check_in_at: string;

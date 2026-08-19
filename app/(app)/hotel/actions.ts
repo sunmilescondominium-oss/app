@@ -76,6 +76,10 @@ export async function checkIn(
   if (!Number.isFinite(planned_hours) || planned_hours < base_hours) planned_hours = base_hours;
 
   const promo_id = String(formData.get("promo_id") ?? "").trim() || null;
+  const discount_type_raw = String(formData.get("discount_type") ?? "").trim();
+  const discount_type = (discount_type_raw === "pwd" || discount_type_raw === "senior_citizen") ? discount_type_raw : null;
+
+  const rc0 = roomCharge(base_rate, extra_hour_rate, base_hours, planned_hours);
   let discount_amount = 0;
   if (promo_id) {
     const { data: promo } = await supabase
@@ -83,10 +87,12 @@ export async function checkIn(
       .select("disc_type, disc_value")
       .eq("id", promo_id)
       .maybeSingle();
-    if (promo) {
-      const rc = roomCharge(base_rate, extra_hour_rate, base_hours, planned_hours);
-      discount_amount = promoDiscount(rc, promo.disc_type as string, Number(promo.disc_value));
-    }
+    if (promo) discount_amount = promoDiscount(rc0, promo.disc_type as string, Number(promo.disc_value));
+  }
+  // PH government discount (PWD / Senior Citizen): 20% on room charge, applied after promo
+  if (discount_type) {
+    const afterPromo = round2(rc0 - discount_amount);
+    discount_amount = round2(discount_amount + afterPromo * 0.20);
   }
 
   // Pay-before-entry: the full room fee must be collected in advance at check-in.
@@ -127,6 +133,7 @@ export async function checkIn(
       extra_hour_rate,
       promo_id,
       discount_amount,
+      discount_type,
       tax_mode,
       tax_rate,
       portal_token: (await import("node:crypto")).randomBytes(18).toString("base64url"),

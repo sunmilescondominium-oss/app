@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireAuth, userHasAnyRole } from "@/lib/auth/dal";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/ui";
 import {
   getActiveSession,
@@ -49,6 +50,14 @@ export default async function ShiftsPage() {
 
   const activeDetail = active ? await getSessionSummary(active.id) : null;
   const isOnDuty = active?.cashierUserId === user.userId;
+
+  // Count active stays so the close-shift form can warn the cashier
+  let activeStayCount = 0;
+  if (active && (isOnDuty || isSupervisor)) {
+    const admin = createAdminClient();
+    const { count } = await admin.from("stays").select("id", { count: "exact", head: true }).eq("status", "active");
+    activeStayCount = count ?? 0;
+  }
 
   const pendingReports = reports.filter((r) => r.status === "pending");
 
@@ -162,7 +171,7 @@ export default async function ShiftsPage() {
               <p className="mb-3 text-xs text-stone-500">
                 Enter the last AR number you issued. A shift report will be auto-generated and sent to Hotel &amp; Rental Monitoring for acknowledgement.
               </p>
-              <CloseShiftForm sessionId={active.id} />
+              <CloseShiftForm sessionId={active.id} activeStayCount={activeStayCount} />
               {isSupervisor && !isOnDuty && (
                 <p className="mt-2 text-[11px] font-medium text-amber-700">
                   ⚠ You are force-closing {active.cashierName}&apos;s shift as supervisor.

@@ -16,9 +16,11 @@ interface Flagged {
   remMs: number;
 }
 
-const WARN_MS   = 5 * 60 * 1000;   // enter warning zone at T-5 min
-const SNOOZE_MS = 3 * 60 * 1000;   // bell press snoozes for 3 min
-const BEEP_GAP  = 2_000;            // repeat alarm beep every 2s while ringing
+const WARN_20_MS = 20 * 60 * 1000;  // 20-minute heads-up
+const WARN_15_MS = 15 * 60 * 1000;  // 15-minute reminder
+const WARN_5_MS  =  5 * 60 * 1000;  // 5-minute urgent warning
+const SNOOZE_MS  =  3 * 60 * 1000;  // bell press snoozes for 3 min
+const BEEP_GAP   = 2_000;           // repeat alarm beep every 2s while ringing
 
 // ── audio helpers (WebAudio, no asset files) ────────────────────────────────
 
@@ -36,6 +38,36 @@ function getCtx(ref: React.MutableRefObject<AudioContext | null>): AudioContext 
   } catch {
     return null;
   }
+}
+
+/** Single soft chime at 528 Hz — 20-minute early notice. */
+function playChime20(ctx: AudioContext): void {
+  const o = ctx.createOscillator();
+  const g = ctx.createGain();
+  o.type = "sine";
+  o.frequency.value = 528;
+  const t = ctx.currentTime;
+  g.gain.setValueAtTime(0.001, t);
+  g.gain.exponentialRampToValueAtTime(0.25, t + 0.03);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.55);
+  o.connect(g).connect(ctx.destination);
+  o.start(t); o.stop(t + 0.6);
+}
+
+/** Double beep at 594 Hz — 15-minute reminder. */
+function playChime15(ctx: AudioContext): void {
+  [0, 0.45].forEach((delay) => {
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = "sine";
+    o.frequency.value = 594;
+    const t = ctx.currentTime + delay;
+    g.gain.setValueAtTime(0.001, t);
+    g.gain.exponentialRampToValueAtTime(0.3, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.38);
+    o.connect(g).connect(ctx.destination);
+    o.start(t); o.stop(t + 0.42);
+  });
 }
 
 /** Soft 2-beep at 660 Hz — 5-minute "heads up" signal. */
@@ -86,10 +118,12 @@ function fmt(ms: number): string {
 
 export function OverdueAlarm({ stays }: { stays: AlarmStay[] }) {
   const ctxRef        = useRef<AudioContext | null>(null);
-  const snoozeRef     = useRef(0);           // absolute ms timestamp — snooze expires at
-  const lastBeepRef   = useRef(0);           // last time alarm beep was played
-  const warnedRef     = useRef(new Set<string>()); // stay IDs that already triggered 5-min warning
-  const pushedRef     = useRef(new Set<string>()); // stay IDs for which push has been triggered
+  const snoozeRef     = useRef(0);
+  const lastBeepRef   = useRef(0);
+  const warned20Ref   = useRef(new Set<string>());
+  const warned15Ref   = useRef(new Set<string>());
+  const warned5Ref    = useRef(new Set<string>());
+  const pushedRef     = useRef(new Set<string>());
 
   // `now` drives re-renders every second; `snoozedUntil` drives the countdown text
   const [now, setNow]               = useState(Date.now);
@@ -113,11 +147,21 @@ export function OverdueAlarm({ stays }: { stays: AlarmStay[] }) {
 
       for (const s of stays) {
         const remMs = new Date(s.check_in_at).getTime() + s.planned_hours * 3_600_000 - n;
+        if (remMs <= 0) continue; // overdue handled below
 
-        // 5-minute warning: play once per stay entry into the zone
-        if (!snoozed && ctx && remMs > 0 && remMs <= WARN_MS && !warnedRef.current.has(s.id)) {
-          playWarning(ctx);
-          warnedRef.current.add(s.id);
+        if (!snoozed && ctx) {
+          if (remMs <= WARN_20_MS && !warned20Ref.current.has(s.id)) {
+            playChime20(ctx);
+            warned20Ref.current.add(s.id);
+          }
+          if (remMs <= WARN_15_MS && !warned15Ref.current.has(s.id)) {
+            playChime15(ctx);
+            warned15Ref.current.add(s.id);
+          }
+          if (remMs <= WARN_5_MS && !warned5Ref.current.has(s.id)) {
+            playWarning(ctx);
+            warned5Ref.current.add(s.id);
+          }
         }
       }
 
@@ -156,19 +200,23 @@ export function OverdueAlarm({ stays }: { stays: AlarmStay[] }) {
   }, []);
 
   // Compute display state from current `now`
-  const overdues: Flagged[] = [];
-  const warnings: Flagged[] = [];
+  const overdues:  Flagged[] = [];
+  const warn5:     Flagged[] = [];
+  const warn15:    Flagged[] = [];
+  const warn20:    Flagged[] = [];
   for (const s of stays) {
     const remMs = new Date(s.check_in_at).getTime() + s.planned_hours * 3_600_000 - now;
-    if (remMs < 0)             overdues.push({ stay: s, remMs });
-    else if (remMs <= WARN_MS) warnings.push({ stay: s, remMs });
+    if (remMs < 0)               overdues.push({ stay: s, remMs });
+    else if (remMs <= WARN_5_MS)  warn5.push({ stay: s, remMs });
+    else if (remMs <= WARN_15_MS) warn15.push({ stay: s, remMs });
+    else if (remMs <= WARN_20_MS) warn20.push({ stay: s, remMs });
   }
 
-  const snoozed       = now < snoozedUntil;
-  const snoozeRemMs   = Math.max(0, snoozedUntil - now);
-  const isRinging     = overdues.length > 0 && !snoozed;
+  const snoozed     = now < snoozedUntil;
+  const snoozeRemMs = Math.max(0, snoozedUntil - now);
+  const isRinging   = overdues.length > 0 && !snoozed;
 
-  if (overdues.length === 0 && warnings.length === 0) return null;
+  if (overdues.length === 0 && warn5.length === 0 && warn15.length === 0 && warn20.length === 0) return null;
 
   return (
     <div className="mb-4 space-y-2">
@@ -245,45 +293,79 @@ export function OverdueAlarm({ stays }: { stays: AlarmStay[] }) {
         </div>
       )}
 
-      {/* ── 5-minute warning banner ── */}
-      {warnings.length > 0 && (
-        <div className="rounded-xl border-2 border-amber-400 bg-amber-50 p-3">
-          <div className="flex items-center gap-2">
-            <span className="text-base leading-none" aria-hidden>⚠</span>
-            <p className="text-sm font-semibold text-amber-800">
-              {warnings.length} room{warnings.length > 1 ? "s" : ""} checking out within 5 minutes
-            </p>
-          </div>
-          <div className="mt-2 space-y-1">
-            {warnings.map(({ stay, remMs }) => (
-              <div
-                key={stay.id}
-                className="flex items-center justify-between rounded-lg bg-white/80 px-3 py-1.5 text-sm"
-              >
-                <div className="min-w-0">
-                  <span className="font-semibold text-stone-900">Room {stay.unit_number}</span>
-                  <span className="ml-2 truncate text-stone-500">{stay.guest_label}</span>
-                </div>
-                <div className="ml-2 flex shrink-0 items-center gap-2">
-                  <span
-                    className={`font-mono text-xs font-bold ${
-                      remMs < 60_000 ? "text-red-600" : "text-amber-700"
-                    }`}
-                  >
-                    {fmt(remMs)} left
-                  </span>
-                  <Link
-                    href={`/hotel/${stay.id}`}
-                    className="rounded-md bg-stone-800 px-2 py-0.5 text-[11px] font-medium text-white hover:bg-stone-700"
-                  >
-                    Folio →
-                  </Link>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+      {/* ── 5-minute urgent warning ── */}
+      {warn5.length > 0 && (
+        <WarnBanner
+          rooms={warn5}
+          label={`${warn5.length} room${warn5.length > 1 ? "s" : ""} checking out within 5 minutes`}
+          borderColor="border-orange-500"
+          bgColor="bg-orange-50"
+          textColor="text-orange-800"
+          icon="⚠"
+        />
       )}
+
+      {/* ── 15-minute reminder ── */}
+      {warn15.length > 0 && (
+        <WarnBanner
+          rooms={warn15}
+          label={`${warn15.length} room${warn15.length > 1 ? "s" : ""} checking out within 15 minutes`}
+          borderColor="border-amber-400"
+          bgColor="bg-amber-50"
+          textColor="text-amber-800"
+          icon="🕐"
+        />
+      )}
+
+      {/* ── 20-minute early notice ── */}
+      {warn20.length > 0 && (
+        <WarnBanner
+          rooms={warn20}
+          label={`${warn20.length} room${warn20.length > 1 ? "s" : ""} checking out within 20 minutes`}
+          borderColor="border-yellow-300"
+          bgColor="bg-yellow-50"
+          textColor="text-yellow-800"
+          icon="🔔"
+        />
+      )}
+    </div>
+  );
+}
+
+function WarnBanner({
+  rooms, label, borderColor, bgColor, textColor, icon,
+}: {
+  rooms: Flagged[];
+  label: string;
+  borderColor: string;
+  bgColor: string;
+  textColor: string;
+  icon: string;
+}) {
+  return (
+    <div className={`rounded-xl border-2 ${borderColor} ${bgColor} p-3`}>
+      <div className="flex items-center gap-2">
+        <span className="text-base leading-none" aria-hidden>{icon}</span>
+        <p className={`text-sm font-semibold ${textColor}`}>{label}</p>
+      </div>
+      <div className="mt-2 space-y-1">
+        {rooms.map(({ stay, remMs }) => (
+          <div key={stay.id} className="flex items-center justify-between rounded-lg bg-white/80 px-3 py-1.5 text-sm">
+            <div className="min-w-0">
+              <span className="font-semibold text-stone-900">Room {stay.unit_number}</span>
+              <span className="ml-2 truncate text-stone-500">{stay.guest_label}</span>
+            </div>
+            <div className="ml-2 flex shrink-0 items-center gap-2">
+              <span className={`font-mono text-xs font-bold ${remMs < 60_000 ? "text-red-600" : textColor}`}>
+                {fmt(remMs)} left
+              </span>
+              <Link href={`/hotel/${stay.id}`} className="rounded-md bg-stone-800 px-2 py-0.5 text-[11px] font-medium text-white hover:bg-stone-700">
+                Folio →
+              </Link>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
