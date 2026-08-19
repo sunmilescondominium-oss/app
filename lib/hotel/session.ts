@@ -132,6 +132,83 @@ function mapSession(data: Record<string, unknown>): CashierSession {
   };
 }
 
+export interface ShiftReport {
+  id: string;
+  sessionId: string;
+  cashierName: string;
+  openedAt: string;
+  closedAt: string;
+  beginningArNo: string;
+  endingArNo: string;
+  paymentsJson: { arNo: string | null; guest: string; amount: number; method: string; paidAt: string }[];
+  cancelledArsJson: { arNo: string; reason: string; loggedAt: string }[];
+  totalCollected: number;
+  arCount: number;
+  cancelledCount: number;
+  closedBySupervisor: boolean;
+  status: "pending" | "acknowledged";
+  acknowledgedAt: string | null;
+  acknowledgedNotes: string | null;
+  acknowledgedByName: string | null;
+  createdAt: string;
+}
+
+export async function getShiftReport(sessionId: string): Promise<ShiftReport | null> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("hotel_shift_reports")
+    .select("*, ack:acknowledged_by(full_name)")
+    .eq("session_id", sessionId)
+    .maybeSingle();
+  if (!data) return null;
+  return mapReport(data);
+}
+
+export async function listPendingShiftReports(): Promise<ShiftReport[]> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("hotel_shift_reports")
+    .select("*, ack:acknowledged_by(full_name)")
+    .eq("status", "pending")
+    .order("created_at", { ascending: false });
+  return (data ?? []).map(mapReport);
+}
+
+export async function listShiftReports(limit = 20): Promise<ShiftReport[]> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("hotel_shift_reports")
+    .select("*, ack:acknowledged_by(full_name)")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  return (data ?? []).map(mapReport);
+}
+
+function mapReport(data: Record<string, unknown>): ShiftReport {
+  const ackRaw = data.ack;
+  const ack = (ackRaw && !Array.isArray(ackRaw)) ? ackRaw as { full_name: string } : null;
+  return {
+    id: data.id as string,
+    sessionId: data.session_id as string,
+    cashierName: data.cashier_name as string,
+    openedAt: data.opened_at as string,
+    closedAt: data.closed_at as string,
+    beginningArNo: data.beginning_ar_no as string,
+    endingArNo: data.ending_ar_no as string,
+    paymentsJson: (data.payments_json as ShiftReport["paymentsJson"]) ?? [],
+    cancelledArsJson: (data.cancelled_ars_json as ShiftReport["cancelledArsJson"]) ?? [],
+    totalCollected: Number(data.total_collected),
+    arCount: data.ar_count as number,
+    cancelledCount: data.cancelled_count as number,
+    closedBySupervisor: data.closed_by_supervisor as boolean,
+    status: data.status as "pending" | "acknowledged",
+    acknowledgedAt: (data.acknowledged_at as string | null) ?? null,
+    acknowledgedNotes: (data.acknowledged_notes as string | null) ?? null,
+    acknowledgedByName: ack?.full_name ?? null,
+    createdAt: data.created_at as string,
+  };
+}
+
 /** Check if the current user is the active cashier. Returns session or null. */
 export async function getMyActiveSession(): Promise<CashierSession | null> {
   const supabase = await createClient();

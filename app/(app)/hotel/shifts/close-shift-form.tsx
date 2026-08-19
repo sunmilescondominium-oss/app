@@ -21,7 +21,11 @@ export function CloseShiftForm({ sessionId }: { sessionId: string }) {
     const res = await closeShift(sessionId, arNo, notes);
     setBusy(false);
     if (!res.ok) { setErr(res.error); setConfirm(false); return; }
-    router.refresh();
+    if (res.reportId) {
+      router.push(`/hotel/shifts/${sessionId}/report`);
+    } else {
+      router.refresh();
+    }
   }
 
   return (
@@ -46,7 +50,7 @@ export function CloseShiftForm({ sessionId }: { sessionId: string }) {
         className={`w-full rounded-lg py-2 text-sm font-semibold text-white disabled:opacity-60 ${
           confirm ? "bg-rose-600 hover:bg-rose-700" : "bg-stone-700 hover:bg-stone-800"
         }`}>
-        {busy ? "Closing…" : confirm ? "Confirm Close Shift" : "Close Shift"}
+        {busy ? "Closing…" : confirm ? "Confirm End Shift" : "End Shift"}
       </button>
     </form>
   );

@@ -31,7 +31,7 @@ export async function checkIn(
   formData: FormData,
 ): Promise<CheckInResult> {
   const user = await requireModuleWrite("hotel");
-  const isSupervisor = userHasAnyRole(user, ["hotel_rental_monitoring", "admin", "managing_officer"]);
+  const isSupervisor = userHasAnyRole(user, ["hotel_rental_monitoring", "admin", "managing_officer", "consultant", "accounting"]);
   if (!isSupervisor) {
     const gate = await requireCashierOnDuty(user.userId);
     if (gate) return gate as CheckInResult;
@@ -198,7 +198,7 @@ export async function recordStayPayment(
   formData: FormData,
 ): Promise<ActionResult> {
   const user = await requireModuleWrite("hotel");
-  const isSupervisor = userHasAnyRole(user, ["hotel_rental_monitoring", "admin", "managing_officer"]);
+  const isSupervisor = userHasAnyRole(user, ["hotel_rental_monitoring", "admin", "managing_officer", "consultant", "accounting"]);
   if (!isSupervisor) {
     const gate = await requireCashierOnDuty(user.userId);
     if (gate) return gate;
@@ -261,7 +261,7 @@ export async function recordStayPayment(
 
 export async function checkOut(stayId: string): Promise<ActionResult> {
   const user = await requireModuleWrite("hotel");
-  const isSupervisor = userHasAnyRole(user, ["hotel_rental_monitoring", "admin", "managing_officer"]);
+  const isSupervisor = userHasAnyRole(user, ["hotel_rental_monitoring", "admin", "managing_officer", "consultant", "accounting"]);
   if (!isSupervisor) {
     const gate = await requireCashierOnDuty(user.userId);
     if (gate) return gate;
