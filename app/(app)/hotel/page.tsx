@@ -38,7 +38,7 @@ export default async function HotelPage() {
   ]);
   const occupied = board.filter((b) => b.stay).length;
   const isCashier    = userHasAnyRole(user, ["hotel_cashier"]);
-  const isSupervisor = userHasAnyRole(user, ["hotel_rental_monitoring", "admin", "managing_officer", "consultant"]);
+  const isSupervisor = userHasAnyRole(user, ["hotel_rental_monitoring", "admin", "managing_officer", "consultant", "accounting"]);
   const isOnDuty     = activeSession?.cashierUserId === user.userId;
   const hotelOpsLocked = !activeSession && isCashier && !isSupervisor;
 
