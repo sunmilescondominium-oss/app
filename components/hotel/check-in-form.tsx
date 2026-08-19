@@ -37,9 +37,13 @@ export function CheckInForm({
   const [hours, setHours] = useState<number>(ratePlans[0]?.base_hours ?? 3);
   const [promoId, setPromoId] = useState("");
   const promo = promos.find((p) => p.id === promoId);
+
+  // govDiscType: what the dropdown currently shows
+  // discountApplied: true only after cashier clicks "Apply & capture ID"
   const [govDiscType, setGovDiscType] = useState<string>("");
-  const [advanceMethod, setAdvanceMethod] = useState<string>(HOTEL_PAYMENT_METHODS[0]?.key ?? "cash");
+  const [discountApplied, setDiscountApplied] = useState(false);
   const [photoCaptured, setPhotoCaptured] = useState(false);
+  const [advanceMethod, setAdvanceMethod] = useState<string>(HOTEL_PAYMENT_METHODS[0]?.key ?? "cash");
   const [clientError, setClientError] = useState("");
   const photoInputRef = useRef<HTMLInputElement>(null);
 
@@ -47,7 +51,10 @@ export function CheckInForm({
   const rc = plan ? roomCharge(plan.base_rate, plan.extra_hour_rate, plan.base_hours, effHours) : 0;
   const promoDisc = promo ? promoDiscount(rc, promo.disc_type, promo.disc_value) : 0;
   const afterPromo = round2(rc - promoDisc);
-  const govDisc = (govDiscType === "pwd" || govDiscType === "senior_citizen") ? round2(afterPromo * 0.20) : 0;
+
+  // Apply gov't discount to price preview only after cashier explicitly applies it.
+  const isGovDisc = discountApplied && (govDiscType === "pwd" || govDiscType === "senior_citizen");
+  const govDisc = isGovDisc ? round2(afterPromo * 0.20) : 0;
   const required = Math.max(0, round2(rc - promoDisc - govDisc));
   const [advanceAmount, setAdvanceAmount] = useState<number>(required);
 
@@ -57,17 +64,25 @@ export function CheckInForm({
     if (state?.ok) { onDone(); router.push(`/hotel/${state.stayId}`); }
   }, [state, onDone, router]);
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  // Pending discount = selected but not yet applied
+  const isPendingDisc = (govDiscType === "pwd" || govDiscType === "senior_citizen") && !discountApplied;
+  // Camera shows once applied; button enables only after photo captured
+  const showCamera = isGovDisc;
+  const checkInBlocked = isGovDisc && !photoCaptured;
+
+  function applyDiscount() {
+    setDiscountApplied(true);
+    setPhotoCaptured(false);
     setClientError("");
-    const needsPhoto = govDiscType === "pwd" || govDiscType === "senior_citizen";
-    if (needsPhoto && !photoCaptured) {
-      e.preventDefault();
-      setClientError("A photo of the government ID is required to avail of this discount.");
-      return;
-    }
   }
 
-  const needsPhoto = govDiscType === "pwd" || govDiscType === "senior_citizen";
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    setClientError("");
+    if (isGovDisc && !photoCaptured) {
+      e.preventDefault();
+      setClientError("Capture the government ID photo to enable check-in.");
+    }
+  }
 
   return (
     <form action={action} onSubmit={handleSubmit} className="space-y-4">
@@ -131,6 +146,7 @@ export function CheckInForm({
             value={govDiscType}
             onChange={(e) => {
               setGovDiscType(e.target.value);
+              setDiscountApplied(false);
               setPhotoCaptured(false);
               setClientError("");
             }}
@@ -143,16 +159,34 @@ export function CheckInForm({
         </div>
       </div>
 
-      {/* Government ID capture — shown only when PWD/SC is selected */}
-      {needsPhoto && (
+      {/* Step 1: Recompute button — appears after selecting a discount type */}
+      {isPendingDisc && (
+        <div className="flex items-center gap-3 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3">
+          <div className="flex-1 text-xs text-sky-800">
+            <strong>{govDiscType === "pwd" ? "PWD" : "Senior Citizen"} 20% discount selected.</strong>{" "}
+            Click to recompute the room fee and open the camera to capture proof.
+          </div>
+          <button
+            type="button"
+            onClick={applyDiscount}
+            className="shrink-0 rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700"
+          >
+            Recompute &amp; Capture ID →
+          </button>
+        </div>
+      )}
+
+      {/* Step 2: Camera — appears after Recompute is clicked */}
+      {showCamera && (
         <DiscountIdCapture
           discountType={govDiscType as "pwd" | "senior_citizen"}
           fileInputRef={photoInputRef}
-          onCaptured={() => setPhotoCaptured(true)}
+          onCaptured={() => { setPhotoCaptured(true); setClientError(""); }}
           onCleared={() => setPhotoCaptured(false)}
         />
       )}
 
+      {/* Price breakdown */}
       <div className="rounded-lg bg-stone-50 px-4 py-3 text-sm">
         <div className="flex justify-between">
           <span className="text-stone-500">Room charge</span>
@@ -212,11 +246,19 @@ export function CheckInForm({
         </p>
       )}
 
-      <div className="flex justify-end gap-2">
+      <div className="flex items-center justify-end gap-2">
         <button type="button" onClick={onDone} className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100">
           Cancel
         </button>
-        <button type="submit" disabled={pending} className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-60">
+        {checkInBlocked && (
+          <span className="text-xs text-stone-400">Capture ID photo to enable check-in</span>
+        )}
+        <button
+          type="submit"
+          disabled={pending || checkInBlocked}
+          title={checkInBlocked ? "Capture the government ID photo first" : undefined}
+          className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-40"
+        >
           {pending ? "Checking in…" : "Check in"}
         </button>
       </div>
