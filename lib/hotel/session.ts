@@ -28,13 +28,13 @@ export interface SessionSummary extends CashierSession {
   cancellations: ArCancellation[];
 }
 
-/** Batch-fetch full_name for a set of user IDs from the profiles table. */
+/** Batch-fetch display_label for a set of user IDs from the profiles table. */
 async function resolveNames(admin: SupabaseClient, userIds: (string | null | undefined)[]): Promise<Map<string, string>> {
   const ids = [...new Set(userIds.filter(Boolean) as string[])];
   if (!ids.length) return new Map();
-  const { data } = await admin.from("profiles").select("id, full_name").in("id", ids);
+  const { data } = await admin.from("profiles").select("id, display_label").in("id", ids);
   const map = new Map<string, string>();
-  (data ?? []).forEach((p) => map.set(p.id as string, (p.full_name as string) ?? "Unknown"));
+  (data ?? []).forEach((p) => map.set(p.id as string, (p.display_label as string) ?? "Unknown"));
   return map;
 }
 
@@ -135,9 +135,40 @@ export async function getSessionSummary(sessionId: string): Promise<SessionSumma
   };
 }
 
-/** Next suggested AR number (current receipt_series next_no, formatted). */
+/**
+ * Next suggested AR number for the current cashier shift.
+ * Bases the suggestion on the active session's beginning_ar_no + count of
+ * payments already recorded since the session opened. Falls back to the
+ * receipt_series sequence when no session is active.
+ */
 export async function getSuggestedNextArNo(): Promise<string> {
   const admin = createAdminClient();
+
+  // Prefer active session: parse beginning_ar_no, offset by payment count.
+  const { data: session } = await admin
+    .from("hotel_cashier_sessions")
+    .select("beginning_ar_no, opened_at")
+    .is("closed_at", null)
+    .maybeSingle();
+
+  if (session?.beginning_ar_no) {
+    const baseAr = session.beginning_ar_no as string;
+    const { count } = await admin
+      .from("stay_payments")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", session.opened_at as string);
+    const payCount = count ?? 0;
+    const match = baseAr.match(/^([A-Za-z\-]+)(\d+)$/);
+    if (match) {
+      const prefix = match[1];
+      const padLen = match[2].length;
+      const num = parseInt(match[2], 10) + payCount;
+      return `${prefix}${String(num).padStart(padLen, "0")}`;
+    }
+    return baseAr;
+  }
+
+  // Fallback: global receipt_series
   const { data } = await admin
     .from("receipt_series")
     .select("prefix, next_no")

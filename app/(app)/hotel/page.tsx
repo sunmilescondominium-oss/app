@@ -56,7 +56,7 @@ export default async function HotelPage() {
       {activeSession ? (
         <div className="no-print mb-4 flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm">
           <span className="text-amber-900">
-            🟢 <strong>{isOnDuty ? "You are" : activeSession.cashierName + " is"}</strong> on duty &nbsp;·&nbsp;
+            🟢 <strong>{isOnDuty ? "You are" : activeSession.cashierName + " is"}</strong>{" "}on duty &nbsp;·&nbsp;
             <span className="text-amber-700 font-mono text-xs">Beginning AR: {activeSession.beginningArNo}</span>
           </span>
           <Link href="/hotel/shifts" className="text-xs font-semibold text-amber-700 hover:underline">

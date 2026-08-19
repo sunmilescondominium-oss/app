@@ -141,6 +141,7 @@ export function CollectionsPanel({
               <th className="px-4 py-3">Charge</th>
               <th className="px-4 py-3">Payment</th>
               <th className="px-4 py-3">Collected by</th>
+              <th className="px-4 py-3">AR No</th>
               <th className="px-4 py-3 text-right">Amount</th>
               {(canWrite || canEdit) && <th className="no-print px-4 py-3 text-right">·</th>}
             </tr>
@@ -148,7 +149,7 @@ export function CollectionsPanel({
           <tbody>
             {collections.length === 0 && (
               <tr>
-                <td colSpan={7 + (canWrite ? 1 : 0) + (canWrite || canEdit ? 1 : 0)} className="px-4 py-10 text-center text-stone-500">
+                <td colSpan={8 + (canWrite ? 1 : 0) + (canWrite || canEdit ? 1 : 0)} className="px-4 py-10 text-center text-stone-500">
                   No collections recorded for {date}.
                 </td>
               </tr>
@@ -190,7 +191,8 @@ export function CollectionsPanel({
                   {c.charge_type ? (itemTypes.find((t) => t.key === c.charge_type)?.label ?? c.charge_type) : (c.unit_id ? <span className="text-stone-400">—</span> : null)}
                 </td>
                 <td className="px-4 py-3">{PAY_LABEL[c.payment_type] ?? c.payment_type}</td>
-                <td className="px-4 py-3">{roleLabel(c.collected_by_role)}</td>
+                <td className="px-4 py-3">{c.collector_name ?? roleLabel(c.collected_by_role)}</td>
+                <td className="px-4 py-3 font-mono text-xs text-stone-600">{c.ar_no ?? "—"}</td>
                 <td className="px-4 py-3 text-right tabular-nums">{peso(c.amount)}</td>
                 {(canWrite || canEdit) && (
                   <td className="no-print px-4 py-3 text-right">

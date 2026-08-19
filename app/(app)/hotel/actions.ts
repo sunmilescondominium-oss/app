@@ -15,6 +15,12 @@ import { getActiveSession } from "@/lib/hotel/session";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
+async function getDisplayLabel(userId: string): Promise<string> {
+  const admin = createAdminClient();
+  const { data } = await admin.from("profiles").select("display_label").eq("id", userId).maybeSingle();
+  return (data?.display_label as string) ?? "Unknown";
+}
+
 async function requireCashierOnDuty(userId: string): Promise<ActionResult | null> {
   const session = await getActiveSession();
   if (!session) return { ok: false, error: "No cashier is currently on duty. A cashier must open their shift before hotel operations can proceed." };
@@ -138,9 +144,11 @@ export async function checkIn(
   let receipt_no = String(formData.get("advance_or_no") ?? "").trim();
   if (!receipt_no) receipt_no = `OR-${Date.now().toString(36).toUpperCase()}`;
   await admin.from("stay_payments").insert({ stay_id: data.id, method: advanceMethod, amount: advanceAmount, receipt_no, ar_no, created_by: user.userId });
+  const collectorLabel = await getDisplayLabel(user.userId);
   await admin.from("collections").insert({
     business_line: "hotel", unit_id: unitId, amount: advanceAmount, or_number: receipt_no,
     payment_type: advanceMethod, collected_by_role: user.roleKeys.find((r) => ["hotel_cashier", "hotel_rental_monitoring"].includes(r)) ?? "hotel_cashier",
+    collector_name: collectorLabel, ar_no,
     collected_on: todayManila(), remarks: "Hotel advance payment (check-in)",
   });
 
@@ -236,13 +244,16 @@ export async function recordStayPayment(
   const collectedRole =
     user.roleKeys.find((r) => ["hotel_cashier", "hotel_rental_monitoring"].includes(r)) ?? "hotel_cashier";
   const admin = createAdminClient();
+  const collectorLabel = await getDisplayLabel(user.userId);
   await admin.from("collections").insert({
     business_line: "hotel",
     unit_id: stayRow?.unit_id ?? null,
     amount,
     or_number: receipt_no,
+    ar_no,
     payment_type: method,
     collected_by_role: collectedRole,
+    collector_name: collectorLabel,
     collected_on: todayManila(),
     remarks: "Hotel folio payment",
     created_by: user.userId,

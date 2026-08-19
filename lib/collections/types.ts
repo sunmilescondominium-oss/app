@@ -13,6 +13,8 @@ export interface Collection {
   cleared_by_role: string | null;
   payment_type: string;
   collected_by_role: string | null;
+  collector_name: string | null;
+  ar_no: string | null;
   collected_on: string;
   transmittal_id: string | null;
   remarks: string | null;
