@@ -11,6 +11,7 @@ import {
 import { OpenShiftForm } from "./open-shift-form";
 import { CloseShiftForm } from "./close-shift-form";
 import { CancelArForm } from "./cancel-ar-form";
+import { SupervisorPanel } from "./supervisor-panel";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Cashier Shifts" };
@@ -149,6 +150,15 @@ export default async function ShiftsPage() {
               </p>
               <CancelArForm sessionId={active.id} />
             </div>
+          )}
+
+          {/* Supervisor override panel — void/cancel shift */}
+          {active && isSupervisor && (
+            <SupervisorPanel
+              sessionId={active.id}
+              cashierName={active.cashierName}
+              isOnDuty={isOnDuty}
+            />
           )}
 
           {/* Waiting — another cashier on duty and user is not supervisor */}

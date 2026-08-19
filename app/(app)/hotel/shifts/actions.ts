@@ -189,6 +189,76 @@ export async function logCancelledAr(
   return { ok: true };
 }
 
+export async function cancelShift(
+  sessionId: string,
+  reason: string,
+): Promise<ActionResult> {
+  const user = await requireAuth();
+  if (!userHasAnyRole(user, [...SUPERVISOR_ROLES]))
+    return { ok: false, error: "Only supervisors can void/cancel a shift." };
+
+  const trimmedReason = reason.trim();
+  if (!trimmedReason) return { ok: false, error: "A reason is required to cancel a shift." };
+
+  const admin = createAdminClient();
+  const { data: session } = await admin
+    .from("hotel_cashier_sessions")
+    .select("id, cashier_user_id, opened_at, beginning_ar_no, closed_at")
+    .eq("id", sessionId)
+    .maybeSingle();
+
+  if (!session) return { ok: false, error: "Session not found." };
+  if (session.closed_at) return { ok: false, error: "Session is already closed." };
+
+  const cancelledAt = new Date().toISOString();
+
+  // Close the session with a special marker — ending_ar_no = beginning_ar_no (no ARs issued)
+  await admin
+    .from("hotel_cashier_sessions")
+    .update({
+      ending_ar_no: session.beginning_ar_no as string,
+      closed_at: cancelledAt,
+      closed_by: user.userId,
+      notes: `VOIDED by supervisor — ${trimmedReason}`,
+    })
+    .eq("id", sessionId);
+
+  // Get cashier name
+  const { data: cashierProfile } = await admin
+    .from("profiles")
+    .select("full_name")
+    .eq("id", session.cashier_user_id as string)
+    .maybeSingle();
+  const cashierName = (cashierProfile?.full_name as string | null) ?? "Unknown";
+
+  // Insert a voided report so monitoring can see it
+  await admin.from("hotel_shift_reports").insert({
+    session_id: sessionId,
+    cashier_user_id: session.cashier_user_id,
+    cashier_name: cashierName,
+    opened_at: session.opened_at,
+    closed_at: cancelledAt,
+    beginning_ar_no: session.beginning_ar_no,
+    ending_ar_no: session.beginning_ar_no,
+    payments_json: [],
+    cancelled_ars_json: [],
+    total_collected: 0,
+    ar_count: 0,
+    cancelled_count: 0,
+    closed_by_supervisor: true,
+    closing_user_id: user.userId,
+    // Auto-acknowledge voided shifts — no need for separate review
+    status: "acknowledged",
+    acknowledged_by: user.userId,
+    acknowledged_at: cancelledAt,
+    acknowledged_notes: `Shift voided: ${trimmedReason}`,
+  });
+
+  revalidatePath("/hotel");
+  revalidatePath("/hotel/shifts");
+  return { ok: true };
+}
+
 export async function acknowledgeShiftReport(
   reportId: string,
   acknowledgedNotes: string,
