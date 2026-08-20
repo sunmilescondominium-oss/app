@@ -212,7 +212,7 @@ export async function cancelShift(
 
   const cancelledAt = new Date().toISOString();
 
-  // Close the session with a special marker — ending_ar_no = beginning_ar_no (no ARs issued)
+  // Close the session — keep beginning_ar_no as ending since no new ARs are formally issued
   await admin
     .from("hotel_cashier_sessions")
     .update({
@@ -231,7 +231,41 @@ export async function cancelShift(
     .maybeSingle();
   const cashierName = (cashierProfile?.display_label as string | null) ?? "Unknown";
 
-  // Insert a voided report so monitoring can see it
+  // Collect all payments made during this shift window so accounting still sees them
+  const { data: pays } = await admin
+    .from("stay_payments")
+    .select("ar_no, amount, method, created_at, stays(guest_label)")
+    .gte("created_at", session.opened_at as string)
+    .lte("created_at", cancelledAt)
+    .order("created_at", { ascending: true });
+
+  const paymentsJson = (pays ?? []).map((p) => {
+    const stayRaw = p.stays;
+    const stay = (stayRaw && !Array.isArray(stayRaw)) ? stayRaw as { guest_label: string } : null;
+    return {
+      arNo: (p.ar_no as string | null) ?? null,
+      guest: stay?.guest_label ?? "—",
+      amount: Number(p.amount),
+      method: p.method as string,
+      paidAt: p.created_at as string,
+    };
+  });
+
+  const { data: cancels } = await admin
+    .from("hotel_ar_cancellations")
+    .select("ar_no, reason, cancelled_at")
+    .eq("session_id", sessionId)
+    .order("cancelled_at", { ascending: true });
+
+  const cancelledArsJson = (cancels ?? []).map((c) => ({
+    arNo: c.ar_no as string,
+    reason: c.reason as string,
+    loggedAt: c.cancelled_at as string,
+  }));
+
+  const totalCollected = paymentsJson.reduce((s, p) => s + p.amount, 0);
+
+  // Insert voided report — includes real payments for accounting; active stays are untouched
   await admin.from("hotel_shift_reports").insert({
     session_id: sessionId,
     cashier_user_id: session.cashier_user_id,
@@ -240,18 +274,18 @@ export async function cancelShift(
     closed_at: cancelledAt,
     beginning_ar_no: session.beginning_ar_no,
     ending_ar_no: session.beginning_ar_no,
-    payments_json: [],
-    cancelled_ars_json: [],
-    total_collected: 0,
-    ar_count: 0,
-    cancelled_count: 0,
+    payments_json: paymentsJson,
+    cancelled_ars_json: cancelledArsJson,
+    total_collected: totalCollected,
+    ar_count: paymentsJson.length,
+    cancelled_count: cancelledArsJson.length,
     closed_by_supervisor: true,
     closing_user_id: user.userId,
-    // Auto-acknowledge voided shifts — no need for separate review
+    // Auto-acknowledge voided shifts
     status: "acknowledged",
     acknowledged_by: user.userId,
     acknowledged_at: cancelledAt,
-    acknowledged_notes: `Shift voided: ${trimmedReason}`,
+    acknowledged_notes: `Shift voided: ${trimmedReason}. Collections preserved (${paymentsJson.length} payment(s), ₱${totalCollected.toLocaleString()}). Active check-ins continue.`,
   });
 
   revalidatePath("/hotel");

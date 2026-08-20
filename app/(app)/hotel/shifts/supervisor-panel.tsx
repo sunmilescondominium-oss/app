@@ -80,8 +80,13 @@ export function SupervisorPanel({
       ) : (
         <div className="space-y-2">
           <p className="text-xs font-medium text-rose-800">
-            Voiding cancels the shift with no collection report (use for shifts opened by mistake).
-            For a normal end-of-shift with a report, use <strong>End Shift</strong> above.
+            Voiding closes the shift immediately. Any collections already recorded are <strong>preserved</strong> and
+            will appear in the voided shift report for accounting. Active check-ins continue running — a new cashier
+            can open a shift to handle payments and check-out. Use this when the wrong cashier opened the shift or
+            a shift must be reassigned mid-session.
+          </p>
+          <p className="text-xs text-rose-700">
+            For a normal end-of-shift with a full report, use <strong>End Shift</strong> above.
           </p>
           <textarea
             value={reason}
