@@ -196,6 +196,17 @@ function mapSessionRaw(data: Record<string, unknown>, names: Map<string, string>
   };
 }
 
+export interface ShiftCorrection {
+  id: string;
+  correctorName: string | null;
+  correctedAt: string;
+  paymentIndex: number | null;
+  field: string;
+  oldValue: string | null;
+  newValue: string;
+  reason: string;
+}
+
 export interface ShiftReport {
   id: string;
   sessionId: string;
@@ -215,6 +226,13 @@ export interface ShiftReport {
   acknowledgedNotes: string | null;
   acknowledgedByName: string | null;
   createdAt: string;
+  // Discrepancy
+  expectedCollection: number | null;
+  discrepancyAmount: number | null;
+  discrepancyReason: string | null;
+  extensionDetailsJson: unknown[];
+  // Monitoring corrections
+  corrections: ShiftCorrection[];
 }
 
 export async function getShiftReport(sessionId: string): Promise<ShiftReport | null> {
@@ -225,7 +243,14 @@ export async function getShiftReport(sessionId: string): Promise<ShiftReport | n
     .eq("session_id", sessionId)
     .maybeSingle();
   if (!data) return null;
-  return mapReport(data);
+
+  const { data: corrRows } = await admin
+    .from("hotel_shift_corrections")
+    .select("id, corrector_name, corrected_at, payment_index, field, old_value, new_value, reason")
+    .eq("report_id", (data as Record<string, unknown>).id as string)
+    .order("corrected_at", { ascending: true });
+
+  return mapReport(data, corrRows ?? []);
 }
 
 export async function listPendingShiftReports(): Promise<ShiftReport[]> {
@@ -235,7 +260,7 @@ export async function listPendingShiftReports(): Promise<ShiftReport[]> {
     .select("*, ack:acknowledged_by(full_name)")
     .eq("status", "pending")
     .order("created_at", { ascending: false });
-  return (data ?? []).map(mapReport);
+  return (data ?? []).map((r) => mapReport(r as Record<string, unknown>));
 }
 
 export async function listShiftReports(limit = 20): Promise<ShiftReport[]> {
@@ -245,10 +270,10 @@ export async function listShiftReports(limit = 20): Promise<ShiftReport[]> {
     .select("*, ack:acknowledged_by(full_name)")
     .order("created_at", { ascending: false })
     .limit(limit);
-  return (data ?? []).map(mapReport);
+  return (data ?? []).map((r) => mapReport(r as Record<string, unknown>));
 }
 
-function mapReport(data: Record<string, unknown>): ShiftReport {
+function mapReport(data: Record<string, unknown>, corrRows: Record<string, unknown>[] = []): ShiftReport {
   const ackRaw = data.ack;
   const ack = (ackRaw && !Array.isArray(ackRaw)) ? ackRaw as { full_name: string } : null;
   return {
@@ -270,6 +295,20 @@ function mapReport(data: Record<string, unknown>): ShiftReport {
     acknowledgedNotes: (data.acknowledged_notes as string | null) ?? null,
     acknowledgedByName: ack?.full_name ?? null,
     createdAt: data.created_at as string,
+    expectedCollection: data.expected_collection != null ? Number(data.expected_collection) : null,
+    discrepancyAmount: data.discrepancy_amount != null ? Number(data.discrepancy_amount) : null,
+    discrepancyReason: (data.discrepancy_reason as string | null) ?? null,
+    extensionDetailsJson: (data.extension_details_json as unknown[]) ?? [],
+    corrections: corrRows.map((c) => ({
+      id: c.id as string,
+      correctorName: (c.corrector_name as string | null) ?? null,
+      correctedAt: c.corrected_at as string,
+      paymentIndex: c.payment_index != null ? Number(c.payment_index) : null,
+      field: c.field as string,
+      oldValue: (c.old_value as string | null) ?? null,
+      newValue: c.new_value as string,
+      reason: c.reason as string,
+    })),
   };
 }
 

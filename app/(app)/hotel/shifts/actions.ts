@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireAuth, userHasAnyRole } from "@/lib/auth/dal";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveSession } from "@/lib/hotel/session";
+import { computeExtension } from "@/lib/hotel/extension";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -127,6 +128,36 @@ export async function closeShift(
   const endingNo = parseInt(trimmed.replace(/\D/g, ""), 10) || 0;
   const arCount = Math.max(0, endingNo - beginningNo + 1 - cancelledCount);
 
+  // Compute expected collection: stays checked out during this shift window
+  const { data: staysOut } = await admin
+    .from("stays")
+    .select("id, guest_label, check_in_at, check_out_at, planned_hours, base_hours, base_rate, extra_hour_rate, discount_amount, units(unit_number)")
+    .eq("status", "checked_out")
+    .gte("check_out_at", session.opened_at as string)
+    .lte("check_out_at", closedAt)
+    .order("check_out_at", { ascending: true });
+
+  const extensionDetailsJson = (staysOut ?? []).map((s) => {
+    const unitRaw = s.units;
+    const unitNumber = (unitRaw && !Array.isArray(unitRaw)) ? (unitRaw as { unit_number: string }).unit_number : "—";
+    return computeExtension({
+      id: s.id as string,
+      guest_label: s.guest_label as string,
+      check_in_at: s.check_in_at as string,
+      check_out_at: s.check_out_at as string | null,
+      planned_hours: Number(s.planned_hours),
+      base_hours: Number(s.base_hours),
+      base_rate: Number(s.base_rate),
+      extra_hour_rate: Number(s.extra_hour_rate),
+      discount_amount: Number(s.discount_amount),
+    }, unitNumber);
+  }).filter(Boolean);
+
+  const expectedCollection = Math.round(
+    extensionDetailsJson.reduce((s, d) => s + (d?.totalExpected ?? 0), 0) * 100,
+  ) / 100;
+  const discrepancyAmount = Math.round((expectedCollection - totalCollected) * 100) / 100;
+
   const { data: report } = await admin
     .from("hotel_shift_reports")
     .insert({
@@ -144,6 +175,9 @@ export async function closeShift(
       cancelled_count: cancelledCount,
       closed_by_supervisor: !isOwnSession,
       closing_user_id: isOwnSession ? null : user.userId,
+      expected_collection: expectedCollection || null,
+      discrepancy_amount: discrepancyAmount !== 0 ? discrepancyAmount : null,
+      extension_details_json: extensionDetailsJson,
     })
     .select("id")
     .single();
@@ -289,6 +323,122 @@ export async function cancelShift(
   });
 
   revalidatePath("/hotel");
+  revalidatePath("/hotel/shifts");
+  return { ok: true };
+}
+
+/** Cashier submits a reason explaining a discrepancy between expected and actual collection. */
+export async function submitDiscrepancyReason(
+  reportId: string,
+  reason: string,
+): Promise<ActionResult> {
+  const user = await requireAuth();
+  if (!userHasAnyRole(user, [...CASHIER_ROLES]))
+    return { ok: false, error: "Access denied." };
+
+  const trimmed = reason.trim();
+  if (!trimmed) return { ok: false, error: "A reason is required." };
+
+  const admin = createAdminClient();
+  const { data: report } = await admin
+    .from("hotel_shift_reports")
+    .select("id, discrepancy_amount, discrepancy_reason")
+    .eq("id", reportId)
+    .maybeSingle();
+
+  if (!report) return { ok: false, error: "Report not found." };
+  if (!(report.discrepancy_amount)) return { ok: false, error: "No discrepancy recorded on this report." };
+
+  const { error } = await admin
+    .from("hotel_shift_reports")
+    .update({ discrepancy_reason: trimmed })
+    .eq("id", reportId);
+
+  if (error) return { ok: false, error: error.message };
+  revalidatePath(`/hotel/shifts/${report.id}/report`);
+  return { ok: true };
+}
+
+/** Monitoring corrects a payment entry in a shift report. Logged for audit. */
+export async function correctShiftPayment(
+  reportId: string,
+  paymentIndex: number | null,
+  field: "ar_no" | "amount" | "method" | "guest",
+  oldValue: string,
+  newValue: string,
+  reason: string,
+): Promise<ActionResult> {
+  const user = await requireAuth();
+  if (!userHasAnyRole(user, [...SUPERVISOR_ROLES]))
+    return { ok: false, error: "Only Hotel & Rental Monitoring or above can correct shift reports." };
+
+  const trimmedReason = reason.trim();
+  const trimmedNew    = newValue.trim();
+  if (!trimmedReason) return { ok: false, error: "A reason is required for every correction." };
+  if (!trimmedNew)    return { ok: false, error: "New value cannot be empty." };
+
+  const admin = createAdminClient();
+
+  // Load the report
+  const { data: report } = await admin
+    .from("hotel_shift_reports")
+    .select("id, payments_json, total_collected")
+    .eq("id", reportId)
+    .maybeSingle();
+
+  if (!report) return { ok: false, error: "Report not found." };
+
+  // Apply the correction to the payments_json array
+  type Payment = { arNo: string | null; guest: string; amount: number; method: string; paidAt: string };
+  const payments: Payment[] = Array.isArray(report.payments_json) ? (report.payments_json as Payment[]) : [];
+
+  if (paymentIndex !== null) {
+    if (paymentIndex < 0 || paymentIndex >= payments.length)
+      return { ok: false, error: "Invalid payment index." };
+
+    const p = { ...payments[paymentIndex] };
+    if (field === "ar_no")    p.arNo   = trimmedNew;
+    if (field === "amount")   p.amount = parseFloat(trimmedNew);
+    if (field === "method")   p.method = trimmedNew;
+    if (field === "guest")    p.guest  = trimmedNew;
+    if (field === "amount" && !Number.isFinite(p.amount))
+      return { ok: false, error: "Amount must be a valid number." };
+    payments[paymentIndex] = p;
+  }
+
+  const newTotal = Math.round(payments.reduce((s, p) => s + p.amount, 0) * 100) / 100;
+
+  const { error: upErr } = await admin
+    .from("hotel_shift_reports")
+    .update({
+      payments_json: payments,
+      total_collected: newTotal,
+    })
+    .eq("id", reportId);
+
+  if (upErr) return { ok: false, error: upErr.message };
+
+  // Get corrector's name
+  const { data: prof } = await admin
+    .from("profiles")
+    .select("display_label")
+    .eq("id", user.userId)
+    .maybeSingle();
+  const correctorName = (prof?.display_label as string | null) ?? user.userId;
+
+  // Log the correction
+  await admin.from("hotel_shift_corrections").insert({
+    report_id: reportId,
+    corrected_by: user.userId,
+    corrector_name: correctorName,
+    payment_index: paymentIndex,
+    field,
+    old_value: oldValue,
+    new_value: trimmedNew,
+    reason: trimmedReason,
+  });
+
+  revalidatePath(`/hotel/shifts/${reportId}/report`);
   revalidatePath("/hotel/shifts");
   return { ok: true };
 }
