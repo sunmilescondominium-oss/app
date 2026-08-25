@@ -101,14 +101,14 @@ export async function checkIn(
     discount_amount = round2(discount_amount + afterPromo * 0.20);
   }
 
-  // Extra persons
+  // Extra persons — rate comes from the room (unit), not the global setting
   const extra_persons = Math.max(0, parseInt(String(formData.get("extra_persons") ?? "0"), 10) || 0);
   let extra_person_rate = 0;
   let extra_person_amount = 0;
   if (extra_persons > 0) {
     const adminExt = createAdminClient();
-    const { data: extSettings } = await adminExt.from("hotel_extra_settings").select("extra_person_rate").eq("id", 1).maybeSingle();
-    extra_person_rate = Number(extSettings?.extra_person_rate ?? 0);
+    const { data: unitRow } = await adminExt.from("units").select("extra_person_rate").eq("id", unitId).maybeSingle();
+    extra_person_rate = Number(unitRow?.extra_person_rate ?? 0);
     extra_person_amount = round2(extra_persons * extra_person_rate);
   }
 
@@ -969,6 +969,20 @@ export async function saveExtraPersonRate(rate: number): Promise<ActionResult> {
   return { ok: true };
 }
 
+export async function saveUnitExtraPersonRate(unitId: string, rate: number): Promise<ActionResult> {
+  const user = await requireAuth();
+  if (!userHasAnyRole(user, ["admin", "accounting", "hotel_rental_monitoring", "managing_officer", "consultant"]))
+    return { ok: false, error: "Only admin, accounting, or hotel monitoring can set per-room extra person rates." };
+  if (!Number.isFinite(rate) || rate < 0)
+    return { ok: false, error: "Enter a valid rate (0 or more)." };
+  const admin = createAdminClient();
+  const { error } = await admin.from("units").update({ extra_person_rate: rate }).eq("id", unitId);
+  if (error) return { ok: false, error: error.message };
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "update", entity: "units", entityId: unitId, diff: { extra_person_rate: rate } });
+  revalidatePath("/hotel");
+  return { ok: true };
+}
+
 // ---- extra person charge (during stay) --------------------------------------
 
 const EXTRA_PERSON_ROLES = ["hotel_cashier", "hotel_rental_monitoring", "admin", "managing_officer", "accounting", "consultant"] as const;
@@ -980,9 +994,12 @@ export async function addExtraPersonCharge(stayId: string, count: number, note: 
   if (!Number.isInteger(count) || count < 1)
     return { ok: false, error: "Count must be at least 1." };
   const admin = createAdminClient();
-  const { data: settings } = await admin.from("hotel_extra_settings").select("extra_person_rate").eq("id", 1).maybeSingle();
-  const rate = Number(settings?.extra_person_rate ?? 0);
-  if (rate <= 0) return { ok: false, error: "Extra person rate is not configured. Set it in Hotel Settings first." };
+  // Get the stay's unit to read its per-room extra person rate
+  const { data: stayRow } = await admin.from("stays").select("unit_id").eq("id", stayId).maybeSingle();
+  if (!stayRow?.unit_id) return { ok: false, error: "Stay or unit not found." };
+  const { data: unitRow } = await admin.from("units").select("extra_person_rate").eq("id", stayRow.unit_id).maybeSingle();
+  const rate = Number(unitRow?.extra_person_rate ?? 0);
+  if (rate <= 0) return { ok: false, error: "Extra person rate is not configured for this room. Ask admin, accounting, or hotel monitoring to set it." };
   const label = note.trim() ? `Extra person — ${note.trim()}` : "Extra person";
   const { error } = await admin.from("stay_orders").insert({
     stay_id: stayId,

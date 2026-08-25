@@ -19,7 +19,6 @@ import { PhotoDocPanel } from "@/components/capture/photo-doc-panel";
 import { TransferRoomModal } from "@/components/hotel/transfer-room-modal";
 import { SupervisorOpsPanel } from "@/components/hotel/supervisor-ops-panel";
 import { ExtraPersonPanel } from "@/components/hotel/extra-person-panel";
-import { getExtraPersonRate } from "@/lib/hotel/queries";
 
 export const metadata = { title: "Folio" };
 
@@ -35,7 +34,7 @@ export default async function StayFolioPage({
   const canWrite = canWriteModule(user.roleKeys, "hotel");
   const isConsultant = user.roleKeys.includes("consultant");
   const isSupervisor = userHasAnyRole(user, ["hotel_rental_monitoring", "admin", "managing_officer", "consultant"]);
-  const [detail, menu, roomCheck, damagePhotos, tz, suggestedArNo, board, transferRecord, extraPersonRate] = await Promise.all([
+  const [detail, menu, roomCheck, damagePhotos, tz, suggestedArNo, board, transferRecord] = await Promise.all([
     getStayDetail(stayId),
     listMenuItems(),
     getLatestRoomCheck(stayId),
@@ -44,7 +43,6 @@ export default async function StayFolioPage({
     getSuggestedNextArNo(),
     listRoomBoard(),
     getTransferRecord(stayId),
-    getExtraPersonRate(),
   ]);
   if (!detail) notFound();
 
@@ -52,6 +50,8 @@ export default async function StayFolioPage({
   const foodOrders = orders.filter((o) => o.menu_item_id !== null);
   const extraPersonCharges = orders.filter((o) => o.menu_item_id === null);
   const canManageExtras = userHasAnyRole(user, ["hotel_cashier", "hotel_rental_monitoring", "admin", "managing_officer", "accounting", "consultant"]);
+  // Per-room extra person rate — read from board item (all hotel units are always in the board)
+  const extraPersonRate = board.find((b) => b.unit.id === stay.unit_id)?.unit.extra_person_rate ?? 0;
   // Rooms available for transfer: not occupied, not needing housekeeping, not this room
   const availableRooms = board
     .filter((b) => !b.stay && !b.needsHousekeeping && b.unit.id !== stay.unit_id)

@@ -83,7 +83,7 @@ export interface StayOrder {
 }
 
 export interface RoomBoardItem {
-  unit: { id: string; unit_number: string; unit_type: string | null };
+  unit: { id: string; unit_number: string; unit_type: string | null; extra_person_rate: number };
   stay: Stay | null;
   /** Room was used and still has an open housekeeping task — not yet vacant. */
   needsHousekeeping: boolean;
