@@ -33,6 +33,10 @@ export interface Stay {
   discount_id_photo_expires_at: string | null;
   tax_mode: string;
   tax_rate: number;
+  extra_persons: number;
+  extra_person_rate: number;
+  extra_person_amount: number;
+  transfer_from_stay_id: string | null;
   check_in_at: string;
   check_out_at: string | null;
   status: string;
@@ -41,6 +45,13 @@ export interface Stay {
   extension_requested_hours: number | null;
   unit?: { unit_number: string } | null;
   rate_plan_name?: string | null;
+}
+
+export interface StayExtension {
+  id: string;
+  stay_id: string;
+  added_hours: number;
+  created_at: string;
 }
 
 export interface StayPayment {
@@ -86,6 +97,7 @@ export interface StayDetail {
   stay: Stay;
   payments: StayPayment[];
   orders: StayOrder[];
+  extensions: StayExtension[];
   unit_number: string | null;
   rate_plan_name: string | null;
 }

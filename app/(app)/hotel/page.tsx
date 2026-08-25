@@ -8,6 +8,7 @@ import {
   listMenuItems,
   getGlobalTax,
   listRoomTax,
+  getExtraPersonRate,
 } from "@/lib/hotel/queries";
 import { getActiveSession, getSuggestedNextArNo } from "@/lib/hotel/session";
 import { PageHeader, Badge } from "@/components/ui";
@@ -27,7 +28,7 @@ export default async function HotelPage() {
   const canManageConfig = user.roleKeys.some((r) => ["admin", "consultant"].includes(r));
   const canManageTax = user.roleKeys.some((r) => ["admin", "accounting", "consultant"].includes(r));
 
-  const [board, ratePlans, promos, menu, globalTax, roomTax, activeSession, suggestedArNo] = await Promise.all([
+  const [board, ratePlans, promos, menu, globalTax, roomTax, activeSession, suggestedArNo, extraPersonRate] = await Promise.all([
     listRoomBoard(),
     listRatePlans(),
     listPromos(),
@@ -36,6 +37,7 @@ export default async function HotelPage() {
     listRoomTax(),
     getActiveSession(),
     getSuggestedNextArNo(),
+    getExtraPersonRate(),
   ]);
   const occupied = board.filter((b) => b.stay).length;
   const isCashier    = userHasAnyRole(user, ["hotel_cashier"]);
@@ -118,6 +120,7 @@ export default async function HotelPage() {
           canManageConfig={canManageConfig}
           canManageTax={canManageTax}
           suggestedArNo={suggestedArNo}
+          extraPersonRate={extraPersonRate}
         />
       )}
     </>

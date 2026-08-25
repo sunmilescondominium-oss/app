@@ -101,10 +101,19 @@ export async function checkIn(
     discount_amount = round2(discount_amount + afterPromo * 0.20);
   }
 
+  // Extra persons
+  const extra_persons = Math.max(0, parseInt(String(formData.get("extra_persons") ?? "0"), 10) || 0);
+  let extra_person_rate = 0;
+  let extra_person_amount = 0;
+  if (extra_persons > 0) {
+    const adminExt = createAdminClient();
+    const { data: extSettings } = await adminExt.from("hotel_extra_settings").select("extra_person_rate").eq("id", 1).maybeSingle();
+    extra_person_rate = Number(extSettings?.extra_person_rate ?? 0);
+    extra_person_amount = round2(extra_persons * extra_person_rate);
+  }
+
   // Pay-before-entry: the full room fee must be collected in advance at check-in.
-  // TODO(client-confirm): per-room base price (small/big/fan/aircon) will come
-  // from Inventory — for now the room fee is the selected rate plan's charge.
-  const requiredAdvance = round2(roomCharge(base_rate, extra_hour_rate, base_hours, planned_hours) - discount_amount);
+  const requiredAdvance = round2(roomCharge(base_rate, extra_hour_rate, base_hours, planned_hours) - discount_amount + extra_person_amount);
   const advanceMethod = String(formData.get("advance_method") ?? "").trim();
   const advanceAmount = Number(String(formData.get("advance_amount") ?? ""));
   if (!METHODS.includes(advanceMethod)) return { ok: false, error: "Choose the advance payment method." };
@@ -142,6 +151,9 @@ export async function checkIn(
       discount_type,
       tax_mode,
       tax_rate,
+      extra_persons,
+      extra_person_rate,
+      extra_person_amount,
       portal_token: (await import("node:crypto")).randomBytes(18).toString("base64url"),
       created_by: user.userId,
     })
@@ -935,6 +947,230 @@ export async function deleteStayPayment(paymentId: string, stayId: string): Prom
   const { error } = await admin.from("stay_payments").delete().eq("id", paymentId);
   if (error) return { ok: false, error: error.message };
   await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "delete", entity: "stay_payments", entityId: paymentId });
+  revalidatePath(`/hotel/${stayId}`);
+  return { ok: true };
+}
+
+// ---- extra person rate setting (admin / consultant) -------------------------
+
+export async function saveExtraPersonRate(rate: number): Promise<ActionResult> {
+  const user = await requireAuth();
+  if (!userHasAnyRole(user, ["admin", "consultant"]))
+    return { ok: false, error: "Only admin or consultant can set the extra person rate." };
+  if (!Number.isFinite(rate) || rate < 0)
+    return { ok: false, error: "Enter a valid rate (0 or more)." };
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("hotel_extra_settings")
+    .upsert({ id: 1, extra_person_rate: rate, updated_at: new Date().toISOString() }, { onConflict: "id" });
+  if (error) return { ok: false, error: error.message };
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "update", entity: "hotel_extra_settings", entityId: "singleton", diff: { extra_person_rate: rate } });
+  revalidatePath("/hotel");
+  return { ok: true };
+}
+
+// ---- room transfer ----------------------------------------------------------
+
+const TRANSFER_REASONS = ["room_issue", "maintenance", "guest_preference", "other"] as const;
+
+export async function transferRoom(
+  stayId: string,
+  formData: FormData,
+): Promise<ActionResult & { newStayId?: string }> {
+  const user = await requireModuleWrite("hotel");
+  const isSupervisor = userHasAnyRole(user, ["hotel_rental_monitoring", "admin", "managing_officer", "consultant", "accounting"]);
+  if (!isSupervisor) {
+    const gate = await requireCashierOnDuty(user.userId);
+    if (gate) return gate as ActionResult & { newStayId?: string };
+  }
+
+  const toUnitId = String(formData.get("to_unit_id") ?? "").trim();
+  const reason = String(formData.get("transfer_reason") ?? "").trim() as typeof TRANSFER_REASONS[number];
+  const remarks = String(formData.get("remarks") ?? "").trim() || null;
+  if (!toUnitId) return { ok: false, error: "Select the room to transfer to." };
+  if (!TRANSFER_REASONS.includes(reason)) return { ok: false, error: "Select a valid transfer reason." };
+
+  const admin = createAdminClient();
+  const { data: stay } = await admin.from("stays").select("*").eq("id", stayId).maybeSingle();
+  if (!stay) return { ok: false, error: "Stay not found." };
+  if ((stay.status as string) !== "active") return { ok: false, error: "Stay is not active." };
+  if ((stay.unit_id as string) === toUnitId) return { ok: false, error: "Cannot transfer to the same room." };
+
+  // Target room must be clean and unoccupied
+  const [{ data: occupied }, { data: hk }] = await Promise.all([
+    admin.from("stays").select("id").eq("unit_id", toUnitId).eq("status", "active").limit(1).maybeSingle(),
+    admin.from("housekeeping_tasks").select("id").eq("unit_id", toUnitId).in("status", ["pending", "in_progress"]).limit(1).maybeSingle(),
+  ]);
+  if (occupied) return { ok: false, error: "Target room is already occupied." };
+  if (hk) return { ok: false, error: "Target room needs housekeeping before it can be occupied." };
+
+  // Determine time-since-checkin to apply timer rule
+  const checkInMs = new Date(stay.check_in_at as string).getTime();
+  const elapsedMs = Date.now() - checkInMs;
+  const WITHIN_10_MIN = elapsedMs <= 10 * 60 * 1000;
+
+  // New check_in_at: within 10 min → reset to now; after 10 min → original + 5 extra min
+  const newCheckInAt = WITHIN_10_MIN
+    ? new Date().toISOString()
+    : new Date(checkInMs + 5 * 60 * 1000).toISOString();
+
+  // Create the new stay at the target room (copy all relevant rate snapshot fields)
+  const { data: newStay, error: insErr } = await admin.from("stays").insert({
+    unit_id: toUnitId,
+    guest_label: stay.guest_label,
+    guest_contact: stay.guest_contact,
+    rate_plan_id: stay.rate_plan_id,
+    planned_hours: stay.planned_hours,
+    base_hours: stay.base_hours,
+    base_rate: stay.base_rate,
+    extra_hour_rate: stay.extra_hour_rate,
+    promo_id: stay.promo_id,
+    discount_amount: stay.discount_amount,
+    discount_type: stay.discount_type,
+    tax_mode: stay.tax_mode,
+    tax_rate: stay.tax_rate,
+    extra_persons: stay.extra_persons,
+    extra_person_rate: stay.extra_person_rate,
+    extra_person_amount: stay.extra_person_amount,
+    check_in_at: newCheckInAt,
+    status: "active",
+    created_by: user.userId,
+    transfer_from_stay_id: stayId,
+    portal_token: (await import("node:crypto")).randomBytes(18).toString("base64url"),
+  }).select("id").single();
+  if (insErr) return { ok: false, error: insErr.message };
+
+  // Move payments to new stay
+  await admin.from("stay_payments").update({ stay_id: newStay.id as string }).eq("stay_id", stayId);
+
+  // Check out the old stay (mark as voided-transfer so it's not confused with real checkouts)
+  await admin.from("stays").update({ status: "checked_out", check_out_at: new Date().toISOString(), portal_token: null }).eq("id", stayId);
+
+  // Record the transfer
+  await admin.from("hotel_room_transfers").insert({
+    from_stay_id: stayId,
+    to_stay_id: newStay.id as string,
+    from_unit_id: stay.unit_id as string,
+    to_unit_id: toUnitId,
+    within_10_min: WITHIN_10_MIN,
+    transfer_reason: reason,
+    remarks,
+    performed_by: user.userId,
+  });
+
+  // Notify admin + monitoring of the transfer (potential maintenance flag)
+  void createNotification({
+    kind: "room_transfer",
+    title: `Room transfer — ${stay.guest_label}`,
+    body: `Transferred from ${stay.unit_id} to ${toUnitId}. Reason: ${reason}${remarks ? ` — ${remarks}` : ""}`,
+    link: `/hotel/${newStay.id as string}`,
+    entityType: "hotel_room_transfer",
+    entityId: stayId,
+    recipientRole: "hotel_rental_monitoring",
+    createdBy: user.userId,
+  });
+
+  await logAudit({
+    actorUserId: user.userId,
+    actorRoles: user.roleKeys,
+    action: "update",
+    entity: "stays",
+    entityId: stayId,
+    diff: { transferred_to: toUnitId, within_10_min: WITHIN_10_MIN, reason, newStayId: newStay.id as string },
+  });
+
+  revalidatePath("/hotel");
+  revalidatePath(`/hotel/${stayId}`);
+  return { ok: true, newStayId: newStay.id as string };
+}
+
+// ---- void / cancel check-in (supervisor) ------------------------------------
+
+const SUPERVISOR_ROLES = ["hotel_rental_monitoring", "admin", "managing_officer", "consultant"];
+
+export async function voidStay(stayId: string, reason: string): Promise<ActionResult> {
+  const user = await requireAuth();
+  if (!userHasAnyRole(user, SUPERVISOR_ROLES))
+    return { ok: false, error: "Only supervisors can void a stay." };
+  if (!reason.trim()) return { ok: false, error: "A reason is required to void a stay." };
+
+  const admin = createAdminClient();
+  const { data: stay } = await admin.from("stays").select("id, status, unit_id").eq("id", stayId).maybeSingle();
+  if (!stay) return { ok: false, error: "Stay not found." };
+  if ((stay.status as string) !== "active") return { ok: false, error: "Only active stays can be voided." };
+
+  const actorLabel = await getDisplayLabel(user.userId);
+
+  await admin.from("stays").update({ status: "voided", check_out_at: new Date().toISOString(), portal_token: null }).eq("id", stayId);
+  await admin.from("hotel_stay_voids").insert({
+    stay_id: stayId,
+    void_type: "cancel_checkin",
+    reason: reason.trim(),
+    voided_by: user.userId,
+    voider_name: actorLabel,
+  });
+
+  // Auto-create housekeeping task so the room gets cleaned after the void
+  await createCleaningTask({ unitId: stay.unit_id as string | null, stayId, actorUserId: user.userId, via: "checkout" });
+
+  await logAudit({
+    actorUserId: user.userId,
+    actorRoles: user.roleKeys,
+    action: "update",
+    entity: "stays",
+    entityId: stayId,
+    diff: { voided: true, reason: reason.trim() },
+  });
+
+  revalidatePath("/hotel");
+  revalidatePath(`/hotel/${stayId}`);
+  return { ok: true };
+}
+
+// ---- delete / void extension (supervisor) -----------------------------------
+
+export async function deleteExtension(
+  extensionId: string,
+  stayId: string,
+  reason: string,
+): Promise<ActionResult> {
+  const user = await requireAuth();
+  if (!userHasAnyRole(user, SUPERVISOR_ROLES))
+    return { ok: false, error: "Only supervisors can delete an extension." };
+  if (!reason.trim()) return { ok: false, error: "A reason is required." };
+
+  const admin = createAdminClient();
+  const { data: ext } = await admin.from("stay_extensions").select("id, stay_id, added_hours").eq("id", extensionId).maybeSingle();
+  if (!ext) return { ok: false, error: "Extension not found." };
+
+  // Revert the planned_hours on the parent stay
+  const { data: stay } = await admin.from("stays").select("planned_hours, base_hours").eq("id", stayId).maybeSingle();
+  if (stay) {
+    const restoredHours = Math.max(stay.base_hours as number, (stay.planned_hours as number) - (ext.added_hours as number));
+    await admin.from("stays").update({ planned_hours: restoredHours }).eq("id", stayId);
+  }
+
+  const actorLabel = await getDisplayLabel(user.userId);
+  await admin.from("hotel_stay_voids").insert({
+    stay_id: stayId,
+    void_type: "delete_extension",
+    extension_id: extensionId,
+    reason: reason.trim(),
+    voided_by: user.userId,
+    voider_name: actorLabel,
+  });
+
+  await admin.from("stay_extensions").delete().eq("id", extensionId);
+
+  await logAudit({
+    actorUserId: user.userId,
+    actorRoles: user.roleKeys,
+    action: "delete",
+    entity: "stay_extensions",
+    entityId: extensionId,
+    diff: { stayId, reason: reason.trim() },
+  });
+
   revalidatePath(`/hotel/${stayId}`);
   return { ok: true };
 }

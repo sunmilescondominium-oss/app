@@ -217,6 +217,26 @@ export function TaskActions({
 
         {defaults.length > 0 ? (
           <div className="mt-3 space-y-1.5">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-xs text-stone-500">Check items replaced in this room</span>
+              <button
+                type="button"
+                onClick={() => {
+                  const allChecked = defaults.every((d) => !!checked[d.id]);
+                  const next = Object.fromEntries(defaults.map((d) => [d.id, !allChecked]));
+                  setChecked((c) => ({ ...c, ...next }));
+                  if (!allChecked) {
+                    setQty((q) => {
+                      const patch = Object.fromEntries(defaults.filter((d) => !q[d.id]).map((d) => [d.id, "1"]));
+                      return { ...q, ...patch };
+                    });
+                  }
+                }}
+                className="rounded-md border border-amber-300 px-2 py-0.5 text-[11px] font-semibold text-amber-700 hover:bg-amber-50"
+              >
+                {defaults.every((d) => !!checked[d.id]) ? "Deselect all" : "Select all"}
+              </button>
+            </div>
             {defaults.map((d) => (
               <div key={d.id} className="flex items-center gap-2">
                 <label className="flex flex-1 items-center gap-2 text-sm">

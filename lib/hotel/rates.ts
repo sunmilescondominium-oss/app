@@ -42,6 +42,7 @@ export function stayTotals(
     base_hours: number;
     planned_hours: number;
     discount_amount: number;
+    extra_person_amount?: number;
   },
   paid: number,
   ordersTotal = 0,
@@ -49,7 +50,8 @@ export function stayTotals(
   const rc = roomCharge(stay.base_rate, stay.extra_hour_rate, stay.base_hours, stay.planned_hours);
   const discount = round2(Math.min(rc, stay.discount_amount ?? 0));
   const orders = round2(ordersTotal);
-  const total = round2(Math.max(0, rc - discount + orders));
+  const extras = round2(stay.extra_person_amount ?? 0);
+  const total = round2(Math.max(0, rc - discount + orders + extras));
   return {
     room_charge: rc,
     orders,

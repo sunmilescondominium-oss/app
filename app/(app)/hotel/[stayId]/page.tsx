@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireModule } from "@/lib/auth/dal";
+import { requireModule, userHasAnyRole } from "@/lib/auth/dal";
 import { canWriteModule, canReadModule } from "@/lib/rbac/modules";
-import { getStayDetail, listMenuItems, getLatestRoomCheck } from "@/lib/hotel/queries";
+import { getStayDetail, listMenuItems, getLatestRoomCheck, listRoomBoard } from "@/lib/hotel/queries";
 import { getSuggestedNextArNo } from "@/lib/hotel/session";
 import { stayTotals } from "@/lib/hotel/rates";
 import { computeTax } from "@/lib/hotel/tax";
@@ -16,6 +16,8 @@ import { RoomCheck } from "@/components/hotel/room-check";
 import { DeleteStayButton, DeletePaymentButton } from "@/components/hotel/consultant-delete";
 import { listDocPhotos } from "@/lib/docs/photos";
 import { PhotoDocPanel } from "@/components/capture/photo-doc-panel";
+import { TransferRoomModal } from "@/components/hotel/transfer-room-modal";
+import { SupervisorOpsPanel } from "@/components/hotel/supervisor-ops-panel";
 
 export const metadata = { title: "Folio" };
 
@@ -30,17 +32,23 @@ export default async function StayFolioPage({
   const user = await requireModule("hotel");
   const canWrite = canWriteModule(user.roleKeys, "hotel");
   const isConsultant = user.roleKeys.includes("consultant");
-  const [detail, menu, roomCheck, damagePhotos, tz, suggestedArNo] = await Promise.all([
+  const isSupervisor = userHasAnyRole(user, ["hotel_rental_monitoring", "admin", "managing_officer", "consultant"]);
+  const [detail, menu, roomCheck, damagePhotos, tz, suggestedArNo, board] = await Promise.all([
     getStayDetail(stayId),
     listMenuItems(),
     getLatestRoomCheck(stayId),
     listDocPhotos("stay", stayId),
     getAppTimezone(),
     getSuggestedNextArNo(),
+    listRoomBoard(),
   ]);
   if (!detail) notFound();
 
-  const { stay, payments, orders } = detail;
+  const { stay, payments, orders, extensions } = detail;
+  // Rooms available for transfer: not occupied, not needing housekeeping, not this room
+  const availableRooms = board
+    .filter((b) => !b.stay && !b.needsHousekeeping && b.unit.id !== stay.unit_id)
+    .map((b) => ({ id: b.unit.id, unit_number: b.unit.unit_number }));
   const paid = payments.reduce((s, p) => s + p.amount, 0);
   const ordersTotal = orders.reduce((s, o) => s + o.qty * o.unit_price, 0);
   const t = stayTotals(stay, paid, ordersTotal);
@@ -85,6 +93,16 @@ export default async function StayFolioPage({
             <RoomCheck stayId={stay.id} gatepassNo={roomCheck?.gatepass_no ?? null} />
           )}
           {canWrite && <FolioActions stayId={stay.id} status={stay.status} balance={t.balance} checkInAt={stay.check_in_at} suggestedArNo={suggestedArNo} />}
+          {stay.status === "active" && canWrite && (
+            <TransferRoomModal
+              stayId={stay.id}
+              checkInAt={stay.check_in_at}
+              availableRooms={availableRooms}
+            />
+          )}
+          {stay.status === "active" && isSupervisor && (
+            <SupervisorOpsPanel stayId={stay.id} extensions={extensions} />
+          )}
           <PhotoDocPanel
             entity="stay"
             entityId={stay.id}
@@ -115,6 +133,9 @@ export default async function StayFolioPage({
 
           <div className="mt-2 space-y-0.5 border-t border-dashed border-stone-300 pt-2">
             <Line k="Room charge" v={peso(t.room_charge)} />
+            {stay.extra_person_amount > 0 && (
+              <Line k={`Extra persons (${stay.extra_persons}×)`} v={peso(stay.extra_person_amount)} />
+            )}
             {orders.map((o) => (
               <Line key={o.id} k={`${o.qty}× ${o.name}`} v={peso(o.qty * o.unit_price)} />
             ))}

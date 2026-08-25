@@ -18,12 +18,14 @@ export function CheckInForm({
   ratePlans,
   promos,
   suggestedArNo,
+  extraPersonRate = 0,
   onDone,
 }: {
   unitId: string;
   ratePlans: RatePlan[];
   promos: Promo[];
   suggestedArNo?: string;
+  extraPersonRate?: number;
   onDone: () => void;
 }) {
   const router = useRouter();
@@ -45,6 +47,7 @@ export function CheckInForm({
   const [photoCaptured, setPhotoCaptured] = useState(false);
   const [advanceMethod, setAdvanceMethod] = useState<string>(HOTEL_PAYMENT_METHODS[0]?.key ?? "cash");
   const [clientError, setClientError] = useState("");
+  const [extraPersons, setExtraPersons] = useState(0);
   const photoInputRef = useRef<HTMLInputElement>(null);
 
   const effHours = plan ? Math.max(hours, plan.base_hours) : hours;
@@ -55,7 +58,8 @@ export function CheckInForm({
   // Apply gov't discount to price preview only after cashier explicitly applies it.
   const isGovDisc = discountApplied && (govDiscType === "pwd" || govDiscType === "senior_citizen");
   const govDisc = isGovDisc ? round2(afterPromo * 0.20) : 0;
-  const required = Math.max(0, round2(rc - promoDisc - govDisc));
+  const extraPersonAmt = round2(Math.max(0, extraPersons) * extraPersonRate);
+  const required = Math.max(0, round2(rc - promoDisc - govDisc + extraPersonAmt));
   const [advanceAmount, setAdvanceAmount] = useState<number>(required);
 
   useEffect(() => { setAdvanceAmount(required); }, [required]);
@@ -157,6 +161,19 @@ export function CheckInForm({
             <option value="senior_citizen">Senior Citizen — 20% discount</option>
           </select>
         </div>
+        <div>
+          <label className={labelCls}>
+            Extra persons{extraPersonRate > 0 ? ` (₱${extraPersonRate.toLocaleString("en-PH")}/person)` : " (rate not set)"}
+          </label>
+          <input
+            name="extra_persons"
+            type="number"
+            min={0}
+            value={extraPersons}
+            onChange={(e) => { setExtraPersons(Math.max(0, parseInt(e.target.value, 10) || 0)); }}
+            className={inputCls}
+          />
+        </div>
       </div>
 
       {/* Step 1: Recompute button — appears after selecting a discount type */}
@@ -199,9 +216,15 @@ export function CheckInForm({
           </div>
         )}
         {govDisc > 0 && (
-          <div className="flex justify-between text-sky-700">
+          <div className="flex justify-between text-amber-700">
             <span>{govDiscType === "pwd" ? "PWD" : "Senior Citizen"} 20% discount</span>
             <span className="tabular-nums">− {peso(govDisc)}</span>
+          </div>
+        )}
+        {extraPersonAmt > 0 && (
+          <div className="flex justify-between text-stone-700">
+            <span>{extraPersons} extra person{extraPersons !== 1 ? "s" : ""}</span>
+            <span className="tabular-nums">+ {peso(extraPersonAmt)}</span>
           </div>
         )}
         <div className="mt-1 flex justify-between border-t border-stone-200 pt-1 font-semibold">

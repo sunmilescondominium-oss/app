@@ -8,6 +8,7 @@ import type {
   Stay,
   StayPayment,
   StayOrder,
+  StayExtension,
   MenuItem,
   RoomBoardItem,
   StayDetail,
@@ -42,6 +43,10 @@ function mapStay(r: Record<string, unknown>): Stay {
     portal_token: (r.portal_token as string | null) ?? null,
     checkout_requested: Boolean(r.checkout_requested),
     extension_requested_hours: r.extension_requested_hours == null ? null : Number(r.extension_requested_hours),
+    extra_persons: Number(r.extra_persons ?? 0),
+    extra_person_rate: Number(r.extra_person_rate ?? 0),
+    extra_person_amount: Number(r.extra_person_amount ?? 0),
+    transfer_from_stay_id: (r.transfer_from_stay_id as string | null) ?? null,
     unit: u ? { unit_number: u.unit_number } : null,
     rate_plan_name: rp?.name ?? null,
   };
@@ -157,9 +162,10 @@ export async function getStayDetail(id: string): Promise<StayDetail | null> {
   if (error) throw new Error(error.message);
   if (!data) return null;
 
-  const [{ data: pays }, { data: ords }] = await Promise.all([
+  const [{ data: pays }, { data: ords }, { data: exts }] = await Promise.all([
     supabase.from("stay_payments").select("*").eq("stay_id", id).order("paid_at", { ascending: true }),
     supabase.from("stay_orders").select("*").eq("stay_id", id).order("ordered_at", { ascending: true }),
+    supabase.from("stay_extensions").select("*").eq("stay_id", id).order("created_at", { ascending: true }),
   ]);
 
   const stay = mapStay(data);
@@ -180,8 +186,20 @@ export async function getStayDetail(id: string): Promise<StayDetail | null> {
     qty: o.qty as number,
     unit_price: Number(o.unit_price),
   }));
+  const extensions: StayExtension[] = (exts ?? []).map((e: Record<string, unknown>) => ({
+    id: e.id as string,
+    stay_id: e.stay_id as string,
+    added_hours: Number(e.added_hours),
+    created_at: e.created_at as string,
+  }));
 
-  return { stay, payments, orders, unit_number: stay.unit?.unit_number ?? null, rate_plan_name: stay.rate_plan_name ?? null };
+  return { stay, payments, orders, extensions, unit_number: stay.unit?.unit_number ?? null, rate_plan_name: stay.rate_plan_name ?? null };
+}
+
+export async function getExtraPersonRate(): Promise<number> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("hotel_extra_settings").select("extra_person_rate").eq("id", 1).maybeSingle();
+  return Number(data?.extra_person_rate ?? 0);
 }
 
 export async function getLatestRoomCheck(
