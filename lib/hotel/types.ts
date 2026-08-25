@@ -114,6 +114,20 @@ export interface RoomTaxRow {
   tax_rate: number;
 }
 
+export interface RoomTransferRecord {
+  id: string;
+  from_stay_id: string;
+  to_stay_id: string | null;
+  from_unit_number: string;
+  to_unit_number: string;
+  within_10_min: boolean;
+  transfer_reason: string;
+  remarks: string | null;
+  performed_by: string | null;
+  performer_name: string | null;
+  transferred_at: string;
+}
+
 export interface HotelDaySummary {
   date: string;
   checkInCount: number;

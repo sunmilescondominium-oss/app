@@ -15,6 +15,7 @@ import type {
   TaxSetting,
   RoomTaxRow,
   HotelDaySummary,
+  RoomTransferRecord,
 } from "./types";
 
 function mapStay(r: Record<string, unknown>): Stay {
@@ -194,6 +195,48 @@ export async function getStayDetail(id: string): Promise<StayDetail | null> {
   }));
 
   return { stay, payments, orders, extensions, unit_number: stay.unit?.unit_number ?? null, rate_plan_name: stay.rate_plan_name ?? null };
+}
+
+function mapTransfer(r: Record<string, unknown>): RoomTransferRecord {
+  const fu = r.from_unit as { unit_number: string } | null;
+  const tu = r.to_unit as { unit_number: string } | null;
+  const pr = r.profiles as { display_label: string } | null;
+  return {
+    id: r.id as string,
+    from_stay_id: r.from_stay_id as string,
+    to_stay_id: (r.to_stay_id as string) ?? null,
+    from_unit_number: fu?.unit_number ?? "—",
+    to_unit_number: tu?.unit_number ?? "—",
+    within_10_min: Boolean(r.within_10_min),
+    transfer_reason: r.transfer_reason as string,
+    remarks: (r.remarks as string) ?? null,
+    performed_by: (r.performed_by as string) ?? null,
+    performer_name: pr?.display_label ?? null,
+    transferred_at: r.transferred_at as string,
+  };
+}
+
+export async function getTransferRecord(stayId: string): Promise<RoomTransferRecord | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("hotel_room_transfers")
+    .select("*, from_unit:from_unit_id(unit_number), to_unit:to_unit_id(unit_number), profiles:performed_by(display_label)")
+    .or(`from_stay_id.eq.${stayId},to_stay_id.eq.${stayId}`)
+    .order("transferred_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!data) return null;
+  return mapTransfer(data as Record<string, unknown>);
+}
+
+export async function listRoomTransfers(opts?: { limit?: number; offset?: number }): Promise<RoomTransferRecord[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("hotel_room_transfers")
+    .select("*, from_unit:from_unit_id(unit_number), to_unit:to_unit_id(unit_number), profiles:performed_by(display_label)")
+    .order("transferred_at", { ascending: false })
+    .range(opts?.offset ?? 0, (opts?.offset ?? 0) + (opts?.limit ?? 50) - 1);
+  return (data ?? []).map((r) => mapTransfer(r as Record<string, unknown>));
 }
 
 export async function getExtraPersonRate(): Promise<number> {

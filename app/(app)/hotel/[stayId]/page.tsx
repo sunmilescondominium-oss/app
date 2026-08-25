@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireModule, userHasAnyRole } from "@/lib/auth/dal";
 import { canWriteModule, canReadModule } from "@/lib/rbac/modules";
-import { getStayDetail, listMenuItems, getLatestRoomCheck, listRoomBoard } from "@/lib/hotel/queries";
+import { getStayDetail, listMenuItems, getLatestRoomCheck, listRoomBoard, getTransferRecord } from "@/lib/hotel/queries";
 import { getSuggestedNextArNo } from "@/lib/hotel/session";
 import { stayTotals } from "@/lib/hotel/rates";
 import { computeTax } from "@/lib/hotel/tax";
@@ -33,7 +33,7 @@ export default async function StayFolioPage({
   const canWrite = canWriteModule(user.roleKeys, "hotel");
   const isConsultant = user.roleKeys.includes("consultant");
   const isSupervisor = userHasAnyRole(user, ["hotel_rental_monitoring", "admin", "managing_officer", "consultant"]);
-  const [detail, menu, roomCheck, damagePhotos, tz, suggestedArNo, board] = await Promise.all([
+  const [detail, menu, roomCheck, damagePhotos, tz, suggestedArNo, board, transferRecord] = await Promise.all([
     getStayDetail(stayId),
     listMenuItems(),
     getLatestRoomCheck(stayId),
@@ -41,6 +41,7 @@ export default async function StayFolioPage({
     getAppTimezone(),
     getSuggestedNextArNo(),
     listRoomBoard(),
+    getTransferRecord(stayId),
   ]);
   if (!detail) notFound();
 
@@ -68,6 +69,62 @@ export default async function StayFolioPage({
         <div className="no-print mb-4 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
           {stay.checkout_requested && <p>🔔 <strong>Guest requested check-out</strong> — prepare the final bill, check the unit, and issue the gate pass.</p>}
           {stay.extension_requested_hours != null && <p>⏱️ <strong>Guest requested +{stay.extension_requested_hours}h</strong> — confirm the extension below.</p>}
+        </div>
+      )}
+
+      {/* Room transfer notice */}
+      {transferRecord && (
+        <div className="no-print mb-4 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
+          {transferRecord.to_stay_id === stayId ? (
+            // This is the NEW stay — guest came from another room
+            <div className="space-y-1">
+              <p className="font-semibold">
+                🔄 Transferred from Room {transferRecord.from_unit_number}
+                {transferRecord.within_10_min
+                  ? " — timer was reset (within 10-minute window)"
+                  : " — +5 min added to original check-in time"}
+              </p>
+              <p>
+                <span className="font-medium">Reason:</span>{" "}
+                {{ room_issue: "Room issue", maintenance: "Maintenance / repair", guest_preference: "Guest preference", other: "Other" }[transferRecord.transfer_reason] ?? transferRecord.transfer_reason}
+              </p>
+              {transferRecord.remarks && (
+                <p><span className="font-medium">Details:</span> {transferRecord.remarks}</p>
+              )}
+              <p className="text-xs text-blue-700">
+                By {transferRecord.performer_name ?? "staff"} · {fmtDateTime(transferRecord.transferred_at, tz)}
+                {" · "}
+                <Link href={`/hotel/${transferRecord.from_stay_id}`} className="underline hover:text-blue-900">
+                  View original stay (Room {transferRecord.from_unit_number}) →
+                </Link>
+              </p>
+            </div>
+          ) : (
+            // This is the ORIGINAL stay — guest moved out
+            <div className="space-y-1">
+              <p className="font-semibold">
+                🔄 Guest transferred to Room {transferRecord.to_unit_number}
+              </p>
+              <p>
+                <span className="font-medium">Reason:</span>{" "}
+                {{ room_issue: "Room issue", maintenance: "Maintenance / repair", guest_preference: "Guest preference", other: "Other" }[transferRecord.transfer_reason] ?? transferRecord.transfer_reason}
+              </p>
+              {transferRecord.remarks && (
+                <p><span className="font-medium">Details:</span> {transferRecord.remarks}</p>
+              )}
+              <p className="text-xs text-blue-700">
+                By {transferRecord.performer_name ?? "staff"} · {fmtDateTime(transferRecord.transferred_at, tz)}
+                {transferRecord.to_stay_id && (
+                  <>
+                    {" · "}
+                    <Link href={`/hotel/${transferRecord.to_stay_id}`} className="underline hover:text-blue-900">
+                      View new stay (Room {transferRecord.to_unit_number}) →
+                    </Link>
+                  </>
+                )}
+              </p>
+            </div>
+          )}
         </div>
       )}
 
@@ -125,6 +182,9 @@ export default async function StayFolioPage({
           <div className="mt-2 space-y-0.5">
             <Line k="Guest" v={stay.guest_label} />
             <Line k="Room" v={detail.unit_number ?? "—"} />
+            {transferRecord?.to_stay_id === stayId && (
+              <Line k="Transferred from" v={`Room ${transferRecord.from_unit_number}`} />
+            )}
             <Line k="Plan" v={detail.rate_plan_name ?? "—"} />
             <Line k="Hours" v={`${stay.planned_hours}h`} />
             <Line k="In" v={fmtDateTime(stay.check_in_at, tz)} />
