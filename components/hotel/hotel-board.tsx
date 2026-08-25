@@ -66,10 +66,64 @@ function UnitRateRow({ unit }: { unit: Unit }) {
 }
 
 function UnitExtraPersonRatesEditor({ units }: { units: Unit[] }) {
+  const router = useRouter();
+  const [standardRate, setStandardRate] = useState("");
+  const [applyErr, setApplyErr] = useState("");
+  const [applyMsg, setApplyMsg] = useState("");
+  const [pending, start] = useTransition();
+
+  function applyToAll() {
+    setApplyErr(""); setApplyMsg("");
+    const v = Number(standardRate);
+    if (!Number.isFinite(v) || v < 0) { setApplyErr("Enter a valid rate (0 or more)."); return; }
+    start(async () => {
+      const results = await Promise.all(units.map((u) => saveUnitExtraPersonRate(u.id, v)));
+      const failed = results.filter((r) => !r.ok);
+      if (failed.length) { setApplyErr((failed[0] as { ok: false; error: string }).error); return; }
+      setApplyMsg(`₱${v.toLocaleString("en-PH")} applied to all ${units.length} rooms.`);
+      router.refresh();
+    });
+  }
+
   return (
     <div>
-      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">Extra person charge per room</p>
-      <p className="mb-3 text-[11px] text-stone-400">Set 0 to disable for that room. Rate is charged per additional person at check-in and during the stay.</p>
+      <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-stone-500">Extra person charge per room</p>
+      <p className="mb-4 text-[11px] text-stone-400">Set 0 to disable for a room. Charged per additional person at check-in and during the stay.</p>
+
+      {/* Standard rate — apply to all */}
+      <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-3">
+        <p className="mb-2 text-xs font-semibold text-amber-900">Standard rate — apply to all rooms</p>
+        <div className="flex flex-wrap items-end gap-2">
+          <div>
+            <label className="mb-1 block text-[11px] font-medium text-stone-600">Rate / person</label>
+            <div className="flex items-center gap-1">
+              <span className="text-sm text-stone-400">₱</span>
+              <input
+                type="number"
+                min={0}
+                step="0.01"
+                value={standardRate}
+                onChange={(e) => { setStandardRate(e.target.value); setApplyMsg(""); setApplyErr(""); }}
+                placeholder="e.g. 300"
+                className="w-28 rounded-lg border border-stone-300 px-2 py-1.5 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
+              />
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={applyToAll}
+            disabled={pending || !standardRate}
+            className="rounded-lg bg-amber-600 px-4 py-1.5 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-60"
+          >
+            {pending ? "Applying…" : "Apply to all rooms"}
+          </button>
+          {applyMsg && <span className="text-xs text-emerald-700">{applyMsg}</span>}
+        </div>
+        {applyErr && <p className="mt-1 text-xs text-red-600">{applyErr}</p>}
+      </div>
+
+      {/* Per-room overrides */}
+      <p className="mb-2 text-[11px] font-semibold text-stone-500">Or set individual rates per room</p>
       <table className="w-full">
         <thead>
           <tr className="border-b border-stone-200">
