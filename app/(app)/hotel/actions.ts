@@ -969,6 +969,47 @@ export async function saveExtraPersonRate(rate: number): Promise<ActionResult> {
   return { ok: true };
 }
 
+// ---- extra person charge (during stay) --------------------------------------
+
+const EXTRA_PERSON_ROLES = ["hotel_cashier", "hotel_rental_monitoring", "admin", "managing_officer", "accounting", "consultant"] as const;
+
+export async function addExtraPersonCharge(stayId: string, count: number, note: string): Promise<ActionResult> {
+  const user = await requireAuth();
+  if (!userHasAnyRole(user, [...EXTRA_PERSON_ROLES]))
+    return { ok: false, error: "Not authorised to add extra person charges." };
+  if (!Number.isInteger(count) || count < 1)
+    return { ok: false, error: "Count must be at least 1." };
+  const admin = createAdminClient();
+  const { data: settings } = await admin.from("hotel_extra_settings").select("extra_person_rate").eq("id", 1).maybeSingle();
+  const rate = Number(settings?.extra_person_rate ?? 0);
+  if (rate <= 0) return { ok: false, error: "Extra person rate is not configured. Set it in Hotel Settings first." };
+  const label = note.trim() ? `Extra person — ${note.trim()}` : "Extra person";
+  const { error } = await admin.from("stay_orders").insert({
+    stay_id: stayId,
+    menu_item_id: null,
+    name: label,
+    qty: count,
+    unit_price: rate,
+    created_by: user.userId,
+  });
+  if (error) return { ok: false, error: error.message };
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "create", entity: "stay_extra_person_charge", entityId: stayId, diff: { count, rate, note } });
+  revalidatePath(`/hotel/${stayId}`);
+  return { ok: true };
+}
+
+export async function removeExtraPersonCharge(chargeId: string, stayId: string): Promise<ActionResult> {
+  const user = await requireAuth();
+  if (!userHasAnyRole(user, [...EXTRA_PERSON_ROLES]))
+    return { ok: false, error: "Not authorised to remove extra person charges." };
+  const admin = createAdminClient();
+  const { error } = await admin.from("stay_orders").delete().eq("id", chargeId);
+  if (error) return { ok: false, error: error.message };
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "delete", entity: "stay_extra_person_charge", entityId: chargeId });
+  revalidatePath(`/hotel/${stayId}`);
+  return { ok: true };
+}
+
 // ---- room transfer ----------------------------------------------------------
 
 const TRANSFER_REASONS = ["room_issue", "maintenance", "guest_preference", "other"] as const;

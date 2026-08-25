@@ -18,6 +18,8 @@ import { listDocPhotos } from "@/lib/docs/photos";
 import { PhotoDocPanel } from "@/components/capture/photo-doc-panel";
 import { TransferRoomModal } from "@/components/hotel/transfer-room-modal";
 import { SupervisorOpsPanel } from "@/components/hotel/supervisor-ops-panel";
+import { ExtraPersonPanel } from "@/components/hotel/extra-person-panel";
+import { getExtraPersonRate } from "@/lib/hotel/queries";
 
 export const metadata = { title: "Folio" };
 
@@ -33,7 +35,7 @@ export default async function StayFolioPage({
   const canWrite = canWriteModule(user.roleKeys, "hotel");
   const isConsultant = user.roleKeys.includes("consultant");
   const isSupervisor = userHasAnyRole(user, ["hotel_rental_monitoring", "admin", "managing_officer", "consultant"]);
-  const [detail, menu, roomCheck, damagePhotos, tz, suggestedArNo, board, transferRecord] = await Promise.all([
+  const [detail, menu, roomCheck, damagePhotos, tz, suggestedArNo, board, transferRecord, extraPersonRate] = await Promise.all([
     getStayDetail(stayId),
     listMenuItems(),
     getLatestRoomCheck(stayId),
@@ -42,16 +44,20 @@ export default async function StayFolioPage({
     getSuggestedNextArNo(),
     listRoomBoard(),
     getTransferRecord(stayId),
+    getExtraPersonRate(),
   ]);
   if (!detail) notFound();
 
   const { stay, payments, orders, extensions } = detail;
+  const foodOrders = orders.filter((o) => o.menu_item_id !== null);
+  const extraPersonCharges = orders.filter((o) => o.menu_item_id === null);
+  const canManageExtras = userHasAnyRole(user, ["hotel_cashier", "hotel_rental_monitoring", "admin", "managing_officer", "accounting", "consultant"]);
   // Rooms available for transfer: not occupied, not needing housekeeping, not this room
   const availableRooms = board
     .filter((b) => !b.stay && !b.needsHousekeeping && b.unit.id !== stay.unit_id)
     .map((b) => ({ id: b.unit.id, unit_number: b.unit.unit_number }));
   const paid = payments.reduce((s, p) => s + p.amount, 0);
-  const ordersTotal = orders.reduce((s, o) => s + o.qty * o.unit_price, 0);
+  const ordersTotal = orders.reduce((s, o) => s + o.qty * o.unit_price, 0); // includes extra person charges
   const t = stayTotals(stay, paid, ordersTotal);
   const tax = computeTax(t.total, stay.tax_mode, stay.tax_rate);
 
@@ -144,7 +150,15 @@ export default async function StayFolioPage({
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="space-y-4">
           {stay.status === "active" && (
-            <OrdersPanel stayId={stay.id} orders={orders} menu={menu} canWrite={canWrite} />
+            <ExtraPersonPanel
+              stayId={stay.id}
+              charges={extraPersonCharges}
+              extraPersonRate={extraPersonRate}
+              canManage={canManageExtras}
+            />
+          )}
+          {stay.status === "active" && (
+            <OrdersPanel stayId={stay.id} orders={foodOrders} menu={menu} canWrite={canWrite} />
           )}
           {stay.status === "active" && canWrite && (
             <RoomCheck stayId={stay.id} gatepassNo={roomCheck?.gatepass_no ?? null} />
@@ -194,9 +208,12 @@ export default async function StayFolioPage({
           <div className="mt-2 space-y-0.5 border-t border-dashed border-stone-300 pt-2">
             <Line k="Room charge" v={peso(t.room_charge)} />
             {stay.extra_person_amount > 0 && (
-              <Line k={`Extra persons (${stay.extra_persons}×)`} v={peso(stay.extra_person_amount)} />
+              <Line k={`Extra persons at check-in (${stay.extra_persons}×)`} v={peso(stay.extra_person_amount)} />
             )}
-            {orders.map((o) => (
+            {extraPersonCharges.map((c) => (
+              <Line key={c.id} k={`${c.qty}× ${c.name}`} v={peso(c.qty * c.unit_price)} />
+            ))}
+            {foodOrders.map((o) => (
               <Line key={o.id} k={`${o.qty}× ${o.name}`} v={peso(o.qty * o.unit_price)} />
             ))}
             {t.discount > 0 && (

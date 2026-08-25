@@ -17,6 +17,8 @@ export function OrdersPanel({
   menu: MenuItem[];
   canWrite: boolean;
 }) {
+  // Extra person charges (menu_item_id === null) are handled by ExtraPersonPanel
+  orders = orders.filter((o) => o.menu_item_id !== null);
   const router = useRouter();
   const [itemId, setItemId] = useState(menu[0]?.id ?? "");
   const [qty, setQty] = useState(1);
