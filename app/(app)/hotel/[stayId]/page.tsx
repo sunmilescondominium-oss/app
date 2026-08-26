@@ -176,6 +176,7 @@ export default async function StayFolioPage({
               stayId={stay.id}
               checkInAt={stay.check_in_at}
               availableRooms={availableRooms}
+              currentBaseRate={stay.base_rate}
             />
           )}
           {stay.status === "active" && isSupervisor && (
@@ -253,7 +254,10 @@ export default async function StayFolioPage({
               const label = `${METHOD_LABEL[p.method] ?? p.method}${p.receipt_no ? ` ${p.receipt_no}` : ""}${p.ar_no ? ` · ${p.ar_no}` : ""}`;
               return (
                 <div key={p.id} className="flex items-center justify-between gap-1">
-                  <span className="text-stone-500 text-[11px]">{label}</span>
+                  <span className="text-stone-500 text-[11px]">
+                    {label}
+                    {p.payment_note && <span className="ml-1 text-[10px] text-amber-700">({p.payment_note})</span>}
+                  </span>
                   <span className="flex items-center tabular-nums text-[11px]">
                     {peso(p.amount)}
                     {isConsultant && <DeletePaymentButton paymentId={p.id} stayId={stayId} label={label} />}

@@ -62,6 +62,7 @@ export interface StayPayment {
   receipt_no: string | null;
   ar_no: string | null;
   paid_at: string;
+  payment_note: string | null;
 }
 
 export interface MenuItem {

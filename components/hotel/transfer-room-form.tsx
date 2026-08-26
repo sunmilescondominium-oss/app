@@ -22,11 +22,13 @@ export function TransferRoomForm({
   stayId,
   checkInAt,
   availableRooms,
+  currentBaseRate,
   onDone,
 }: {
   stayId: string;
   checkInAt: string;
   availableRooms: { id: string; unit_number: string }[];
+  currentBaseRate: number;
   onDone: () => void;
 }) {
   const router = useRouter();
@@ -34,7 +36,7 @@ export function TransferRoomForm({
   const [remarks, setRemarks] = useState("");
   const [maintenanceDescription, setMaintenanceDescription] = useState("");
   const [toUnitId, setToUnitId] = useState("");
-  const [upgradeAmount, setUpgradeAmount] = useState("");
+  const [newRateStr, setNewRateStr] = useState(String(currentBaseRate));
   const [upgradeMethod, setUpgradeMethod] = useState("");
   const [upgradeArNo, setUpgradeArNo] = useState("");
   const [err, setErr] = useState("");
@@ -43,8 +45,9 @@ export function TransferRoomForm({
   const elapsedMin = Math.floor((Date.now() - new Date(checkInAt).getTime()) / 60000);
   const within10 = elapsedMin <= 10;
   const needsMaintDesc = MAINTENANCE_REASONS.has(reason);
-  const upgradeAmountNum = parseFloat(upgradeAmount) || 0;
-  const hasUpgradeFee = upgradeAmountNum > 0;
+  const newRate = parseFloat(newRateStr) || currentBaseRate;
+  const shortfall = Math.max(0, Math.round((newRate - currentBaseRate) * 100) / 100);
+  const hasUpgradeFee = shortfall > 0;
 
   function submit() {
     setErr("");
@@ -62,7 +65,8 @@ export function TransferRoomForm({
     fd.set("transfer_reason", reason);
     fd.set("remarks", remarks);
     fd.set("maintenance_description", maintenanceDescription.trim());
-    fd.set("upgrade_amount", upgradeAmountNum > 0 ? String(upgradeAmountNum) : "0");
+    fd.set("new_base_rate", String(newRate));
+    fd.set("upgrade_amount", String(shortfall));
     fd.set("upgrade_method", upgradeMethod);
     fd.set("upgrade_ar_no", upgradeArNo.trim());
     start(async () => {
@@ -126,27 +130,44 @@ export function TransferRoomForm({
         />
       </div>
 
-      {/* Upgrade fee collection */}
+      {/* Room rate & upgrade fee */}
       <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 space-y-3">
-        <p className="text-xs font-semibold text-amber-900">
-          Upgrade fee collection <span className="font-normal text-amber-700">(leave at 0 if no additional charge)</span>
-        </p>
-        <div>
-          <label className={labelCls}>Amount to collect (₱)</label>
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            value={upgradeAmount}
-            onChange={(e) => { setUpgradeAmount(e.target.value); if (!e.target.value || parseFloat(e.target.value) === 0) setUpgradeMethod(""); }}
-            placeholder="0.00"
-            className={inputCls}
-          />
+        <p className="text-xs font-semibold text-amber-900">Room rate for new room</p>
+        <div className="flex items-center gap-3">
+          <div className="flex-1">
+            <label className={labelCls}>Current room rate (₱)</label>
+            <input type="text" readOnly value={currentBaseRate.toFixed(2)} className={`${inputCls} bg-stone-100 text-stone-500`} />
+          </div>
+          <div className="flex-1">
+            <label className={labelCls}>New room rate (₱) *</label>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={newRateStr}
+              onChange={(e) => { setNewRateStr(e.target.value); setUpgradeMethod(""); }}
+              className={inputCls}
+            />
+          </div>
         </div>
+        {shortfall > 0 ? (
+          <div className="rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm">
+            <p className="font-semibold text-amber-900">
+              Upgrade shortfall: <span className="text-rose-700">₱{shortfall.toFixed(2)}</span>
+            </p>
+            <p className="text-xs text-stone-500 mt-0.5">
+              ₱{currentBaseRate.toFixed(2)} already collected · ₱{shortfall.toFixed(2)} to collect now
+            </p>
+          </div>
+        ) : newRate < currentBaseRate ? (
+          <p className="text-xs text-stone-500">New rate is lower — no additional collection needed.</p>
+        ) : (
+          <p className="text-xs text-stone-500">Same rate — no additional collection needed.</p>
+        )}
         {hasUpgradeFee && (
           <>
             <div>
-              <label className={labelCls}>Payment method *</label>
+              <label className={labelCls}>Payment method for upgrade fee *</label>
               <select value={upgradeMethod} onChange={(e) => setUpgradeMethod(e.target.value)} className={inputCls}>
                 <option value="">— select —</option>
                 {HOTEL_PAYMENT_METHODS.map((m) => (
@@ -164,9 +185,6 @@ export function TransferRoomForm({
                 className={inputCls}
               />
             </div>
-            <p className="text-xs font-semibold text-amber-800">
-              ₱{upgradeAmountNum.toFixed(2)} will be recorded as a payment on the new room folio.
-            </p>
           </>
         )}
       </div>

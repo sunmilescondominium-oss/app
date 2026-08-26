@@ -267,6 +267,7 @@ export async function getStayDetail(id: string): Promise<StayDetail | null> {
     receipt_no: (p.receipt_no as string) ?? null,
     ar_no: (p.ar_no as string) ?? null,
     paid_at: p.paid_at as string,
+    payment_note: (p.payment_note as string) ?? null,
   }));
   const orders: StayOrder[] = (ords ?? []).map((o: Record<string, unknown>) => ({
     id: o.id as string,

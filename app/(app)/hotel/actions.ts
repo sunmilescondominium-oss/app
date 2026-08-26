@@ -1072,6 +1072,7 @@ export async function transferRoom(
   const toUnitId = String(formData.get("to_unit_id") ?? "").trim();
   const reason = String(formData.get("transfer_reason") ?? "").trim() as typeof TRANSFER_REASONS[number];
   const remarks = String(formData.get("remarks") ?? "").trim() || null;
+  const newBaseRate = parseFloat(String(formData.get("new_base_rate") ?? "0")) || null;
   if (!toUnitId) return { ok: false, error: "Select the room to transfer to." };
   if (!TRANSFER_REASONS.includes(reason)) return { ok: false, error: "Select a valid transfer reason." };
 
@@ -1107,7 +1108,7 @@ export async function transferRoom(
     rate_plan_id: stay.rate_plan_id,
     planned_hours: stay.planned_hours,
     base_hours: stay.base_hours,
-    base_rate: stay.base_rate,
+    base_rate: newBaseRate ?? stay.base_rate,
     extra_hour_rate: stay.extra_hour_rate,
     promo_id: stay.promo_id,
     discount_amount: stay.discount_amount,
@@ -1138,8 +1139,8 @@ export async function transferRoom(
       amount: round2(upgradeAmount),
       method: upgradeMethod,
       ar_no: arNo,
-      collected_by: user.userId,
-      note: "Upgrade fee collected on transfer",
+      created_by: user.userId,
+      payment_note: `Upgrade fee — transferred from room ${stay.unit_id as string}`,
     });
   }
 
