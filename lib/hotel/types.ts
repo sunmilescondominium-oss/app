@@ -82,6 +82,21 @@ export interface StayOrder {
   unit_price: number;
 }
 
+export interface MaintenanceIssue {
+  id: string;
+  unit_id: string;
+  transfer_id: string | null;
+  description: string;
+  status: "open" | "in_progress" | "resolved";
+  reporter_name: string | null;
+  reported_at: string;
+  resolver_name: string | null;
+  resolved_at: string | null;
+  fix_report: string | null;
+  stays_after_fix: number;
+  visible_until: string | null;
+}
+
 export interface RoomBoardItem {
   unit: { id: string; unit_number: string; unit_type: string | null; extra_person_rate: number };
   stay: Stay | null;
@@ -91,6 +106,10 @@ export interface RoomBoardItem {
   paid?: number;
   ordersTotal?: number;
   balance?: number;
+  /** Last checkout timestamp for this unit (vacant rooms only). */
+  lastCheckout?: { at: string; cleaner_name: string | null } | null;
+  /** Active or recently-resolved maintenance issue on this unit. */
+  maintenanceIssue?: MaintenanceIssue | null;
 }
 
 export interface StayDetail {

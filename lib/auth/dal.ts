@@ -40,6 +40,8 @@ export interface SessionUser {
   canActAsAny: boolean;
   /** True when this session is a consultant impersonating another user. */
   impersonating: boolean;
+  /** True when demo mode is active — new stays are tagged is_demo = true. */
+  demoMode: boolean;
 }
 
 export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
@@ -71,9 +73,12 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
   const canActAsAny = canReadModule(allRoleKeys, "actas");
   const cookieStore = await cookies();
   const requested = cookieStore.get("act_as_role")?.value ?? null;
+  // setActAsRole validates role + hierarchy before writing the cookie, so any
+  // cookie value that's a known role key is considered valid here.
   const validTarget =
-    requested != null && canActAsAny && (ALL_ROLE_KEYS as readonly string[]).includes(requested);
+    requested != null && (ALL_ROLE_KEYS as readonly string[]).includes(requested);
   const actingAs = validTarget ? requested : null;
+  const demoMode = cookieStore.get("demo_mode")?.value === "1";
 
   return {
     userId: user.id,
@@ -84,6 +89,7 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
     actingAs,
     canActAsAny,
     impersonating: cookieStore.get("imp_active")?.value === "1",
+    demoMode,
   };
 });
 

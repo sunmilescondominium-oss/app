@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireModule, userHasAnyRole } from "@/lib/auth/dal";
 import { canWriteModule, canReadModule } from "@/lib/rbac/modules";
-import { getStayDetail, listMenuItems, getLatestRoomCheck, listRoomBoard, getTransferRecord } from "@/lib/hotel/queries";
+import { getStayDetail, listMenuItems, getLatestRoomCheck, listRoomBoard, getTransferRecord, getMaintenanceIssueForUnit } from "@/lib/hotel/queries";
 import { getSuggestedNextArNo } from "@/lib/hotel/session";
 import { stayTotals } from "@/lib/hotel/rates";
 import { computeTax } from "@/lib/hotel/tax";
@@ -19,6 +19,7 @@ import { PhotoDocPanel } from "@/components/capture/photo-doc-panel";
 import { TransferRoomModal } from "@/components/hotel/transfer-room-modal";
 import { SupervisorOpsPanel } from "@/components/hotel/supervisor-ops-panel";
 import { ExtraPersonPanel } from "@/components/hotel/extra-person-panel";
+import { MaintenanceIssuePanel } from "@/components/hotel/maintenance-issue-panel";
 
 export const metadata = { title: "Folio" };
 
@@ -46,10 +47,13 @@ export default async function StayFolioPage({
   ]);
   if (!detail) notFound();
 
+  const maintenanceIssue = await getMaintenanceIssueForUnit(detail.stay.unit_id ?? "");
+
   const { stay, payments, orders, extensions } = detail;
   const foodOrders = orders.filter((o) => o.menu_item_id !== null);
   const extraPersonCharges = orders.filter((o) => o.menu_item_id === null);
   const canManageExtras = userHasAnyRole(user, ["hotel_cashier", "hotel_rental_monitoring", "admin", "managing_officer", "accounting", "consultant"]);
+  const canResolveMaintenance = userHasAnyRole(user, ["hotel_rental_monitoring", "admin", "managing_officer", "consultant", "room_attendant"]);
   // Per-room extra person rate — read from board item (all hotel units are always in the board)
   const extraPersonRate = board.find((b) => b.unit.id === stay.unit_id)?.unit.extra_person_rate ?? 0;
   // Rooms available for transfer: not occupied, not needing housekeeping, not this room
@@ -162,6 +166,9 @@ export default async function StayFolioPage({
           )}
           {stay.status === "active" && canWrite && (
             <RoomCheck stayId={stay.id} gatepassNo={roomCheck?.gatepass_no ?? null} />
+          )}
+          {maintenanceIssue && (
+            <MaintenanceIssuePanel issue={maintenanceIssue} canResolve={canResolveMaintenance} />
           )}
           {canWrite && <FolioActions stayId={stay.id} status={stay.status} balance={t.balance} checkInAt={stay.check_in_at} suggestedArNo={suggestedArNo} />}
           {stay.status === "active" && canWrite && (

@@ -6,6 +6,7 @@ import { AppShell, type NavModule, type RoleOption } from "@/components/app-shel
 import { getLang } from "@/lib/i18n-server";
 import { navLabel, navBlurb } from "@/lib/i18n";
 import { countUnreadNotifications, notifyPostdatedChecksDue } from "@/lib/notifications/queries";
+import { demoableRoles } from "@/lib/auth/demo-hierarchy";
 
 /**
  * Authenticated app shell. requireAuth() is the authoritative gate; the nav is
@@ -34,18 +35,35 @@ export default async function AppLayout({
       milestone: m.milestone,
     }));
 
-  // The "Act as / view as" switcher only appears for holders of the capability
-  // (owner/admin/consultant by default, or roles granted it). They may preview
-  // any active role.
+  // The "Act as / view as" switcher appears for canActAsAny users (all roles)
+  // and for users with demo hierarchy access (their demoable roles only).
   const supabase = await createClient();
-  const { data: roleRows } = user.canActAsAny
-    ? await supabase.from("roles").select("role_key, label, sort_order").eq("is_active", true).order("sort_order")
-    : { data: [] };
+  const demoKeys = demoableRoles(user.allRoleKeys);
+  const hasDemoAccess = demoKeys.length > 0;
 
-  const allRoleOptions: RoleOption[] = (roleRows ?? []).map((r) => ({
-    key: r.role_key as string,
-    label: (r.label as string) ?? (r.role_key as string),
-  }));
+  let allRoleOptions: RoleOption[] = [];
+  if (user.canActAsAny) {
+    const { data: roleRows } = await supabase
+      .from("roles")
+      .select("role_key, label, sort_order")
+      .eq("is_active", true)
+      .order("sort_order");
+    allRoleOptions = (roleRows ?? []).map((r) => ({
+      key: r.role_key as string,
+      label: (r.label as string) ?? (r.role_key as string),
+    }));
+  } else if (hasDemoAccess) {
+    const { data: roleRows } = await supabase
+      .from("roles")
+      .select("role_key, label, sort_order")
+      .in("role_key", demoKeys)
+      .eq("is_active", true)
+      .order("sort_order");
+    allRoleOptions = (roleRows ?? []).map((r) => ({
+      key: r.role_key as string,
+      label: (r.label as string) ?? (r.role_key as string),
+    }));
+  }
 
   const commitSha = process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? null;
   void notifyPostdatedChecksDue(); // fire-and-forget — never blocks render
@@ -58,6 +76,7 @@ export default async function AppLayout({
       allRoleOptions={allRoleOptions}
       actingAs={user.actingAs}
       impersonating={user.impersonating}
+      demoMode={user.demoMode}
       lang={lang}
       commitSha={commitSha}
       isSuperUser={user.roleKeys.some((r) => ["consultant", "admin", "managing_officer"].includes(r))}

@@ -10,6 +10,7 @@ import { exitImpersonation } from "@/app/(app)/users/impersonate-actions";
 import { SunMilesMark } from "@/components/brand-logo";
 import { t, navLabel, navBlurb, type Lang } from "@/lib/i18n";
 import { NotificationBell } from "@/components/notifications/notification-bell";
+import { setDemoMode } from "@/lib/auth/actions";
 
 export interface NavModule {
   key: string;
@@ -30,6 +31,7 @@ export function AppShell({
   allRoleOptions,
   actingAs,
   impersonating = false,
+  demoMode = false,
   lang = "en",
   commitSha = null,
   isSuperUser = false,
@@ -41,6 +43,7 @@ export function AppShell({
   allRoleOptions: RoleOption[];
   actingAs: string | null;
   impersonating?: boolean;
+  demoMode?: boolean;
   lang?: Lang;
   commitSha?: string | null;
   isSuperUser?: boolean;
@@ -124,7 +127,7 @@ export function AppShell({
           {brand}
         </div>
         <div className="flex items-center gap-2.5">
-          {allRoleOptions.length > 1 && (
+          {allRoleOptions.length > 0 && (
             <select
               value={actingAs ?? "__all__"}
               onChange={async (e) => {
@@ -148,6 +151,23 @@ export function AppShell({
                 </option>
               ))}
             </select>
+          )}
+          {actingAs && (
+            <button
+              type="button"
+              title={demoMode ? "Demo mode is ON — click to turn off" : "Turn on demo mode for this role"}
+              onClick={async () => {
+                await setDemoMode(!demoMode);
+                window.location.reload();
+              }}
+              className={`rounded-lg border px-2.5 py-2 text-sm font-medium transition ${
+                demoMode
+                  ? "border-purple-400 bg-purple-100 text-purple-800 hover:bg-purple-200"
+                  : "border-stone-300 text-stone-600 hover:bg-stone-50"
+              }`}
+            >
+              🎭 {demoMode ? "Demo ON" : "Demo"}
+            </button>
           )}
           <NotificationBell unread={unreadNotifications} />
           <LanguageToggle />

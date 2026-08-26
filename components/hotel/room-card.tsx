@@ -4,15 +4,29 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { roomCharge } from "@/lib/hotel/rates";
 import { peso } from "@/lib/collections/summary";
-import type { RoomBoardItem } from "@/lib/hotel/types";
+import type { RoomBoardItem, MaintenanceIssue } from "@/lib/hotel/types";
 
-function fmt(ms: number): string {
+function fmtTimer(ms: number): string {
   const s = Math.floor(Math.abs(ms) / 1000);
   const h = Math.floor(s / 3600);
   const m = Math.floor((s % 3600) / 60);
   const sec = s % 60;
   return `${h}h ${m}m ${sec}s`;
 }
+
+function fmtDate(iso: string): string {
+  return new Intl.DateTimeFormat("en-PH", {
+    month: "short", day: "numeric",
+    hour: "numeric", minute: "2-digit",
+    timeZone: "Asia/Manila",
+  }).format(new Date(iso));
+}
+
+const ISSUE_STATUS_BADGE: Record<string, string> = {
+  open: "bg-red-100 text-red-800",
+  in_progress: "bg-amber-100 text-amber-800",
+  resolved: "bg-emerald-100 text-emerald-800",
+};
 
 export function RoomCard({
   item,
@@ -23,7 +37,7 @@ export function RoomCard({
   canWrite: boolean;
   onCheckIn: (unit: RoomBoardItem["unit"]) => void;
 }) {
-  const { unit, stay, needsHousekeeping } = item;
+  const { unit, stay, needsHousekeeping, lastCheckout, maintenanceIssue } = item;
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -34,15 +48,57 @@ export function RoomCard({
 
   if (!stay) {
     const forHousekeeping = needsHousekeeping;
+    const hasMaint = !!maintenanceIssue;
+    const bordClass = hasMaint
+      ? "border-rose-300 bg-rose-50"
+      : forHousekeeping
+      ? "border-amber-300 bg-amber-50"
+      : "border-stone-200 bg-white";
+
     return (
-      <div className={`rounded-2xl border-2 p-4 ${forHousekeeping ? "border-amber-300 bg-amber-50" : "border-stone-200 bg-white"}`}>
+      <div className={`rounded-2xl border-2 p-4 ${bordClass}`}>
         <div className="flex items-center justify-between">
           <p className="font-semibold text-stone-900">{unit.unit_number}</p>
-          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${forHousekeeping ? "bg-amber-200 text-amber-900" : "bg-emerald-100 text-emerald-800"}`}>
-            {forHousekeeping ? "For Housekeeping" : "Vacant"}
-          </span>
+          <div className="flex items-center gap-1">
+            {hasMaint && (
+              <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${ISSUE_STATUS_BADGE[maintenanceIssue!.status]}`}>
+                {maintenanceIssue!.status === "open" ? "⚠️ Issue" : maintenanceIssue!.status === "in_progress" ? "🔧 Repair" : "✅ Fixed"}
+              </span>
+            )}
+            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${forHousekeeping ? "bg-amber-200 text-amber-900" : "bg-emerald-100 text-emerald-800"}`}>
+              {forHousekeeping ? "For Housekeeping" : "Vacant"}
+            </span>
+          </div>
         </div>
         <p className="mt-1 text-xs text-stone-500">{unit.unit_type ?? "Room"}</p>
+
+        {/* Last usage + cleaner */}
+        {lastCheckout && (
+          <p className="mt-1.5 text-[11px] text-stone-400">
+            Last used: {fmtDate(lastCheckout.at)}
+            {lastCheckout.cleaner_name ? ` · Cleaned by ${lastCheckout.cleaner_name}` : ""}
+          </p>
+        )}
+
+        {/* Maintenance issue summary */}
+        {hasMaint && (
+          <div className={`mt-2 rounded-lg border px-2.5 py-1.5 text-xs ${
+            maintenanceIssue!.status === "resolved"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+              : "border-rose-200 bg-white text-rose-900"
+          }`}>
+            <p className="font-semibold">{maintenanceIssue!.status === "resolved" ? "Fixed: " : "Issue: "}{maintenanceIssue!.description}</p>
+            {maintenanceIssue!.status === "resolved" && maintenanceIssue!.fix_report && (
+              <p className="mt-0.5 text-emerald-700">{maintenanceIssue!.fix_report}</p>
+            )}
+            {maintenanceIssue!.status === "resolved" && (
+              <p className="mt-0.5 text-[10px] text-stone-400">
+                Uses since fix: {maintenanceIssue!.stays_after_fix}/5
+              </p>
+            )}
+          </div>
+        )}
+
         {forHousekeeping ? (
           <p className="mt-3 text-xs text-amber-700">Not available until housekeeping marks it ready.</p>
         ) : (
@@ -91,7 +147,7 @@ export function RoomCard({
       <p className="mt-1 truncate text-sm text-stone-700">{stay.guest_label}</p>
       {stay.rate_plan_name && <p className="text-xs text-amber-700">{stay.rate_plan_name}</p>}
       <p className={`mt-2 text-lg font-bold tabular-nums ${rem < 0 ? "text-red-700" : "text-stone-900"}`}>
-        {rem >= 0 ? `${fmt(rem)} left` : `OVER +${fmt(rem)}`}
+        {rem >= 0 ? `${fmtTimer(rem)} left` : `OVER +${fmtTimer(rem)}`}
       </p>
       <p className="text-xs text-stone-500">
         {stay.planned_hours}h · {peso(liveTotal)} · +{peso(stay.extra_hour_rate)}/hr ext

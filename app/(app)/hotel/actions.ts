@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { requireAuth, requireModuleWrite, userHasAnyRole } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
 import { logAudit } from "@/lib/audit";
@@ -135,6 +136,10 @@ export async function checkIn(
     }
   }
 
+  // Tag stay as demo if demo mode cookie is set
+  const cookieStoreForDemo = await cookies();
+  const isDemo = cookieStoreForDemo.get("demo_mode")?.value === "1";
+
   const { data, error } = await supabase
     .from("stays")
     .insert({
@@ -156,6 +161,7 @@ export async function checkIn(
       extra_person_amount,
       portal_token: (await import("node:crypto")).randomBytes(18).toString("base64url"),
       created_by: user.userId,
+      is_demo: isDemo,
     })
     .select("id")
     .single();
@@ -341,6 +347,24 @@ export async function checkOut(
     // Auto-create post-checkout housekeeping task (skip for test check-ins — room unchanged).
     const { data: outStay } = await supabase.from("stays").select("unit_id").eq("id", stayId).maybeSingle();
     await createCleaningTask({ unitId: outStay?.unit_id ?? null, stayId, actorUserId: user.userId, via: "checkout" });
+
+    // Increment stays_after_fix counter for resolved maintenance issues on this unit.
+    // When the counter reaches 5 the issue auto-expires from the room card.
+    if (outStay?.unit_id) {
+      const adminMaint = createAdminClient();
+      const { data: resolvedIssues } = await adminMaint
+        .from("hotel_maintenance_issues")
+        .select("id, stays_after_fix")
+        .eq("unit_id", outStay.unit_id)
+        .eq("status", "resolved")
+        .lt("stays_after_fix", 5);
+      for (const issue of resolvedIssues ?? []) {
+        await adminMaint
+          .from("hotel_maintenance_issues")
+          .update({ stays_after_fix: (issue.stays_after_fix as number) + 1 })
+          .eq("id", issue.id as string);
+      }
+    }
   }
 
   await logAudit({
@@ -1105,7 +1129,7 @@ export async function transferRoom(
   await admin.from("stays").update({ status: "checked_out", check_out_at: new Date().toISOString(), portal_token: null }).eq("id", stayId);
 
   // Record the transfer
-  await admin.from("hotel_room_transfers").insert({
+  const { data: transferRecord } = await admin.from("hotel_room_transfers").insert({
     from_stay_id: stayId,
     to_stay_id: newStay.id as string,
     from_unit_id: stay.unit_id as string,
@@ -1114,7 +1138,20 @@ export async function transferRoom(
     transfer_reason: reason,
     remarks,
     performed_by: user.userId,
-  });
+  }).select("id").single();
+
+  // Auto-create maintenance issue when the transfer reason is room_issue or maintenance
+  const maintenanceDescription = String(formData.get("maintenance_description") ?? "").trim();
+  if ((reason === "room_issue" || reason === "maintenance") && maintenanceDescription) {
+    const reporterName = await getDisplayLabel(user.userId);
+    await admin.from("hotel_maintenance_issues").insert({
+      unit_id: stay.unit_id as string,
+      transfer_id: (transferRecord?.id as string) ?? null,
+      description: maintenanceDescription,
+      reported_by: user.userId,
+      reporter_name: reporterName,
+    });
+  }
 
   // Notify admin + monitoring of the transfer (potential maintenance flag)
   void createNotification({
@@ -1186,6 +1223,67 @@ export async function voidStay(stayId: string, reason: string): Promise<ActionRe
 }
 
 // ---- delete / void extension (supervisor) -----------------------------------
+
+// ── Maintenance issues ────────────────────────────────────────────────────────
+
+const MAINTENANCE_ROLES = [
+  "hotel_rental_monitoring", "admin", "managing_officer", "consultant", "room_attendant",
+] as const;
+
+export async function resolveMaintenanceIssue(issueId: string, fixReport: string): Promise<ActionResult> {
+  const user = await requireAuth();
+  if (!userHasAnyRole(user, [...MAINTENANCE_ROLES]))
+    return { ok: false, error: "Not authorised to resolve maintenance issues." };
+  if (!fixReport.trim()) return { ok: false, error: "Fix report is required." };
+
+  const admin = createAdminClient();
+  const resolverName = await getDisplayLabel(user.userId);
+  // Issue stays visible for 1 month OR 5 uses, whichever comes first.
+  const visibleUntil = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+  const { error } = await admin.from("hotel_maintenance_issues").update({
+    status: "resolved",
+    resolved_by: user.userId,
+    resolver_name: resolverName,
+    resolved_at: new Date().toISOString(),
+    fix_report: fixReport.trim(),
+    stays_after_fix: 0,
+    visible_until: visibleUntil,
+  }).eq("id", issueId);
+  if (error) return { ok: false, error: error.message };
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "update", entity: "hotel_maintenance_issues", entityId: issueId, diff: { status: "resolved" } });
+  revalidatePath("/hotel");
+  return { ok: true };
+}
+
+export async function updateMaintenanceIssueStatus(issueId: string, status: "open" | "in_progress"): Promise<ActionResult> {
+  const user = await requireAuth();
+  if (!userHasAnyRole(user, [...MAINTENANCE_ROLES]))
+    return { ok: false, error: "Not authorised." };
+  const admin = createAdminClient();
+  const { error } = await admin.from("hotel_maintenance_issues").update({ status }).eq("id", issueId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/hotel");
+  return { ok: true };
+}
+
+// ── Demo data cleanup ─────────────────────────────────────────────────────────
+
+const DEMO_CLEAR_ROLES = [
+  "consultant", "admin", "managing_officer", "hotel_rental_monitoring", "accounting",
+] as const;
+
+/** Hard-delete all stays tagged is_demo = true (cascade removes payments, orders, etc.). */
+export async function clearDemoData(): Promise<ActionResult> {
+  const user = await requireAuth();
+  if (!userHasAnyRole(user, [...DEMO_CLEAR_ROLES]))
+    return { ok: false, error: "Not authorised to clear demo data." };
+  const admin = createAdminClient();
+  const { error } = await admin.from("stays").delete().eq("is_demo", true);
+  if (error) return { ok: false, error: error.message };
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "delete", entity: "stays", entityId: "demo_batch", diff: { is_demo: true } });
+  revalidatePath("/hotel");
+  return { ok: true };
+}
 
 export async function deleteExtension(
   extensionId: string,

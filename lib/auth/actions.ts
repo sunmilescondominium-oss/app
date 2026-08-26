@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getSessionUser } from "@/lib/auth/dal";
 import { ALL_ROLE_KEYS } from "@/lib/rbac/modules";
+import { canDemoRole } from "@/lib/auth/demo-hierarchy";
 import { siteOrigin } from "@/lib/site-url";
 
 export type LoginState = { error: string } | undefined;
@@ -95,8 +96,9 @@ export async function signOut(): Promise<void> {
 
 /**
  * "Act as role" — narrow the session to simulate a single role.
- * Users with canActAsAny (consultant/admin/owner) may preview ANY valid role.
- * Other users may only narrow to a role they personally hold.
+ * Users with canActAsAny (consultant/admin) may preview ANY valid role.
+ * Other users may demo roles they personally hold OR roles below them in the
+ * DEMO_HIERARCHY (e.g. hotel_rental_monitoring can demo hotel_cashier).
  */
 export async function setActAsRole(role: string | null): Promise<void> {
   const cookieStore = await cookies();
@@ -107,10 +109,22 @@ export async function setActAsRole(role: string | null): Promise<void> {
   const user = await getSessionUser();
   if (!user) return;
   const isValidRole = (ALL_ROLE_KEYS as readonly string[]).includes(role);
-  const allowed = isValidRole && (user.canActAsAny || user.allRoleKeys.includes(role));
+  const allowed =
+    isValidRole &&
+    (user.canActAsAny || user.allRoleKeys.includes(role) || canDemoRole(user.allRoleKeys, role));
   if (allowed) {
     cookieStore.set("act_as_role", role, { httpOnly: true, sameSite: "lax", path: "/" });
   } else {
     cookieStore.delete("act_as_role");
+  }
+}
+
+/** Toggle demo mode on/off. When active, new hotel stays are tagged is_demo = true. */
+export async function setDemoMode(active: boolean): Promise<void> {
+  const cookieStore = await cookies();
+  if (active) {
+    cookieStore.set("demo_mode", "1", { httpOnly: true, sameSite: "lax", path: "/" });
+  } else {
+    cookieStore.delete("demo_mode");
   }
 }

@@ -282,9 +282,14 @@ export async function completeTask(
   const supabase = await createClient();
   const { data: task } = await supabase.from("housekeeping_tasks").select("unit_id").eq("id", taskId).maybeSingle();
 
+  // Look up display label so the room card can show the cleaner's name without a join.
+  const adminForLabel = createAdminClient();
+  const { data: profile } = await adminForLabel.from("profiles").select("display_label").eq("id", user.userId).maybeSingle();
+  const completedByName = (profile?.display_label as string) ?? null;
+
   const { error } = await supabase
     .from("housekeeping_tasks")
-    .update({ status: "done", completed_at: new Date().toISOString(), checklist, notes: notes || null })
+    .update({ status: "done", completed_at: new Date().toISOString(), checklist, notes: notes || null, completed_by_name: completedByName })
     .eq("id", taskId);
   if (error) return { ok: false, error: error.message };
 

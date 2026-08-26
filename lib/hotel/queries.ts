@@ -16,6 +16,7 @@ import type {
   RoomTaxRow,
   HotelDaySummary,
   RoomTransferRecord,
+  MaintenanceIssue,
 } from "./types";
 
 function mapStay(r: Record<string, unknown>): Stay {
@@ -113,6 +114,37 @@ export async function listRoomTax(): Promise<RoomTaxRow[]> {
   }));
 }
 
+function mapMaintenanceIssue(r: Record<string, unknown>): MaintenanceIssue {
+  return {
+    id: r.id as string,
+    unit_id: r.unit_id as string,
+    transfer_id: (r.transfer_id as string) ?? null,
+    description: r.description as string,
+    status: r.status as MaintenanceIssue["status"],
+    reporter_name: (r.reporter_name as string) ?? null,
+    reported_at: r.reported_at as string,
+    resolver_name: (r.resolver_name as string) ?? null,
+    resolved_at: (r.resolved_at as string) ?? null,
+    fix_report: (r.fix_report as string) ?? null,
+    stays_after_fix: Number(r.stays_after_fix ?? 0),
+    visible_until: (r.visible_until as string) ?? null,
+  };
+}
+
+export async function getMaintenanceIssueForUnit(unitId: string): Promise<MaintenanceIssue | null> {
+  const supabase = await createClient();
+  const now = new Date().toISOString();
+  const { data } = await supabase
+    .from("hotel_maintenance_issues")
+    .select("*")
+    .eq("unit_id", unitId)
+    .or(`status.in.(open,in_progress),and(status.eq.resolved,stays_after_fix.lt.5,visible_until.gt.${now})`)
+    .order("reported_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data ? mapMaintenanceIssue(data as Record<string, unknown>) : null;
+}
+
 export async function listRoomBoard(): Promise<RoomBoardItem[]> {
   const supabase = await createClient();
   const [{ data: units }, { data: stays }, { data: hk }] = await Promise.all([
@@ -125,34 +157,91 @@ export async function listRoomBoard(): Promise<RoomBoardItem[]> {
   for (const s of mappedStays) if (s.unit_id) stayByUnit.set(s.unit_id, s);
   const dirty = new Set((hk ?? []).map((t) => t.unit_id as string).filter(Boolean));
 
-  // Live folio balance per active stay (room + orders − paid), for the card.
+  const unitIds = (units ?? []).map((u: Record<string, unknown>) => u.id as string);
   const stayIds = mappedStays.map((s) => s.id);
+  const now = new Date().toISOString();
+
+  // Parallel: folio totals + maintenance issues + last checkout + last cleaner
+  const [
+    { data: pays }, { data: ords },
+    { data: maintRows },
+    { data: recentCheckouts },
+    { data: recentHkTasks },
+  ] = await Promise.all([
+    stayIds.length
+      ? supabase.from("stay_payments").select("stay_id, amount").in("stay_id", stayIds)
+      : Promise.resolve({ data: [] as Record<string, unknown>[] }),
+    stayIds.length
+      ? supabase.from("stay_orders").select("stay_id, qty, unit_price").in("stay_id", stayIds)
+      : Promise.resolve({ data: [] as Record<string, unknown>[] }),
+    unitIds.length
+      ? supabase.from("hotel_maintenance_issues").select("*").in("unit_id", unitIds)
+          .or(`status.in.(open,in_progress),and(status.eq.resolved,stays_after_fix.lt.5,visible_until.gt.${now})`)
+      : Promise.resolve({ data: [] as Record<string, unknown>[] }),
+    unitIds.length
+      ? supabase.from("stays").select("unit_id, check_out_at").in("unit_id", unitIds)
+          .not("check_out_at", "is", null).order("check_out_at", { ascending: false }).limit(unitIds.length * 2)
+      : Promise.resolve({ data: [] as Record<string, unknown>[] }),
+    unitIds.length
+      ? supabase.from("housekeeping_tasks").select("unit_id, completed_at, completed_by_name")
+          .in("unit_id", unitIds).eq("status", "done").not("completed_at", "is", null)
+          .order("completed_at", { ascending: false }).limit(unitIds.length * 2)
+      : Promise.resolve({ data: [] as Record<string, unknown>[] }),
+  ]);
+
+  // Build folio totals map
   const totalsByStay = new Map<string, { paid: number; ordersTotal: number; balance: number }>();
-  if (stayIds.length) {
-    const [{ data: pays }, { data: ords }] = await Promise.all([
-      supabase.from("stay_payments").select("stay_id, amount").in("stay_id", stayIds),
-      supabase.from("stay_orders").select("stay_id, qty, unit_price").in("stay_id", stayIds),
-    ]);
-    const paidBy = new Map<string, number>();
-    for (const p of pays ?? []) paidBy.set(p.stay_id as string, (paidBy.get(p.stay_id as string) ?? 0) + Number(p.amount));
-    const ordersBy = new Map<string, number>();
-    for (const o of ords ?? []) ordersBy.set(o.stay_id as string, (ordersBy.get(o.stay_id as string) ?? 0) + Number(o.qty) * Number(o.unit_price));
-    for (const s of mappedStays) {
-      const paid = paidBy.get(s.id) ?? 0;
-      const ordersTotal = ordersBy.get(s.id) ?? 0;
-      const t = stayTotals(s, paid, ordersTotal);
-      totalsByStay.set(s.id, { paid, ordersTotal, balance: t.balance });
+  const paidBy = new Map<string, number>();
+  for (const p of pays ?? []) paidBy.set(p.stay_id as string, (paidBy.get(p.stay_id as string) ?? 0) + Number(p.amount));
+  const ordersBy = new Map<string, number>();
+  for (const o of ords ?? []) ordersBy.set(o.stay_id as string, (ordersBy.get(o.stay_id as string) ?? 0) + Number(o.qty) * Number(o.unit_price));
+  for (const s of mappedStays) {
+    const paid = paidBy.get(s.id) ?? 0;
+    const ordersTotal = ordersBy.get(s.id) ?? 0;
+    totalsByStay.set(s.id, { paid, ordersTotal, balance: stayTotals(s, paid, ordersTotal).balance });
+  }
+
+  // Build maintenance issue map (most recent per unit)
+  const issueByUnit = new Map<string, MaintenanceIssue>();
+  for (const row of maintRows ?? []) {
+    const r = row as Record<string, unknown>;
+    const uid = r.unit_id as string;
+    const existing = issueByUnit.get(uid);
+    if (!existing || new Date(r.reported_at as string) > new Date(existing.reported_at)) {
+      issueByUnit.set(uid, mapMaintenanceIssue(r));
+    }
+  }
+
+  // Build last checkout map (most recent per unit)
+  const lastCheckoutByUnit = new Map<string, string>();
+  for (const s of recentCheckouts ?? []) {
+    const r = s as Record<string, unknown>;
+    if (!lastCheckoutByUnit.has(r.unit_id as string)) {
+      lastCheckoutByUnit.set(r.unit_id as string, r.check_out_at as string);
+    }
+  }
+
+  // Build last cleaner map (most recent completed HK task per unit)
+  const lastCleanerByUnit = new Map<string, string | null>();
+  for (const t of recentHkTasks ?? []) {
+    const r = t as Record<string, unknown>;
+    if (!lastCleanerByUnit.has(r.unit_id as string)) {
+      lastCleanerByUnit.set(r.unit_id as string, (r.completed_by_name as string) ?? null);
     }
   }
 
   return (units ?? []).map((u: Record<string, unknown>) => {
-    const stay = stayByUnit.get(u.id as string) ?? null;
+    const unitId = u.id as string;
+    const stay = stayByUnit.get(unitId) ?? null;
     const t = stay ? totalsByStay.get(stay.id) : undefined;
+    const lastCoAt = lastCheckoutByUnit.get(unitId);
     return {
-      unit: { id: u.id as string, unit_number: u.unit_number as string, unit_type: (u.unit_type as string) ?? null, extra_person_rate: Number(u.extra_person_rate ?? 0) },
+      unit: { id: unitId, unit_number: u.unit_number as string, unit_type: (u.unit_type as string) ?? null, extra_person_rate: Number(u.extra_person_rate ?? 0) },
       stay,
-      needsHousekeeping: dirty.has(u.id as string),
+      needsHousekeeping: dirty.has(unitId),
       paid: t?.paid, ordersTotal: t?.ordersTotal, balance: t?.balance,
+      lastCheckout: lastCoAt ? { at: lastCoAt, cleaner_name: lastCleanerByUnit.get(unitId) ?? null } : null,
+      maintenanceIssue: issueByUnit.get(unitId) ?? null,
     };
   });
 }

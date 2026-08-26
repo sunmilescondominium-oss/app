@@ -12,6 +12,7 @@ import {
 import { getActiveSession, getSuggestedNextArNo } from "@/lib/hotel/session";
 import { PageHeader, Badge } from "@/components/ui";
 import { HotelBoard } from "@/components/hotel/hotel-board";
+import { DemoModeBar } from "@/components/hotel/demo-mode-bar";
 import { PushSubscribeButton } from "@/components/push-subscribe-button";
 import { CsvImporter } from "@/components/data/csv-importer";
 import { RATE_PLAN_TEMPLATE, MENU_TEMPLATE } from "@/lib/imports/config";
@@ -107,6 +108,8 @@ export default async function HotelPage() {
           </>
         )}
       </div>
+
+      {user.demoMode && <DemoModeBar actingAs={user.actingAs} />}
 
       {board.length === 0 ? (
         <div className="rounded-2xl border border-stone-200 bg-white p-6 text-sm text-stone-500">

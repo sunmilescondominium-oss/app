@@ -15,6 +15,8 @@ const PRESET_REASONS = [
   { value: "other", label: "Other" },
 ] as const;
 
+const MAINTENANCE_REASONS = new Set(["room_issue", "maintenance"]);
+
 export function TransferRoomForm({
   stayId,
   checkInAt,
@@ -29,20 +31,27 @@ export function TransferRoomForm({
   const router = useRouter();
   const [reason, setReason] = useState<string>("room_issue");
   const [remarks, setRemarks] = useState("");
+  const [maintenanceDescription, setMaintenanceDescription] = useState("");
   const [toUnitId, setToUnitId] = useState("");
   const [err, setErr] = useState("");
   const [pending, start] = useTransition();
 
   const elapsedMin = Math.floor((Date.now() - new Date(checkInAt).getTime()) / 60000);
   const within10 = elapsedMin <= 10;
+  const needsMaintDesc = MAINTENANCE_REASONS.has(reason);
 
   function submit() {
     setErr("");
     if (!toUnitId) { setErr("Select a room to transfer to."); return; }
+    if (needsMaintDesc && !maintenanceDescription.trim()) {
+      setErr("Please describe the room issue so a maintenance request can be created.");
+      return;
+    }
     const fd = new FormData();
     fd.set("to_unit_id", toUnitId);
     fd.set("transfer_reason", reason);
     fd.set("remarks", remarks);
+    fd.set("maintenance_description", maintenanceDescription.trim());
     start(async () => {
       const res = await transferRoom(stayId, fd);
       if (!res.ok) { setErr(res.error); return; }
@@ -71,20 +80,35 @@ export function TransferRoomForm({
 
       <div>
         <label className={labelCls}>Reason for transfer *</label>
-        <select value={reason} onChange={(e) => setReason(e.target.value)} className={inputCls}>
+        <select value={reason} onChange={(e) => { setReason(e.target.value); setMaintenanceDescription(""); }} className={inputCls}>
           {PRESET_REASONS.map((r) => (
             <option key={r.value} value={r.value}>{r.label}</option>
           ))}
         </select>
       </div>
 
+      {needsMaintDesc && (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 p-3">
+          <label className="mb-1 block text-xs font-semibold text-rose-900">
+            Room issue / maintenance description * <span className="font-normal">(creates a maintenance request)</span>
+          </label>
+          <textarea
+            value={maintenanceDescription}
+            onChange={(e) => setMaintenanceDescription(e.target.value)}
+            rows={3}
+            placeholder="e.g. AC not cooling, water leak from ceiling, faulty door lock…"
+            className={inputCls}
+          />
+        </div>
+      )}
+
       <div>
-        <label className={labelCls}>Remarks / details (required for audit)</label>
+        <label className={labelCls}>Additional remarks (optional)</label>
         <textarea
           value={remarks}
           onChange={(e) => setRemarks(e.target.value)}
-          rows={3}
-          placeholder="Describe the issue or reason in detail — this is reviewed by admin and monitoring"
+          rows={2}
+          placeholder="Any other notes for audit purposes"
           className={inputCls}
         />
       </div>
