@@ -1122,8 +1122,23 @@ export async function transferRoom(
   }).select("id").single();
   if (insErr) return { ok: false, error: insErr.message };
 
-  // Move payments to new stay
+  // Move existing payments to new stay
   await admin.from("stay_payments").update({ stay_id: newStay.id as string }).eq("stay_id", stayId);
+
+  // Collect upgrade fee if provided
+  const upgradeAmount = parseFloat(String(formData.get("upgrade_amount") ?? "0")) || 0;
+  const upgradeMethod = String(formData.get("upgrade_method") ?? "").trim();
+  if (upgradeAmount > 0 && METHODS.includes(upgradeMethod)) {
+    const arNo = String(formData.get("upgrade_ar_no") ?? "").trim() || null;
+    await admin.from("stay_payments").insert({
+      stay_id: newStay.id as string,
+      amount: round2(upgradeAmount),
+      method: upgradeMethod,
+      ar_no: arNo,
+      collected_by: user.userId,
+      note: "Upgrade fee collected on transfer",
+    });
+  }
 
   // Check out the old stay (mark as voided-transfer so it's not confused with real checkouts)
   await admin.from("stays").update({ status: "checked_out", check_out_at: new Date().toISOString(), portal_token: null }).eq("id", stayId);

@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { transferRoom } from "@/app/(app)/hotel/actions";
+import { HOTEL_PAYMENT_METHODS } from "@/lib/config";
 
 const inputCls =
   "w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
@@ -33,12 +34,17 @@ export function TransferRoomForm({
   const [remarks, setRemarks] = useState("");
   const [maintenanceDescription, setMaintenanceDescription] = useState("");
   const [toUnitId, setToUnitId] = useState("");
+  const [upgradeAmount, setUpgradeAmount] = useState("");
+  const [upgradeMethod, setUpgradeMethod] = useState("");
+  const [upgradeArNo, setUpgradeArNo] = useState("");
   const [err, setErr] = useState("");
   const [pending, start] = useTransition();
 
   const elapsedMin = Math.floor((Date.now() - new Date(checkInAt).getTime()) / 60000);
   const within10 = elapsedMin <= 10;
   const needsMaintDesc = MAINTENANCE_REASONS.has(reason);
+  const upgradeAmountNum = parseFloat(upgradeAmount) || 0;
+  const hasUpgradeFee = upgradeAmountNum > 0;
 
   function submit() {
     setErr("");
@@ -47,11 +53,18 @@ export function TransferRoomForm({
       setErr("Please describe the room issue so a maintenance request can be created.");
       return;
     }
+    if (hasUpgradeFee && !upgradeMethod) {
+      setErr("Select a payment method for the upgrade fee.");
+      return;
+    }
     const fd = new FormData();
     fd.set("to_unit_id", toUnitId);
     fd.set("transfer_reason", reason);
     fd.set("remarks", remarks);
     fd.set("maintenance_description", maintenanceDescription.trim());
+    fd.set("upgrade_amount", upgradeAmountNum > 0 ? String(upgradeAmountNum) : "0");
+    fd.set("upgrade_method", upgradeMethod);
+    fd.set("upgrade_ar_no", upgradeArNo.trim());
     start(async () => {
       const res = await transferRoom(stayId, fd);
       if (!res.ok) { setErr(res.error); return; }
@@ -111,6 +124,51 @@ export function TransferRoomForm({
           placeholder="Any other notes for audit purposes"
           className={inputCls}
         />
+      </div>
+
+      {/* Upgrade fee collection */}
+      <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 space-y-3">
+        <p className="text-xs font-semibold text-amber-900">
+          Upgrade fee collection <span className="font-normal text-amber-700">(leave at 0 if no additional charge)</span>
+        </p>
+        <div>
+          <label className={labelCls}>Amount to collect (₱)</label>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            value={upgradeAmount}
+            onChange={(e) => { setUpgradeAmount(e.target.value); if (!e.target.value || parseFloat(e.target.value) === 0) setUpgradeMethod(""); }}
+            placeholder="0.00"
+            className={inputCls}
+          />
+        </div>
+        {hasUpgradeFee && (
+          <>
+            <div>
+              <label className={labelCls}>Payment method *</label>
+              <select value={upgradeMethod} onChange={(e) => setUpgradeMethod(e.target.value)} className={inputCls}>
+                <option value="">— select —</option>
+                {HOTEL_PAYMENT_METHODS.map((m) => (
+                  <option key={m.key} value={m.key}>{m.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>AR / OR No. (optional)</label>
+              <input
+                type="text"
+                value={upgradeArNo}
+                onChange={(e) => setUpgradeArNo(e.target.value)}
+                placeholder="e.g. OR-2025-0042"
+                className={inputCls}
+              />
+            </div>
+            <p className="text-xs font-semibold text-amber-800">
+              ₱{upgradeAmountNum.toFixed(2)} will be recorded as a payment on the new room folio.
+            </p>
+          </>
+        )}
       </div>
 
       {err && <p className="text-sm text-red-600">{err}</p>}
