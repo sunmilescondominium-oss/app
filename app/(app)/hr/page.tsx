@@ -96,6 +96,9 @@ export default async function HrPage({
         <Link href={`/hr/performance?from=${from}&to=${to}`} className="rounded-lg border border-indigo-300 bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100">
           📊 Staff Performance
         </Link>
+        <Link href="/hr/reports" className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-700 transition hover:bg-amber-100">
+          📝 Reports
+        </Link>
       </form>
 
       {canWrite && (

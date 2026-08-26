@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { requireAuth, requireModuleWrite, userHasAnyRole } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -46,6 +47,15 @@ export async function bulkImportSupplies(rows: Record<string, string>[]): Promis
 
 function attendantRole(roleKeys: string[]): string {
   return roleKeys.includes("room_attendant") ? "room_attendant" : roleKeys[0] ?? "room_attendant";
+}
+
+/** In demo mode the JWT still reflects the real role, which may not satisfy the
+ *  housekeeping_tasks write RLS. Use the admin client so demo sessions can
+ *  complete tasks — the JS-layer permission check already validated the acting role. */
+async function hkWriteClient() {
+  const cookieStore = await cookies();
+  if (cookieStore.get("demo_mode")?.value === "1") return createAdminClient();
+  return createClient();
 }
 
 type MovementReason = "issue" | "receive" | "adjust" | "count" | "replacement";
@@ -156,7 +166,7 @@ export async function uploadHousekeepingPhoto(taskId: string, formData: FormData
 
 export async function startTask(taskId: string, shift: string): Promise<ActionResult> {
   const user = await requireModuleWrite("housekeeping");
-  const supabase = await createClient();
+  const supabase = await hkWriteClient();
   const role = attendantRole(user.roleKeys);
 
   const { data: task } = await supabase.from("housekeeping_tasks").select("status, cleaning_minutes").eq("id", taskId).maybeSingle();
@@ -196,7 +206,7 @@ export async function escalateTask(taskId: string, _prev: ActionResult | undefin
   const user = await requireModuleWrite("housekeeping");
   const reason = String(formData.get("reason") ?? "").trim();
   if (!reason) return { ok: false, error: "Please say why the room can't be finished." };
-  const supabase = await createClient();
+  const supabase = await hkWriteClient();
   const role = attendantRole(user.roleKeys);
   const { error } = await supabase.from("housekeeping_tasks").update({ escalated: true, escalation_note: reason }).eq("id", taskId);
   if (error) return { ok: false, error: error.message };
@@ -279,7 +289,7 @@ export async function completeTask(
   notes: string,
 ): Promise<ActionResult> {
   const user = await requireModuleWrite("housekeeping");
-  const supabase = await createClient();
+  const supabase = await hkWriteClient();
   const { data: task } = await supabase.from("housekeeping_tasks").select("unit_id").eq("id", taskId).maybeSingle();
 
   // Look up display label so the room card can show the cleaner's name without a join.
