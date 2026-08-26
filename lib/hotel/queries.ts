@@ -145,11 +145,11 @@ export async function getMaintenanceIssueForUnit(unitId: string): Promise<Mainte
   return data ? mapMaintenanceIssue(data as Record<string, unknown>) : null;
 }
 
-export async function listRoomBoard(): Promise<RoomBoardItem[]> {
+export async function listRoomBoard(isDemoMode = false): Promise<RoomBoardItem[]> {
   const supabase = await createClient();
   const [{ data: units }, { data: stays }, { data: hk }] = await Promise.all([
-    supabase.from("units").select("id, unit_number, unit_type, extra_person_rate").eq("business_line", "hotel").eq("is_active", true).order("unit_number", { ascending: true }),
-    supabase.from("stays").select("*, units(unit_number), rate_plans(name)").eq("status", "active"),
+    supabase.from("units").select("id, unit_number, unit_type, extra_person_rate").eq("business_line", "hotel").eq("is_active", true).eq("is_demo", isDemoMode).order("unit_number", { ascending: true }),
+    supabase.from("stays").select("*, units(unit_number), rate_plans(name)").eq("status", "active").eq("is_demo", isDemoMode),
     supabase.from("housekeeping_tasks").select("unit_id").in("status", ["pending", "in_progress"]),
   ]);
   const stayByUnit = new Map<string, Stay>();

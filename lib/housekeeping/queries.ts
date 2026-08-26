@@ -100,13 +100,14 @@ export async function listRoomTypes(): Promise<RoomTypeConfig[]> {
  * Rentals are excluded (not attendant-monitored). Sorted by soonest expected
  * checkout first so what will free up next is on top.
  */
-export async function listOccupiedRooms(): Promise<OccupiedRoom[]> {
+export async function listOccupiedRooms(isDemoMode = false): Promise<OccupiedRoom[]> {
   const supabase = await createClient();
   const [{ data: stays }, { data: leases }] = await Promise.all([
     supabase
       .from("stays")
       .select("id, unit_id, guest_label, check_in_at, planned_hours, units(unit_number)")
-      .eq("status", "active"),
+      .eq("status", "active")
+      .eq("is_demo", isDemoMode),
     supabase
       .from("leases")
       .select("id, unit_id, tenant_label, start_date, end_at, units(unit_number)")
@@ -164,11 +165,12 @@ export async function listSupplies(): Promise<RoomSupply[]> {
   return (data ?? []).map(mapSupply);
 }
 
-export async function listHousekeepingTasks(): Promise<HousekeepingTask[]> {
+export async function listHousekeepingTasks(isDemoMode = false): Promise<HousekeepingTask[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("housekeeping_tasks")
-    .select("*, units(unit_number)")
+    .select("*, units!inner(unit_number, is_demo)")
+    .eq("units.is_demo", isDemoMode)
     .order("status", { ascending: true })
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);

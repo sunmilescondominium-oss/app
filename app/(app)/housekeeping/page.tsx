@@ -28,9 +28,10 @@ export default async function HousekeepingPage() {
   const canSetDefaults = user.roleKeys.some((r) => ["admin", "operations_manager", "hotel_rental_monitoring"].includes(r));
 
   const today = todayManila();
+  const isDemoMode = Boolean(user.demoMode);
   const [tasks, supplies, movements, countPhotos, hardStop, occupied, shiftEnd, roomTypes] = await Promise.all([
-    listHousekeepingTasks(), listSupplies(), listStockMovements(), listDocPhotos("stock_count", today), isHousekeepingHardStop(),
-    listOccupiedRooms(), getShiftEndToday(user.userId), listRoomTypes(),
+    listHousekeepingTasks(isDemoMode), listSupplies(), listStockMovements(), listDocPhotos("stock_count", today), isHousekeepingHardStop(),
+    listOccupiedRooms(isDemoMode), getShiftEndToday(user.userId), listRoomTypes(),
   ]);
   const toClean = tasks.filter((t) => t.status !== "done").length;
 

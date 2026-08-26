@@ -11,6 +11,7 @@ import { SunMilesMark } from "@/components/brand-logo";
 import { t, navLabel, navBlurb, type Lang } from "@/lib/i18n";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { setDemoMode } from "@/lib/auth/actions";
+import { clearDemoData } from "@/app/(app)/hotel/actions";
 
 export interface NavModule {
   key: string;
@@ -53,7 +54,16 @@ export function AppShell({
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [endingDemo, setEndingDemo] = useState(false);
   const tr = (k: string) => t(lang, k);
+
+  async function handleEndDemo() {
+    setEndingDemo(true);
+    await clearDemoData();
+    await setDemoMode(false);
+    router.refresh();
+    setEndingDemo(false);
+  }
 
   const linkCls = (active: boolean) =>
     `group relative block rounded-xl px-3 py-2.5 transition ${
@@ -152,21 +162,28 @@ export function AppShell({
               ))}
             </select>
           )}
-          {actingAs && (
+          {actingAs && !demoMode && (
             <button
               type="button"
-              title={demoMode ? "Demo mode is ON — click to turn off" : "Turn on demo mode for this role"}
+              title="Turn on demo mode for this role"
               onClick={async () => {
-                await setDemoMode(!demoMode);
+                await setDemoMode(true);
                 window.location.reload();
               }}
-              className={`rounded-lg border px-2.5 py-2 text-sm font-medium transition ${
-                demoMode
-                  ? "border-purple-400 bg-purple-100 text-purple-800 hover:bg-purple-200"
-                  : "border-stone-300 text-stone-600 hover:bg-stone-50"
-              }`}
+              className="rounded-lg border border-stone-300 px-2.5 py-2 text-sm font-medium text-stone-600 transition hover:bg-stone-50"
             >
-              🎭 {demoMode ? "Demo ON" : "Demo"}
+              🎭 Demo
+            </button>
+          )}
+          {demoMode && (
+            <button
+              type="button"
+              title="End demo — wipe demo data and return to normal mode"
+              onClick={handleEndDemo}
+              disabled={endingDemo}
+              className="rounded-lg border border-rose-500 bg-rose-600 px-2.5 py-2 text-sm font-bold text-white transition hover:bg-rose-700 disabled:opacity-60"
+            >
+              {endingDemo ? "…" : "🛑 End Demo"}
             </button>
           )}
           <NotificationBell unread={unreadNotifications} />
@@ -227,7 +244,24 @@ export function AppShell({
         )}
 
         <main className="flex-1 overflow-x-hidden px-4 py-6 md:px-8 md:py-8">
-          <div className="animate-rise mx-auto w-full max-w-5xl">{children}</div>
+          <div className="animate-rise mx-auto w-full max-w-5xl">
+            {demoMode && (
+              <div className="no-print mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border-2 border-purple-400 bg-purple-50 px-4 py-2.5 text-sm">
+                <span className="font-semibold text-purple-900">
+                  🎭 Demo Mode — ghost rooms only · data wiped on End Demo
+                </span>
+                <button
+                  type="button"
+                  onClick={handleEndDemo}
+                  disabled={endingDemo}
+                  className="rounded-lg border border-rose-500 bg-rose-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-rose-700 disabled:opacity-60"
+                >
+                  {endingDemo ? "Ending…" : "🛑 End Demo"}
+                </button>
+              </div>
+            )}
+            {children}
+          </div>
         </main>
       </div>
     </div>

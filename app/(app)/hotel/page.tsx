@@ -29,8 +29,9 @@ export default async function HotelPage() {
   const canManageTax = user.roleKeys.some((r) => ["admin", "accounting", "consultant"].includes(r));
   const canManageExtraRates = user.roleKeys.some((r) => ["admin", "accounting", "hotel_rental_monitoring", "managing_officer", "consultant"].includes(r));
 
+  const isDemoMode = Boolean(user.demoMode);
   const [board, ratePlans, promos, menu, globalTax, roomTax, activeSession, suggestedArNo] = await Promise.all([
-    listRoomBoard(),
+    listRoomBoard(isDemoMode),
     listRatePlans(),
     listPromos(),
     listMenuItems(),

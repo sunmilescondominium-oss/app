@@ -139,9 +139,18 @@ export async function checkIn(
     }
   }
 
-  // Tag stay as demo if demo mode cookie is set
+  // Tag stay as demo if demo mode cookie is set.
+  // In demo mode, enforce that the unit is a ghost demo room — real rooms must
+  // never receive demo check-ins that could confuse the real room board.
   const cookieStoreForDemo = await cookies();
   const isDemo = cookieStoreForDemo.get("demo_mode")?.value === "1";
+  if (isDemo) {
+    const adminForDemoCheck = createAdminClient();
+    const { data: unitRow } = await adminForDemoCheck.from("units").select("is_demo").eq("id", unitId).maybeSingle();
+    if (!unitRow?.is_demo) {
+      return { ok: false, error: "Demo mode: only DEMO rooms (DEMO-101, DEMO-201, DEMO-301) can be checked into during a demo session." };
+    }
+  }
 
   const { data, error } = await supabase
     .from("stays")
@@ -1291,16 +1300,41 @@ const DEMO_CLEAR_ROLES = [
   "consultant", "admin", "managing_officer", "hotel_rental_monitoring", "accounting",
 ] as const;
 
-/** Hard-delete all stays tagged is_demo = true (cascade removes payments, orders, etc.). */
+/**
+ * Hard-delete all demo data:
+ *  1. housekeeping events → tasks for ghost demo rooms
+ *  2. demo stays (cascade removes payments, orders, extensions, transfers)
+ *  3. Reset demo room statuses back to available
+ */
 export async function clearDemoData(): Promise<ActionResult> {
   const user = await requireAuth();
   if (!userHasAnyRole(user, [...DEMO_CLEAR_ROLES]))
     return { ok: false, error: "Not authorised to clear demo data." };
   const admin = createAdminClient();
+
+  // 1. Get demo unit IDs
+  const { data: demoUnits } = await admin.from("units").select("id").eq("is_demo", true);
+  const demoUnitIds = (demoUnits ?? []).map((u) => (u as Record<string, unknown>).id as string);
+
+  if (demoUnitIds.length) {
+    // 2. Delete HK events then tasks for demo rooms
+    const { data: demoTasks } = await admin.from("housekeeping_tasks").select("id").in("unit_id", demoUnitIds);
+    const demoTaskIds = (demoTasks ?? []).map((t) => (t as Record<string, unknown>).id as string);
+    if (demoTaskIds.length) {
+      await admin.from("housekeeping_events").delete().in("task_id", demoTaskIds);
+      await admin.from("housekeeping_tasks").delete().in("id", demoTaskIds);
+    }
+    // 3. Reset demo room statuses
+    await admin.from("units").update({ status: "available" }).in("id", demoUnitIds);
+  }
+
+  // 4. Delete demo stays (cascade removes payments, orders, etc.)
   const { error } = await admin.from("stays").delete().eq("is_demo", true);
   if (error) return { ok: false, error: error.message };
+
   await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "delete", entity: "stays", entityId: "demo_batch", diff: { is_demo: true } });
   revalidatePath("/hotel");
+  revalidatePath("/housekeeping");
   return { ok: true };
 }
 

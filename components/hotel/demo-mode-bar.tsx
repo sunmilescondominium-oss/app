@@ -18,65 +18,48 @@ const ROLE_LABELS: Record<string, string> = {
   owner: "Owner",
 };
 
-export function DemoModeBar({
-  actingAs,
-}: {
-  actingAs: string | null;
-}) {
+export function DemoModeBar({ actingAs }: { actingAs: string | null }) {
   const router = useRouter();
-  const [clearing, startClear] = useTransition();
-  const [exiting, startExit] = useTransition();
-  const [clearDone, setClearDone] = useState(false);
+  const [pending, start] = useTransition();
   const [err, setErr] = useState("");
 
-  function handleClear() {
-    setErr(""); setClearDone(false);
-    startClear(async () => {
+  function handleEndDemo() {
+    setErr("");
+    start(async () => {
+      // 1. Wipe all demo data (HK tasks + stays + reset rooms)
       const res = await clearDemoData();
       if (!res.ok) { setErr(res.error); return; }
-      setClearDone(true);
-      router.refresh();
-    });
-  }
-
-  function handleExitDemo() {
-    startExit(async () => {
+      // 2. Clear the demo mode cookie
       await setDemoMode(false);
       router.refresh();
     });
   }
 
   return (
-    <div className="no-print mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-purple-400 bg-purple-50 px-4 py-3">
-      <div className="flex items-center gap-2">
-        <span className="text-base font-bold text-purple-900">🎭 Demo Mode Active</span>
-        {actingAs && (
-          <span className="rounded-full border border-purple-300 bg-purple-100 px-2.5 py-0.5 text-xs font-semibold text-purple-800">
-            Viewing as: {ROLE_LABELS[actingAs] ?? actingAs}
-          </span>
-        )}
-        <span className="text-xs text-purple-700">New check-ins are tagged as demo data.</span>
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        {clearDone && <span className="text-xs text-emerald-700">✓ Demo data cleared</span>}
-        {err && <span className="text-xs text-red-600">{err}</span>}
+    <div className="no-print mb-4 rounded-xl border-2 border-purple-400 bg-purple-50 px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-base font-bold text-purple-900">🎭 Demo Mode Active</span>
+          {actingAs && (
+            <span className="rounded-full border border-purple-300 bg-purple-100 px-2.5 py-0.5 text-xs font-semibold text-purple-800">
+              Acting as: {ROLE_LABELS[actingAs] ?? actingAs}
+            </span>
+          )}
+        </div>
         <button
           type="button"
-          onClick={handleClear}
-          disabled={clearing}
-          className="rounded-lg border border-rose-400 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-800 hover:bg-rose-100 disabled:opacity-60"
+          onClick={handleEndDemo}
+          disabled={pending}
+          className="rounded-lg border border-rose-500 bg-rose-600 px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-rose-700 disabled:opacity-60"
         >
-          {clearing ? "Clearing…" : "Clear demo data"}
-        </button>
-        <button
-          type="button"
-          onClick={handleExitDemo}
-          disabled={exiting}
-          className="rounded-lg border border-purple-400 bg-white px-3 py-1.5 text-xs font-semibold text-purple-800 hover:bg-purple-100 disabled:opacity-60"
-        >
-          {exiting ? "…" : "Exit demo mode"}
+          {pending ? "Ending demo…" : "🛑 End Demo"}
         </button>
       </div>
+      <p className="mt-1.5 text-xs text-purple-700">
+        All activity uses ghost demo rooms (DEMO-101, 201, 301) and is isolated from real hotel data.
+        Click <strong>End Demo</strong> to wipe all demo records and return to normal mode.
+      </p>
+      {err && <p className="mt-1 text-xs font-medium text-red-600">{err}</p>}
     </div>
   );
 }
