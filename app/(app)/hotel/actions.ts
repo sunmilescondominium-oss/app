@@ -23,6 +23,9 @@ async function getDisplayLabel(userId: string): Promise<string> {
 }
 
 async function requireCashierOnDuty(userId: string): Promise<ActionResult | null> {
+  // Demo mode bypasses the cashier-on-duty gate — no real data is written
+  const cookieStore = await cookies();
+  if (cookieStore.get("demo_mode")?.value === "1") return null;
   const session = await getActiveSession();
   if (!session) return { ok: false, error: "No cashier is currently on duty. A cashier must open their shift before hotel operations can proceed." };
   if (session.cashierUserId !== userId) return { ok: false, error: `${session.cashierName} is the cashier on duty. Only the on-duty cashier or a supervisor can process hotel transactions.` };
