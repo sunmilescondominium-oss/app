@@ -13,13 +13,19 @@ const SUPERVISOR_ROLES = [
 ] as const;
 const CASHIER_ROLES = ["hotel_cashier", ...SUPERVISOR_ROLES] as const;
 
-export async function openShift(beginningArNo: string, notes: string): Promise<ActionResult> {
+export async function openShift(
+  beginningArNo: string,
+  notes: string,
+  shiftType: 'day' | 'night',
+): Promise<ActionResult> {
   const user = await requireAuth();
   if (!userHasAnyRole(user, [...CASHIER_ROLES]))
     return { ok: false, error: "Access denied." };
 
   const trimmed = beginningArNo.trim();
   if (!trimmed) return { ok: false, error: "Beginning AR number is required." };
+  if (shiftType !== 'day' && shiftType !== 'night')
+    return { ok: false, error: "Invalid shift type." };
 
   const existing = await getActiveSession();
   if (existing)
@@ -29,6 +35,7 @@ export async function openShift(beginningArNo: string, notes: string): Promise<A
   const { error } = await admin.from("hotel_cashier_sessions").insert({
     cashier_user_id: user.userId,
     beginning_ar_no: trimmed,
+    shift_type: shiftType,
     notes: notes.trim() || null,
   });
   if (error) return { ok: false, error: error.message };
@@ -53,7 +60,7 @@ export async function closeShift(
   const admin = createAdminClient();
   const { data: session } = await admin
     .from("hotel_cashier_sessions")
-    .select("id, cashier_user_id, opened_at, beginning_ar_no, closed_at")
+    .select("id, cashier_user_id, opened_at, beginning_ar_no, closed_at, shift_type")
     .eq("id", sessionId)
     .maybeSingle();
 
@@ -164,6 +171,7 @@ export async function closeShift(
       session_id: sessionId,
       cashier_user_id: session.cashier_user_id,
       cashier_name: cashierName,
+      shift_type: (session.shift_type as string | null) ?? null,
       opened_at: session.opened_at,
       closed_at: closedAt,
       beginning_ar_no: session.beginning_ar_no,
@@ -237,7 +245,7 @@ export async function cancelShift(
   const admin = createAdminClient();
   const { data: session } = await admin
     .from("hotel_cashier_sessions")
-    .select("id, cashier_user_id, opened_at, beginning_ar_no, closed_at")
+    .select("id, cashier_user_id, opened_at, beginning_ar_no, closed_at, shift_type")
     .eq("id", sessionId)
     .maybeSingle();
 
@@ -304,6 +312,7 @@ export async function cancelShift(
     session_id: sessionId,
     cashier_user_id: session.cashier_user_id,
     cashier_name: cashierName,
+    shift_type: (session.shift_type as string | null) ?? null,
     opened_at: session.opened_at,
     closed_at: cancelledAt,
     beginning_ar_no: session.beginning_ar_no,

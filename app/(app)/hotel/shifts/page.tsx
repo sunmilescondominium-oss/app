@@ -101,11 +101,24 @@ export default async function ShiftsPage() {
         <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-sm font-semibold text-amber-900">
-                🟢 {active.cashierName} is on duty
-              </p>
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-semibold text-amber-900">
+                  🟢 {active.cashierName} is on duty
+                </p>
+                {active.shiftType && (
+                  <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+                    active.shiftType === "day"
+                      ? "bg-amber-200 text-amber-900"
+                      : "bg-indigo-200 text-indigo-900"
+                  }`}>
+                    {active.shiftType === "day" ? "☀ Day" : "🌙 Night"}
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-amber-700">
                 Shift opened {fmt(active.openedAt)} · Beginning AR: <strong>{active.beginningArNo}</strong>
+                {active.shiftType === "day" && " · Collection cutoff: 5:40 PM"}
+                {active.shiftType === "night" && " · Collection cutoff: 5:40 AM"}
               </p>
             </div>
             {isOnDuty && (
@@ -287,6 +300,7 @@ export default async function ShiftsPage() {
               <thead>
                 <tr className="border-b border-stone-100 text-left text-stone-400">
                   <th className="pb-2 pr-4 font-medium">Date</th>
+                  <th className="pb-2 pr-4 font-medium">Shift</th>
                   <th className="pb-2 pr-4 font-medium">Cashier</th>
                   <th className="pb-2 pr-4 font-medium">AR Range</th>
                   <th className="pb-2 pr-4 font-medium">Opened</th>
@@ -300,6 +314,15 @@ export default async function ShiftsPage() {
                   return (
                     <tr key={s.id} className="border-b border-stone-50">
                       <td className="py-2 pr-4 text-stone-500">{fmtDate(s.openedAt)}</td>
+                      <td className="py-2 pr-4">
+                        {s.shiftType === "day" && (
+                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">☀ Day</span>
+                        )}
+                        {s.shiftType === "night" && (
+                          <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-semibold text-indigo-800">🌙 Night</span>
+                        )}
+                        {!s.shiftType && <span className="text-stone-400">—</span>}
+                      </td>
                       <td className="py-2 pr-4 font-medium text-stone-800">{s.cashierName}</td>
                       <td className="py-2 pr-4 font-mono text-stone-600">{s.beginningArNo} → {s.endingArNo ?? "—"}</td>
                       <td className="py-2 pr-4 text-stone-500">{fmt(s.openedAt)}</td>

@@ -97,6 +97,15 @@ export default async function ShiftReportPage({ params }: { params: Promise<{ se
             <div>
               <p className="text-[10px] uppercase tracking-wide text-stone-400">Cashier</p>
               <p className="font-semibold text-stone-800">{report.cashierName}</p>
+              {report.shiftType && (
+                <span className={`mt-0.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                  report.shiftType === "day"
+                    ? "bg-amber-100 text-amber-800"
+                    : "bg-indigo-100 text-indigo-800"
+                }`}>
+                  {report.shiftType === "day" ? "☀ Day Shift" : "🌙 Night Shift"}
+                </span>
+              )}
             </div>
             <div>
               <p className="text-[10px] uppercase tracking-wide text-stone-400">Shift opened</p>

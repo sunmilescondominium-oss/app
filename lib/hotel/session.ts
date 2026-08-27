@@ -3,6 +3,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
+export type ShiftType = 'day' | 'night';
+
 export interface CashierSession {
   id: string;
   cashierUserId: string;
@@ -13,6 +15,7 @@ export interface CashierSession {
   closedAt: string | null;
   closedByName: string | null;
   notes: string | null;
+  shiftType: ShiftType | null;
 }
 
 export interface ArCancellation {
@@ -193,6 +196,7 @@ function mapSessionRaw(data: Record<string, unknown>, names: Map<string, string>
     closedAt: (data.closed_at as string | null) ?? null,
     closedByName: closerId ? (names.get(closerId) ?? null) : null,
     notes: (data.notes as string | null) ?? null,
+    shiftType: (data.shift_type as ShiftType | null) ?? null,
   };
 }
 
@@ -211,6 +215,7 @@ export interface ShiftReport {
   id: string;
   sessionId: string;
   cashierName: string;
+  shiftType: ShiftType | null;
   openedAt: string;
   closedAt: string;
   beginningArNo: string;
@@ -280,6 +285,7 @@ function mapReport(data: Record<string, unknown>, corrRows: Record<string, unkno
     id: data.id as string,
     sessionId: data.session_id as string,
     cashierName: data.cashier_name as string,
+    shiftType: (data.shift_type as ShiftType | null) ?? null,
     openedAt: data.opened_at as string,
     closedAt: data.closed_at as string,
     beginningArNo: data.beginning_ar_no as string,
