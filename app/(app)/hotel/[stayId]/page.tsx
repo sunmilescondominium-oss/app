@@ -201,16 +201,45 @@ export default async function StayFolioPage({
             <p>Guest Folio / Receipt</p>
           </div>
 
+          {/* ── Guest & room info ── */}
           <div className="mt-2 space-y-0.5">
             <Line k="Guest" v={stay.guest_label} />
             <Line k="Room" v={detail.unit_number ?? "—"} />
+            {/* Transfer origin — this stay is the destination */}
             {transferRecord?.to_stay_id === stayId && (
-              <Line k="Transferred from" v={`Room ${transferRecord.from_unit_number}`} />
+              <>
+                <Line k="Transferred from" v={`Room ${transferRecord.from_unit_number}`} />
+                <Line k="Transfer time" v={fmtDateTime(transferRecord.transferred_at, tz)} />
+              </>
+            )}
+            {/* Transfer destination — this stay was vacated */}
+            {transferRecord?.from_stay_id === stayId && (
+              <Line k="Transferred to" v={`Room ${transferRecord.to_unit_number} · ${fmtDateTime(transferRecord.transferred_at, tz)}`} />
             )}
             <Line k="Plan" v={detail.rate_plan_name ?? "—"} />
-            <Line k="Hours" v={`${stay.planned_hours}h`} />
-            <Line k="In" v={fmtDateTime(stay.check_in_at, tz)} />
-            {stay.check_out_at && <Line k="Out" v={fmtDateTime(stay.check_out_at, tz)} />}
+          </div>
+
+          {/* ── Time breakdown ── */}
+          <div className="mt-2 space-y-0.5 border-t border-dashed border-stone-300 pt-2">
+            <Line k="Check-in" v={fmtDateTime(stay.check_in_at, tz)} />
+            <Line k="Base hours" v={`${stay.base_hours}h`} />
+            {extensions.map((ext, i) => (
+              <Line key={ext.id} k={`Extension ${i + 1}`} v={`+${ext.added_hours}h  (${fmtDateTime(ext.created_at, tz)})`} />
+            ))}
+            {extensions.length > 0 && (
+              <Line k="Total planned" v={`${stay.planned_hours}h`} />
+            )}
+            {stay.check_out_at ? (
+              <>
+                <Line k="Check-out" v={fmtDateTime(stay.check_out_at, tz)} />
+                <Line k="Actual used" v={actualHoursUsed(stay.check_in_at, stay.check_out_at)} />
+              </>
+            ) : (
+              <div className="flex justify-between text-[11px]">
+                <span className="text-stone-500">Status</span>
+                <span className="font-medium text-emerald-700">Active · {actualHoursUsed(stay.check_in_at, null)}</span>
+              </div>
+            )}
           </div>
 
           <div className="mt-2 space-y-0.5 border-t border-dashed border-stone-300 pt-2">
@@ -295,4 +324,12 @@ function Line({ k, v }: { k: string; v: string }) {
       <span className="text-right tabular-nums">{v}</span>
     </div>
   );
+}
+
+function actualHoursUsed(checkIn: string, checkOut: string | null): string {
+  const end = checkOut ? new Date(checkOut) : new Date();
+  const totalMin = Math.max(0, Math.floor((end.getTime() - new Date(checkIn).getTime()) / 60000));
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return `${h}h ${m.toString().padStart(2, "0")}m`;
 }
