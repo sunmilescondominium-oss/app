@@ -6,9 +6,8 @@ import { revalidatePath } from "next/cache";
 
 export async function toggleFlag(key: string, enabled: boolean) {
   const user = await requireAuth();
-  if (!userHasAnyRole(user, ["admin", "managing_officer", "consultant"])) {
-    throw new Error("Access denied.");
-  }
+  const isSuper = user.allRoleKeys.some((r) => ["admin", "managing_officer", "consultant"].includes(r));
+  if (!isSuper) throw new Error("Access denied.");
   const admin = createAdminClient();
   await admin
     .from("feature_flags")

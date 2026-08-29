@@ -6,9 +6,8 @@ import { revalidatePath } from "next/cache";
 
 export async function saveAppSetting(formData: FormData) {
   const user = await requireAuth();
-  if (!userHasAnyRole(user, ["admin", "managing_officer", "consultant"])) {
-    throw new Error("Access denied.");
-  }
+  const isSuper = user.allRoleKeys.some((r) => ["admin", "managing_officer", "consultant"].includes(r));
+  if (!isSuper) throw new Error("Access denied.");
 
   const key = String(formData.get("key") ?? "").trim();
   const value = String(formData.get("value") ?? "").trim();

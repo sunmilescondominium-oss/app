@@ -7,10 +7,9 @@ export const metadata = { title: "Feature Flags" };
 
 export default async function FeatureFlagsPage() {
   const user = await requireAuth();
-  if (!userHasAnyRole(user, ["admin", "managing_officer", "consultant"])) {
-    throw new Error("Access denied.");
-  }
-  const canWrite = userHasAnyRole(user, ["admin", "managing_officer", "consultant"]);
+  const isSuper = user.allRoleKeys.some((r) => ["admin", "managing_officer", "consultant"].includes(r));
+  if (!isSuper) throw new Error("Access denied.");
+  const canWrite = isSuper;
   const flags = await listFeatureFlags();
 
   return (

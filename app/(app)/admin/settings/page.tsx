@@ -21,8 +21,8 @@ const TIMEZONE_OPTIONS = [
 
 export default async function AppSettingsPage() {
   const user = await requireAuth();
-  const canWrite = userHasAnyRole(user, ["admin", "managing_officer", "consultant"]);
-  if (!userHasAnyRole(user, ["admin", "managing_officer", "accounting", "consultant"])) {
+  const canWrite = user.allRoleKeys.some((r) => ["admin", "managing_officer", "consultant"].includes(r));
+  if (!user.allRoleKeys.some((r) => ["admin", "managing_officer", "accounting", "consultant"].includes(r))) {
     throw new Error("Access denied.");
   }
 
