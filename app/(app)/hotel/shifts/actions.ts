@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireAuth, userHasAnyRole } from "@/lib/auth/dal";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getActiveSession } from "@/lib/hotel/session";
+import { getActiveSession, computeCollectionWindow } from "@/lib/hotel/session";
 import { computeExtension } from "@/lib/hotel/extension";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
@@ -17,6 +17,7 @@ export async function openShift(
   beginningArNo: string,
   notes: string,
   shiftType: 'day' | 'night',
+  collectionStartsAt?: string,
 ): Promise<ActionResult> {
   const user = await requireAuth();
   if (!userHasAnyRole(user, [...CASHIER_ROLES]))
@@ -31,12 +32,23 @@ export async function openShift(
   if (existing)
     return { ok: false, error: `${existing.cashierName} is already on duty. Their shift must be closed first.` };
 
+  // Resolve collection window: use explicit value (from form) or compute from shift type
+  const window = collectionStartsAt && !isNaN(Date.parse(collectionStartsAt))
+    ? (() => {
+        const startsAt = new Date(collectionStartsAt).toISOString();
+        const endsAt = new Date(new Date(collectionStartsAt).getTime() + 12 * 60 * 60 * 1000).toISOString();
+        return { startsAt, endsAt };
+      })()
+    : computeCollectionWindow(shiftType);
+
   const admin = createAdminClient();
   const { error } = await admin.from("hotel_cashier_sessions").insert({
     cashier_user_id: user.userId,
     beginning_ar_no: trimmed,
     shift_type: shiftType,
     notes: notes.trim() || null,
+    collection_starts_at: window.startsAt,
+    collection_ends_at: window.endsAt,
   });
   if (error) return { ok: false, error: error.message };
 
@@ -60,7 +72,7 @@ export async function closeShift(
   const admin = createAdminClient();
   const { data: session } = await admin
     .from("hotel_cashier_sessions")
-    .select("id, cashier_user_id, opened_at, beginning_ar_no, closed_at, shift_type")
+    .select("id, cashier_user_id, opened_at, beginning_ar_no, closed_at, shift_type, collection_starts_at, collection_ends_at")
     .eq("id", sessionId)
     .maybeSingle();
 
@@ -68,9 +80,11 @@ export async function closeShift(
   if (session.closed_at) return { ok: false, error: "Session is already closed." };
 
   const isSupervisor = userHasAnyRole(user, [...SUPERVISOR_ROLES]);
-  const isOwnSession = session.cashier_user_id === user.userId;
+  const isOwnSession = (session.cashier_user_id as string) === user.userId;
   if (!isOwnSession && !isSupervisor)
     return { ok: false, error: "Only the cashier on duty or a supervisor can close this shift." };
+
+  const collectionEndsAt = (session.collection_ends_at as string | null) ?? null;
 
   const closedAt = new Date().toISOString();
 
@@ -129,6 +143,16 @@ export async function closeShift(
     loggedAt: c.cancelled_at as string,
   }));
 
+  // Split payments at the collection cutoff
+  const preCutoffPayments = collectionEndsAt
+    ? paymentsJson.filter(p => p.paidAt < collectionEndsAt)
+    : paymentsJson;
+  const postCutoffPayments = collectionEndsAt
+    ? paymentsJson.filter(p => p.paidAt >= collectionEndsAt)
+    : [];
+  const preCutoffTotal = Math.round(preCutoffPayments.reduce((s, p) => s + p.amount, 0) * 100) / 100;
+  const postCutoffTotal = Math.round(postCutoffPayments.reduce((s, p) => s + p.amount, 0) * 100) / 100;
+
   const totalCollected = paymentsJson.reduce((s, p) => s + p.amount, 0);
   const cancelledCount = cancelledArsJson.length;
   const beginningNo = parseInt(String(session.beginning_ar_no).replace(/\D/g, ""), 10) || 0;
@@ -186,6 +210,13 @@ export async function closeShift(
       expected_collection: expectedCollection || null,
       discrepancy_amount: discrepancyAmount !== 0 ? discrepancyAmount : null,
       extension_details_json: extensionDetailsJson,
+      collection_starts_at: (session.collection_starts_at as string | null) ?? null,
+      collection_ends_at: collectionEndsAt,
+      pre_cutoff_total: collectionEndsAt ? preCutoffTotal : null,
+      pre_cutoff_count: collectionEndsAt ? preCutoffPayments.length : null,
+      post_cutoff_total: collectionEndsAt ? postCutoffTotal : null,
+      post_cutoff_count: collectionEndsAt ? postCutoffPayments.length : null,
+      post_cutoff_payments_json: collectionEndsAt ? postCutoffPayments : null,
     })
     .select("id")
     .single();
@@ -245,7 +276,7 @@ export async function cancelShift(
   const admin = createAdminClient();
   const { data: session } = await admin
     .from("hotel_cashier_sessions")
-    .select("id, cashier_user_id, opened_at, beginning_ar_no, closed_at, shift_type")
+    .select("id, cashier_user_id, opened_at, beginning_ar_no, closed_at, shift_type, collection_starts_at, collection_ends_at")
     .eq("id", sessionId)
     .maybeSingle();
 
@@ -253,6 +284,7 @@ export async function cancelShift(
   if (session.closed_at) return { ok: false, error: "Session is already closed." };
 
   const cancelledAt = new Date().toISOString();
+  const cancelCollectionEndsAt = (session.collection_ends_at as string | null) ?? null;
 
   // Close the session — keep beginning_ar_no as ending since no new ARs are formally issued
   await admin
@@ -307,6 +339,13 @@ export async function cancelShift(
 
   const totalCollected = paymentsJson.reduce((s, p) => s + p.amount, 0);
 
+  const cancelPreCutoff = cancelCollectionEndsAt
+    ? paymentsJson.filter(p => p.paidAt < cancelCollectionEndsAt)
+    : paymentsJson;
+  const cancelPostCutoff = cancelCollectionEndsAt
+    ? paymentsJson.filter(p => p.paidAt >= cancelCollectionEndsAt)
+    : [];
+
   // Insert voided report — includes real payments for accounting; active stays are untouched
   await admin.from("hotel_shift_reports").insert({
     session_id: sessionId,
@@ -324,6 +363,13 @@ export async function cancelShift(
     cancelled_count: cancelledArsJson.length,
     closed_by_supervisor: true,
     closing_user_id: user.userId,
+    collection_starts_at: (session.collection_starts_at as string | null) ?? null,
+    collection_ends_at: cancelCollectionEndsAt,
+    pre_cutoff_total: cancelCollectionEndsAt ? Math.round(cancelPreCutoff.reduce((s, p) => s + p.amount, 0) * 100) / 100 : null,
+    pre_cutoff_count: cancelCollectionEndsAt ? cancelPreCutoff.length : null,
+    post_cutoff_total: cancelCollectionEndsAt ? Math.round(cancelPostCutoff.reduce((s, p) => s + p.amount, 0) * 100) / 100 : null,
+    post_cutoff_count: cancelCollectionEndsAt ? cancelPostCutoff.length : null,
+    post_cutoff_payments_json: cancelCollectionEndsAt ? cancelPostCutoff : null,
     // Auto-acknowledge voided shifts
     status: "acknowledged",
     acknowledged_by: user.userId,

@@ -116,6 +116,15 @@ export default async function ShiftReportPage({ params }: { params: Promise<{ se
               <p className="text-sm text-stone-700">{fmt(report.closedAt)}</p>
               {report.closedBySupervisor && <p className="text-[10px] text-amber-600">Force-closed by supervisor</p>}
             </div>
+            {report.collectionStartsAt && report.collectionEndsAt && (
+              <div className="col-span-2 sm:col-span-3">
+                <p className="text-[10px] uppercase tracking-wide text-stone-400">Collection window</p>
+                <p className="text-sm text-stone-700">
+                  {fmtTime(report.collectionStartsAt)} – {fmtTime(report.collectionEndsAt)}
+                  <span className="ml-2 text-[10px] text-stone-400">(20-min handover cutoff)</span>
+                </p>
+              </div>
+            )}
             <div>
               <p className="text-[10px] uppercase tracking-wide text-stone-400">AR range</p>
               <p className="font-mono text-sm text-stone-800">{report.beginningArNo} → {report.endingArNo}</p>
@@ -211,40 +220,150 @@ export default async function ShiftReportPage({ params }: { params: Promise<{ se
 
         {/* Payments collected */}
         <div className="mt-6">
-          <p className="mb-2 text-sm font-semibold text-stone-700">Payments Collected</p>
-          {report.paymentsJson.length === 0 ? (
-            <p className="text-xs text-stone-400">No payments recorded during this shift.</p>
+          {/* When collection window is present, split into in-window vs post-cutoff */}
+          {report.collectionEndsAt ? (
+            <>
+              {/* In-window payments */}
+              <div className="mb-1 flex items-center gap-2">
+                <p className="text-sm font-semibold text-stone-700">My Collection</p>
+                {report.collectionStartsAt && (
+                  <span className="text-[10px] text-stone-400">
+                    {fmtTime(report.collectionStartsAt)} – {fmtTime(report.collectionEndsAt)}
+                  </span>
+                )}
+                {report.preCutoffTotal != null && (
+                  <span className="ml-auto text-sm font-semibold tabular-nums text-emerald-700">
+                    {peso(report.preCutoffTotal)}
+                  </span>
+                )}
+              </div>
+              {(report.preCutoffCount ?? 0) === 0 ? (
+                <p className="text-xs text-stone-400 mb-4">No payments in your collection window.</p>
+              ) : (
+                <div className="overflow-x-auto mb-4">
+                  <table className="w-full min-w-[480px] text-left text-sm">
+                    <thead className="border-b border-stone-200 bg-stone-50 text-[10px] uppercase tracking-wide text-stone-500">
+                      <tr>
+                        <th className="px-3 py-2">AR #</th>
+                        <th className="px-3 py-2">Guest</th>
+                        <th className="px-3 py-2">Method</th>
+                        <th className="px-3 py-2">Time</th>
+                        <th className="px-3 py-2 text-right">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {report.paymentsJson
+                        .filter(p => p.paidAt < report.collectionEndsAt!)
+                        .map((p, i) => (
+                          <tr key={i} className="border-b border-stone-100 last:border-0">
+                            <td className="px-3 py-2 font-mono text-xs">{p.arNo ?? "—"}</td>
+                            <td className="px-3 py-2">{p.guest}</td>
+                            <td className="px-3 py-2 capitalize">{p.method}</td>
+                            <td className="px-3 py-2 text-xs text-stone-400">{fmt(p.paidAt)}</td>
+                            <td className="px-3 py-2 text-right tabular-nums">{peso(p.amount)}</td>
+                          </tr>
+                        ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t border-stone-300 font-bold">
+                        <td colSpan={4} className="px-3 py-2">Subtotal — my window</td>
+                        <td className="px-3 py-2 text-right tabular-nums text-emerald-700">{peso(report.preCutoffTotal ?? 0)}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              )}
+
+              {/* Post-cutoff payments (handed to next shift) */}
+              {(report.postCutoffCount ?? 0) > 0 && (
+                <>
+                  <div className="mb-1 flex items-center gap-2">
+                    <p className="text-sm font-semibold text-amber-800">Processed for Next Shift</p>
+                    <span className="text-[10px] text-stone-400">
+                      after {fmtTime(report.collectionEndsAt)} — counted in incoming cashier&apos;s total
+                    </span>
+                    <span className="ml-auto text-sm font-semibold tabular-nums text-amber-700">
+                      {peso(report.postCutoffTotal ?? 0)}
+                    </span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[480px] text-left text-sm">
+                      <thead className="border-b border-amber-200 bg-amber-50 text-[10px] uppercase tracking-wide text-amber-600">
+                        <tr>
+                          <th className="px-3 py-2">AR #</th>
+                          <th className="px-3 py-2">Guest</th>
+                          <th className="px-3 py-2">Method</th>
+                          <th className="px-3 py-2">Time</th>
+                          <th className="px-3 py-2 text-right">Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {report.postCutoffPaymentsJson.map((p, i) => (
+                          <tr key={i} className="border-b border-amber-100 last:border-0 bg-amber-50/40">
+                            <td className="px-3 py-2 font-mono text-xs">{p.arNo ?? "—"}</td>
+                            <td className="px-3 py-2">{p.guest}</td>
+                            <td className="px-3 py-2 capitalize">{p.method}</td>
+                            <td className="px-3 py-2 text-xs text-stone-400">{fmt(p.paidAt)}</td>
+                            <td className="px-3 py-2 text-right tabular-nums">{peso(p.amount)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr className="border-t border-amber-300 font-bold">
+                          <td colSpan={4} className="px-3 py-2 text-amber-800">Subtotal — next shift</td>
+                          <td className="px-3 py-2 text-right tabular-nums text-amber-700">{peso(report.postCutoffTotal ?? 0)}</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </>
+              )}
+
+              {/* Grand total row */}
+              <div className="mt-3 flex justify-between rounded-lg border border-stone-200 bg-stone-50 px-4 py-2">
+                <span className="text-sm font-semibold text-stone-700">Total cash handled this session</span>
+                <span className="text-sm font-bold tabular-nums text-stone-900">{peso(report.totalCollected)}</span>
+              </div>
+            </>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[480px] text-left text-sm">
-                <thead className="border-b border-stone-200 bg-stone-50 text-[10px] uppercase tracking-wide text-stone-500">
-                  <tr>
-                    <th className="px-3 py-2">AR #</th>
-                    <th className="px-3 py-2">Guest</th>
-                    <th className="px-3 py-2">Method</th>
-                    <th className="px-3 py-2">Time</th>
-                    <th className="px-3 py-2 text-right">Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {report.paymentsJson.map((p, i) => (
-                    <tr key={i} className="border-b border-stone-100 last:border-0">
-                      <td className="px-3 py-2 font-mono text-xs">{p.arNo ?? "—"}</td>
-                      <td className="px-3 py-2">{p.guest}</td>
-                      <td className="px-3 py-2 capitalize">{p.method}</td>
-                      <td className="px-3 py-2 text-xs text-stone-400">{fmt(p.paidAt)}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{peso(p.amount)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr className="border-t border-stone-300 font-bold">
-                    <td colSpan={4} className="px-3 py-2">Total collected</td>
-                    <td className="px-3 py-2 text-right tabular-nums text-emerald-700">{peso(report.totalCollected)}</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
+            /* No collection window data (legacy reports) — show single table */
+            <>
+              <p className="mb-2 text-sm font-semibold text-stone-700">Payments Collected</p>
+              {report.paymentsJson.length === 0 ? (
+                <p className="text-xs text-stone-400">No payments recorded during this shift.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[480px] text-left text-sm">
+                    <thead className="border-b border-stone-200 bg-stone-50 text-[10px] uppercase tracking-wide text-stone-500">
+                      <tr>
+                        <th className="px-3 py-2">AR #</th>
+                        <th className="px-3 py-2">Guest</th>
+                        <th className="px-3 py-2">Method</th>
+                        <th className="px-3 py-2">Time</th>
+                        <th className="px-3 py-2 text-right">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {report.paymentsJson.map((p, i) => (
+                        <tr key={i} className="border-b border-stone-100 last:border-0">
+                          <td className="px-3 py-2 font-mono text-xs">{p.arNo ?? "—"}</td>
+                          <td className="px-3 py-2">{p.guest}</td>
+                          <td className="px-3 py-2 capitalize">{p.method}</td>
+                          <td className="px-3 py-2 text-xs text-stone-400">{fmt(p.paidAt)}</td>
+                          <td className="px-3 py-2 text-right tabular-nums">{peso(p.amount)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t border-stone-300 font-bold">
+                        <td colSpan={4} className="px-3 py-2">Total collected</td>
+                        <td className="px-3 py-2 text-right tabular-nums text-emerald-700">{peso(report.totalCollected)}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              )}
+            </>
           )}
         </div>
 

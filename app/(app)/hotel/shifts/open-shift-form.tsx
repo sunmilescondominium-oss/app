@@ -18,18 +18,50 @@ const SHIFT_LABELS = {
   night: { label: "Night Shift", time: "6:00 PM – 6:00 AM", cutoff: "5:40 AM" },
 };
 
+/**
+ * Returns "YYYY-MM-DDThh:40" in Manila time for the datetime-local input.
+ * Uses the most-recent 5:40 AM/PM that has already passed.
+ */
+function defaultCollectionStart(shiftType: 'day' | 'night'): string {
+  const now = new Date();
+  const hour = shiftType === 'day' ? 5 : 17;
+
+  function manilaDate(d: Date): string {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit',
+    }).format(d);
+  }
+
+  const todayStr = manilaDate(now);
+  const candidate = new Date(`${todayStr}T${String(hour).padStart(2, '0')}:40:00+08:00`);
+
+  if (candidate > now) {
+    const yesterday = new Date(now.getTime() - 86_400_000);
+    return `${manilaDate(yesterday)}T${String(hour).padStart(2, '0')}:40`;
+  }
+  return `${todayStr}T${String(hour).padStart(2, '0')}:40`;
+}
+
 export function OpenShiftForm({ suggested }: { suggested: string }) {
   const router = useRouter();
-  const [arNo, setArNo]         = useState(suggested);
-  const [notes, setNotes]       = useState("");
-  const [shiftType, setShiftType] = useState<'day' | 'night'>(detectShiftType());
-  const [busy, setBusy]         = useState(false);
-  const [err, setErr]           = useState("");
+  const [arNo, setArNo]             = useState(suggested);
+  const [notes, setNotes]           = useState("");
+  const [shiftType, setShiftType]   = useState<'day' | 'night'>(detectShiftType());
+  const [collectionStart, setCollectionStart] = useState(() => defaultCollectionStart(detectShiftType()));
+  const [busy, setBusy]             = useState(false);
+  const [err, setErr]               = useState("");
+
+  function handleShiftTypeChange(t: 'day' | 'night') {
+    setShiftType(t);
+    setCollectionStart(defaultCollectionStart(t));
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true); setErr("");
-    const res = await openShift(arNo, notes, shiftType);
+    // Treat datetime-local value as Manila time by appending +08:00
+    const manilaIso = collectionStart ? `${collectionStart}:00+08:00` : undefined;
+    const res = await openShift(arNo, notes, shiftType, manilaIso);
     setBusy(false);
     if (!res.ok) { setErr(res.error); return; }
     router.refresh();
@@ -47,7 +79,7 @@ export function OpenShiftForm({ suggested }: { suggested: string }) {
             <button
               key={t}
               type="button"
-              onClick={() => setShiftType(t)}
+              onClick={() => handleShiftTypeChange(t)}
               className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
                 shiftType === t
                   ? t === "day"
@@ -62,7 +94,24 @@ export function OpenShiftForm({ suggested }: { suggested: string }) {
           ))}
         </div>
         <p className="mt-1 text-[11px] text-stone-400">
-          Collection cutoff: <strong>{info.cutoff}</strong> — stop taking collections 20 min before shift ends.
+          Collection cutoff: <strong>{info.cutoff}</strong> — payments after this time count for the next shift.
+        </p>
+      </div>
+
+      {/* Collection starts at */}
+      <div>
+        <label className="mb-1 block text-[11px] font-medium text-stone-500">
+          My collection starts at <span className="font-normal text-stone-400">(default: {info.cutoff})</span>
+        </label>
+        <input
+          type="datetime-local"
+          value={collectionStart}
+          onChange={(e) => setCollectionStart(e.target.value)}
+          className={cls}
+          required
+        />
+        <p className="mt-1 text-[11px] text-stone-400">
+          Payments recorded by the outgoing cashier from this time onward are credited to your shift total.
         </p>
       </div>
 

@@ -16,6 +16,41 @@ export interface CashierSession {
   closedByName: string | null;
   notes: string | null;
   shiftType: ShiftType | null;
+  collectionStartsAt: string | null;
+  collectionEndsAt: string | null;
+}
+
+/**
+ * Computes the 20-min-before-shift-end collection window for the given shift type.
+ * Day  shift: 05:40–17:40 Manila
+ * Night shift: 17:40–05:40 Manila (next day)
+ * Rolls back one day if the computed candidate is in the future.
+ */
+export function computeCollectionWindow(
+  shiftType: ShiftType,
+  now: Date = new Date(),
+): { startsAt: string; endsAt: string } {
+  const hour = shiftType === 'day' ? 5 : 17;
+
+  function manilaDateStr(d: Date): string {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Manila',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+    }).format(d);
+  }
+
+  let candidate = new Date(
+    `${manilaDateStr(now)}T${String(hour).padStart(2, '0')}:40:00+08:00`,
+  );
+  if (candidate > now) {
+    candidate = new Date(
+      `${manilaDateStr(new Date(now.getTime() - 86_400_000))}T${String(hour).padStart(2, '0')}:40:00+08:00`,
+    );
+  }
+
+  const startsAt = candidate.toISOString();
+  const endsAt = new Date(candidate.getTime() + 12 * 60 * 60 * 1000).toISOString();
+  return { startsAt, endsAt };
 }
 
 export interface ArCancellation {
@@ -197,6 +232,8 @@ function mapSessionRaw(data: Record<string, unknown>, names: Map<string, string>
     closedByName: closerId ? (names.get(closerId) ?? null) : null,
     notes: (data.notes as string | null) ?? null,
     shiftType: (data.shift_type as ShiftType | null) ?? null,
+    collectionStartsAt: (data.collection_starts_at as string | null) ?? null,
+    collectionEndsAt: (data.collection_ends_at as string | null) ?? null,
   };
 }
 
@@ -211,6 +248,8 @@ export interface ShiftCorrection {
   reason: string;
 }
 
+export type PaymentRow = { arNo: string | null; guest: string; amount: number; method: string; paidAt: string };
+
 export interface ShiftReport {
   id: string;
   sessionId: string;
@@ -220,7 +259,7 @@ export interface ShiftReport {
   closedAt: string;
   beginningArNo: string;
   endingArNo: string;
-  paymentsJson: { arNo: string | null; guest: string; amount: number; method: string; paidAt: string }[];
+  paymentsJson: PaymentRow[];
   cancelledArsJson: { arNo: string; reason: string; loggedAt: string }[];
   totalCollected: number;
   arCount: number;
@@ -238,6 +277,14 @@ export interface ShiftReport {
   extensionDetailsJson: unknown[];
   // Monitoring corrections
   corrections: ShiftCorrection[];
+  // Collection window & cutoff split
+  collectionStartsAt: string | null;
+  collectionEndsAt: string | null;
+  preCutoffTotal: number | null;
+  preCutoffCount: number | null;
+  postCutoffTotal: number | null;
+  postCutoffCount: number | null;
+  postCutoffPaymentsJson: PaymentRow[];
 }
 
 export async function getShiftReport(sessionId: string): Promise<ShiftReport | null> {
@@ -315,6 +362,13 @@ function mapReport(data: Record<string, unknown>, corrRows: Record<string, unkno
       newValue: c.new_value as string,
       reason: c.reason as string,
     })),
+    collectionStartsAt: (data.collection_starts_at as string | null) ?? null,
+    collectionEndsAt: (data.collection_ends_at as string | null) ?? null,
+    preCutoffTotal: data.pre_cutoff_total != null ? Number(data.pre_cutoff_total) : null,
+    preCutoffCount: data.pre_cutoff_count != null ? Number(data.pre_cutoff_count) : null,
+    postCutoffTotal: data.post_cutoff_total != null ? Number(data.post_cutoff_total) : null,
+    postCutoffCount: data.post_cutoff_count != null ? Number(data.post_cutoff_count) : null,
+    postCutoffPaymentsJson: (data.post_cutoff_payments_json as ShiftReport["postCutoffPaymentsJson"]) ?? [],
   };
 }
 
