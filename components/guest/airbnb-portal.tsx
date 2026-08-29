@@ -8,7 +8,7 @@ import {
   type GuestActionState,
 } from "@/app/(public)/airbnb/[token]/actions";
 import type { AirbnbGuest } from "@/lib/guest/airbnb";
-import type { AirbnbExtra } from "@/lib/airbnb/queries";
+import type { AirbnbExtra, AirbnbOrder, AirbnbRequest } from "@/lib/airbnb/queries";
 
 const peso = (n: number) => `₱${n.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -139,12 +139,115 @@ function MaintenanceForm({ token, onDone }: { token: string; onDone: () => void 
   );
 }
 
+const ORDER_STATUS: Record<string, { label: string; color: string }> = {
+  pending:   { label: "Pending",   color: "bg-amber-100 text-amber-800" },
+  fulfilled: { label: "Delivered", color: "bg-green-100 text-green-800" },
+  cancelled: { label: "Cancelled", color: "bg-stone-100 text-stone-500" },
+};
+const REQUEST_TYPE: Record<string, string> = {
+  cleaning:    "Room cleaning",
+  maintenance: "Maintenance",
+};
+const REQUEST_STATUS: Record<string, { label: string; color: string }> = {
+  pending:   { label: "Pending",   color: "bg-amber-100 text-amber-800" },
+  scheduled: { label: "Scheduled", color: "bg-blue-100 text-blue-800" },
+  done:      { label: "Done",      color: "bg-green-100 text-green-800" },
+  cancelled: { label: "Cancelled", color: "bg-stone-100 text-stone-500" },
+};
+
+function fmtShort(iso: string) {
+  return new Date(iso).toLocaleString("en-PH", {
+    timeZone: "Asia/Manila", month: "short", day: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  });
+}
+
+function OrderHistory({ orders }: { orders: AirbnbOrder[] }) {
+  const [open, setOpen] = useState(false);
+  if (!orders.length) return null;
+  return (
+    <div className="mt-4 rounded-xl border border-stone-200 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between px-4 py-2.5 text-sm font-semibold text-stone-700 hover:bg-stone-50"
+      >
+        <span>Orders ({orders.length})</span>
+        <span className="text-stone-400">{open ? "▲" : "▼"}</span>
+      </button>
+      {open && (
+        <div className="divide-y divide-stone-100">
+          {orders.map((o) => {
+            const s = ORDER_STATUS[o.status] ?? { label: o.status, color: "bg-stone-100 text-stone-600" };
+            return (
+              <div key={o.id} className="px-4 py-3">
+                <div className="mb-1.5 flex items-center justify-between gap-2">
+                  <span className="text-xs text-stone-400">{fmtShort(o.createdAt)}</span>
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${s.color}`}>{s.label}</span>
+                </div>
+                <ul className="space-y-0.5">
+                  {o.items.map((i) => (
+                    <li key={i.id} className="flex items-baseline justify-between text-xs text-stone-700">
+                      <span>{i.qty}× {i.name}</span>
+                      <span className="tabular-nums text-stone-500">{peso(i.subtotal)}</span>
+                    </li>
+                  ))}
+                </ul>
+                {o.notes && <p className="mt-1 text-[11px] text-stone-400">"{o.notes}"</p>}
+                <div className="mt-1.5 flex justify-end text-xs font-semibold">
+                  <span>Total: {peso(o.total)}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RequestHistory({ requests }: { requests: AirbnbRequest[] }) {
+  const [open, setOpen] = useState(false);
+  if (!requests.length) return null;
+  return (
+    <div className="mt-2 rounded-xl border border-stone-200 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between px-4 py-2.5 text-sm font-semibold text-stone-700 hover:bg-stone-50"
+      >
+        <span>Requests ({requests.length})</span>
+        <span className="text-stone-400">{open ? "▲" : "▼"}</span>
+      </button>
+      {open && (
+        <div className="divide-y divide-stone-100">
+          {requests.map((r) => {
+            const s = REQUEST_STATUS[r.status] ?? { label: r.status, color: "bg-stone-100 text-stone-600" };
+            return (
+              <div key={r.id} className="flex items-start justify-between gap-3 px-4 py-3">
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-stone-700">{REQUEST_TYPE[r.requestType] ?? r.requestType}</p>
+                  {r.notes && <p className="mt-0.5 text-[11px] text-stone-500 truncate">{r.notes}</p>}
+                  <p className="mt-0.5 text-[10px] text-stone-400">{fmtShort(r.createdAt)}</p>
+                </div>
+                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${s.color}`}>{s.label}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function AirbnbPortal({
-  booking, extras = [], pendingCleaningId = null,
+  booking, extras = [], pendingCleaningId = null, orders = [], requests = [],
 }: {
   booking: AirbnbGuest;
   extras?: AirbnbExtra[];
   pendingCleaningId?: string | null;
+  orders?: AirbnbOrder[];
+  requests?: AirbnbRequest[];
 }) {
   const router = useRouter();
   const [now, setNow] = useState(() => Date.now());
@@ -299,6 +402,14 @@ export function AirbnbPortal({
       )}
 
       {msg && <p className={`mt-3 rounded-lg px-3 py-2 text-sm ${msg.tone === "ok" ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-700"}`}>{msg.text}</p>}
+
+      {(orders.length > 0 || requests.length > 0) && (
+        <div className="mt-5 border-t border-stone-100 pt-4">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-400">Your activity</p>
+          <OrderHistory orders={orders} />
+          <RequestHistory requests={requests} />
+        </div>
+      )}
     </div>
   );
 }
