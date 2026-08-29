@@ -155,6 +155,24 @@ export async function checkReferralPlate(
   };
 }
 
+/** Verify a discount coupon number was recorded by a guard at hotel_gate within the window. */
+export async function checkCouponNo(couponNo: string, windowMinutes: number): Promise<boolean> {
+  const admin = createAdminClient();
+  const since = new Date(Date.now() - windowMinutes * 60 * 1000).toISOString();
+  const { data: post } = await admin.from("guard_posts").select("id").eq("code", "hotel_gate").maybeSingle();
+  if (!post) return false;
+  const normalized = couponNo.trim().toUpperCase();
+  const { data } = await admin
+    .from("guard_entrance_log")
+    .select("id")
+    .eq("post_id", post.id as string)
+    .ilike("discount_coupon_no", normalized)
+    .gte("time_in", since)
+    .limit(1)
+    .maybeSingle();
+  return !!data;
+}
+
 /** Get referral record for a stay. */
 export async function getStayReferral(stayId: string): Promise<{
   plateNumber: string;

@@ -13,7 +13,7 @@ import { createCleaningTask } from "@/lib/housekeeping/create-task";
 import { createNotification } from "@/lib/notifications/queries";
 import type { ImportResult } from "@/lib/imports/types";
 import { getActiveSession } from "@/lib/hotel/session";
-import { checkReferralPlate } from "@/lib/guard/queries";
+import { checkReferralPlate, checkCouponNo } from "@/lib/guard/queries";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -91,19 +91,49 @@ export async function checkIn(
   }
 
   const rc0 = roomCharge(base_rate, extra_hour_rate, base_hours, planned_hours);
-  let discount_amount = 0;
+  let promo_discount_amount = 0;
+  let promo_coupon_no: string | null = null;
   if (promo_id) {
     const { data: promo } = await supabase
       .from("promos")
-      .select("disc_type, disc_value")
+      .select("disc_type, disc_value, requires_coupon, coupons_total")
       .eq("id", promo_id)
       .maybeSingle();
-    if (promo) discount_amount = promoDiscount(rc0, promo.disc_type as string, Number(promo.disc_value));
+    if (promo) {
+      // Promo discount is frozen to the initial booking charge — never recalculated on extensions
+      promo_discount_amount = promoDiscount(rc0, promo.disc_type as string, Number(promo.disc_value));
+
+      if (promo.requires_coupon) {
+        const couponRaw = String(formData.get("promo_coupon_no") ?? "").trim().toUpperCase();
+        if (!couponRaw) return { ok: false, error: "This promo requires a guard-issued coupon/card number." };
+
+        // Check coupon limit
+        if (promo.coupons_total != null) {
+          const { count } = await supabase
+            .from("hotel_stays")
+            .select("id", { count: "exact", head: true })
+            .eq("promo_id", promo_id)
+            .not("promo_coupon_no", "is", null);
+          if ((count ?? 0) >= Number(promo.coupons_total))
+            return { ok: false, error: `All ${promo.coupons_total} coupons for this promo have been used.` };
+        }
+
+        // Guard must have recorded this coupon at the hotel gate
+        const { data: winRow } = await createAdminClient().from("app_settings").select("value").eq("key", "referral_window_minutes").maybeSingle();
+        const windowMin = parseInt(String(winRow?.value ?? "60"), 10);
+        const couponFound = await checkCouponNo(couponRaw, windowMin);
+        if (!couponFound)
+          return { ok: false, error: `Coupon #${couponRaw} was not recorded by the guard at the hotel entrance. The guard must log it first.` };
+
+        promo_coupon_no = couponRaw;
+      }
+    }
   }
-  // PH government discount (PWD / Senior Citizen): 20% on room charge, applied after promo
+  // PH government discount (PWD / Senior Citizen): 20% on total charge after promo — applies to initial hours AND all extensions
+  let discount_amount = promo_discount_amount;
   if (discount_type) {
-    const afterPromo = round2(rc0 - discount_amount);
-    discount_amount = round2(discount_amount + afterPromo * 0.20);
+    const afterPromo = round2(rc0 - promo_discount_amount);
+    discount_amount = round2(promo_discount_amount + afterPromo * 0.20);
   }
 
   // Extra persons — rate comes from the room (unit), not the global setting
@@ -165,6 +195,8 @@ export async function checkIn(
       base_rate,
       extra_hour_rate,
       promo_id,
+      promo_discount_amount,
+      promo_coupon_no,
       discount_amount,
       discount_type,
       tax_mode,
@@ -261,17 +293,14 @@ export async function extendStay(stayId: string, addedHours: number): Promise<Ac
   if (s.status !== "active") return { ok: false, error: "Stay is not active." };
 
   const planned_hours = (s.planned_hours as number) + addedHours;
-  let discount_amount = Number(s.discount_amount);
-  if (s.promo_id) {
-    const { data: promo } = await supabase
-      .from("promos")
-      .select("disc_type, disc_value")
-      .eq("id", s.promo_id)
-      .maybeSingle();
-    if (promo) {
-      const rc = roomCharge(Number(s.base_rate), Number(s.extra_hour_rate), s.base_hours as number, planned_hours);
-      discount_amount = promoDiscount(rc, promo.disc_type as string, Number(promo.disc_value));
-    }
+
+  // Promo discount is frozen at check-in — never recalculated on extensions.
+  // Only govt discount (PWD / Senior Citizen) scales with the new total room charge.
+  const promo_discount_amount = Number(s.promo_discount_amount ?? 0);
+  const newRc = roomCharge(Number(s.base_rate), Number(s.extra_hour_rate), s.base_hours as number, planned_hours);
+  let discount_amount = promo_discount_amount;
+  if (s.discount_type === "pwd" || s.discount_type === "senior_citizen") {
+    discount_amount = round2(promo_discount_amount + round2((newRc - promo_discount_amount) * 0.20));
   }
 
   await supabase.from("stays").update({ planned_hours, discount_amount }).eq("id", stayId);
@@ -592,7 +621,10 @@ export async function createPromo(
 
   const valid_from = String(formData.get("valid_from") ?? "").trim() || null;
   const valid_until = String(formData.get("valid_until") ?? "").trim() || null;
-  const { error } = await supabase.from("promos").insert({ name, disc_type, disc_value, valid_from, valid_until });
+  const requires_coupon = formData.get("requires_coupon") === "true";
+  const coupons_total_raw = String(formData.get("coupons_total") ?? "").trim();
+  const coupons_total = coupons_total_raw ? parseInt(coupons_total_raw, 10) || null : null;
+  const { error } = await supabase.from("promos").insert({ name, disc_type, disc_value, valid_from, valid_until, requires_coupon, coupons_total });
   if (error) return { ok: false, error: error.message };
   await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "create", entity: "promos", entityId: name });
   revalidatePath("/hotel");
@@ -613,9 +645,12 @@ export async function updatePromo(id: string, formData: FormData): Promise<Actio
 
   const valid_from = String(formData.get("valid_from") ?? "").trim() || null;
   const valid_until = String(formData.get("valid_until") ?? "").trim() || null;
-  const { error } = await supabase.from("promos").update({ name, disc_type, disc_value, valid_from, valid_until }).eq("id", id);
+  const requires_coupon = formData.get("requires_coupon") === "true";
+  const coupons_total_raw = String(formData.get("coupons_total") ?? "").trim();
+  const coupons_total = coupons_total_raw ? parseInt(coupons_total_raw, 10) || null : null;
+  const { error } = await supabase.from("promos").update({ name, disc_type, disc_value, valid_from, valid_until, requires_coupon, coupons_total }).eq("id", id);
   if (error) return { ok: false, error: error.message };
-  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "update", entity: "promos", entityId: id, diff: { name, disc_type, disc_value, valid_from, valid_until } });
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "update", entity: "promos", entityId: id, diff: { name, disc_type, disc_value, valid_from, valid_until, requires_coupon, coupons_total } });
   revalidatePath("/hotel");
   return { ok: true };
 }

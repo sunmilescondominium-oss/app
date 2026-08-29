@@ -80,6 +80,16 @@ export function EntranceLogForm({ hasActiveShift }: { hasActiveShift: boolean })
           <label className={labelCls}>Notes (optional)</label>
           <input name="notes" className={inputCls} placeholder="Any remarks…" />
         </div>
+        <div className="col-span-2">
+          <label className={labelCls}>Discount coupon / card # (if guest has one)</label>
+          <input
+            name="discount_coupon_no"
+            className={inputCls}
+            placeholder="e.g. PROMO-001"
+            style={{ textTransform: "uppercase" }}
+          />
+          <p className="mt-0.5 text-[10px] text-stone-400">Record if guest presents a discount card or coupon. Required before cashier can apply coupon-based promos.</p>
+        </div>
       </div>
       {state && !state.ok && (
         <p className="text-xs text-red-600">{state.error}</p>

@@ -33,6 +33,8 @@ function mapStay(r: Record<string, unknown>): Stay {
     base_rate: Number(r.base_rate),
     extra_hour_rate: Number(r.extra_hour_rate),
     promo_id: (r.promo_id as string) ?? null,
+    promo_discount_amount: Number(r.promo_discount_amount ?? 0),
+    promo_coupon_no: (r.promo_coupon_no as string | null) ?? null,
     discount_amount: Number(r.discount_amount),
     discount_type: (r.discount_type as string | null) ?? null,
     discount_id_photo_path: (r.discount_id_photo_path as string | null) ?? null,
@@ -73,6 +75,22 @@ export async function listPromos(): Promise<Promo[]> {
   const supabase = createAdminClient();
   const { data, error } = await supabase.from("promos").select("*").eq("is_active", true).order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
+
+  // Coupon usage: count stays that used each coupon-gated promo
+  const promoIds = (data ?? []).filter((r: Record<string, unknown>) => r.requires_coupon).map((r: Record<string, unknown>) => r.id as string);
+  const usageMap: Record<string, number> = {};
+  if (promoIds.length > 0) {
+    const { data: usageRows } = await supabase
+      .from("hotel_stays")
+      .select("promo_id")
+      .in("promo_id", promoIds)
+      .not("promo_coupon_no", "is", null);
+    for (const row of usageRows ?? []) {
+      const pid = row.promo_id as string;
+      usageMap[pid] = (usageMap[pid] ?? 0) + 1;
+    }
+  }
+
   return (data ?? []).map((r: Record<string, unknown>) => ({
     id: r.id as string,
     name: r.name as string,
@@ -81,6 +99,9 @@ export async function listPromos(): Promise<Promo[]> {
     is_active: r.is_active as boolean,
     valid_from: (r.valid_from as string | null) ?? null,
     valid_until: (r.valid_until as string | null) ?? null,
+    requires_coupon: Boolean(r.requires_coupon),
+    coupons_total: r.coupons_total != null ? Number(r.coupons_total) : null,
+    coupons_used: usageMap[r.id as string] ?? 0,
   }));
 }
 

@@ -16,6 +16,9 @@ export interface Promo {
   is_active: boolean;
   valid_from: string | null;
   valid_until: string | null;
+  requires_coupon: boolean;
+  coupons_total: number | null;
+  coupons_used: number;
 }
 
 export interface Stay {
@@ -29,6 +32,8 @@ export interface Stay {
   base_rate: number;
   extra_hour_rate: number;
   promo_id: string | null;
+  promo_discount_amount: number;
+  promo_coupon_no: string | null;
   discount_amount: number;
   discount_type: string | null;
   discount_id_photo_path: string | null;

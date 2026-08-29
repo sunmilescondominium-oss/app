@@ -129,12 +129,13 @@ function PromoRow({ promo, onSaved }: { promo: Promo; onSaved: () => void }) {
   const today = new Date().toISOString().slice(0, 10);
   const isExpired = !!promo.valid_until && promo.valid_until < today;
   const notYetValid = !!promo.valid_from && promo.valid_from > today;
+  const [couponRequired, setCouponRequired] = useState(promo.requires_coupon);
 
   if (!editing) {
     return (
       <li className="flex items-center justify-between gap-2 rounded-lg border border-stone-200 bg-white px-3 py-2">
         <div className="min-w-0">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
             <p className="truncate font-medium text-stone-900">{promo.name}</p>
             {isExpired && (
               <span className="shrink-0 rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-700">Expired</span>
@@ -142,11 +143,20 @@ function PromoRow({ promo, onSaved }: { promo: Promo; onSaved: () => void }) {
             {notYetValid && !isExpired && (
               <span className="shrink-0 rounded bg-stone-100 px-1.5 py-0.5 text-[10px] font-semibold text-stone-500">Upcoming</span>
             )}
+            {promo.requires_coupon && (
+              <span className="shrink-0 rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700">Coupon req.</span>
+            )}
           </div>
           <p className="text-xs text-stone-500">
             {promo.disc_type === "percent" ? `${promo.disc_value}% off` : `${peso(promo.disc_value)} off`}
             {promo.valid_from && <> · from {promo.valid_from}</>}
             {promo.valid_until && <> · until {promo.valid_until}</>}
+            {promo.requires_coupon && promo.coupons_total != null && (
+              <> · {promo.coupons_used}/{promo.coupons_total} used</>
+            )}
+            {promo.requires_coupon && promo.coupons_total == null && promo.coupons_used > 0 && (
+              <> · {promo.coupons_used} used</>
+            )}
           </p>
         </div>
         <div className="flex shrink-0 gap-2">
@@ -185,13 +195,33 @@ function PromoRow({ promo, onSaved }: { promo: Promo; onSaved: () => void }) {
             <label className={labelCls}>Valid until (optional)</label>
             <input name="valid_until" type="date" defaultValue={promo.valid_until ?? ""} className={inputCls} />
           </div>
+          <div className="col-span-2 flex items-center gap-3 pt-1">
+            <input
+              type="checkbox"
+              id={`req-coupon-${promo.id}`}
+              name="requires_coupon"
+              value="true"
+              checked={couponRequired}
+              onChange={(e) => setCouponRequired(e.target.checked)}
+              className="h-4 w-4 rounded border-stone-300 accent-violet-600"
+            />
+            <label htmlFor={`req-coupon-${promo.id}`} className="text-xs font-medium text-stone-700">
+              Requires guard-verified coupon to apply at check-in
+            </label>
+          </div>
+          {couponRequired && (
+            <div>
+              <label className={labelCls}>Total coupons issued (leave blank = unlimited)</label>
+              <input name="coupons_total" type="number" min="1" defaultValue={promo.coupons_total ?? ""} placeholder="e.g. 50" className={inputCls} />
+            </div>
+          )}
         </div>
         {err && <p className="text-xs text-red-600">{err}</p>}
         <div className="flex gap-2">
           <button type="submit" disabled={isPending} className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-60">
             {isPending ? "Saving…" : "Save"}
           </button>
-          <button type="button" onClick={() => { setEditing(false); setErr(null); }} className="rounded-lg border border-stone-300 px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-100">
+          <button type="button" onClick={() => { setEditing(false); setErr(null); setCouponRequired(promo.requires_coupon); setErr(null); }} className="rounded-lg border border-stone-300 px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-100">
             Cancel
           </button>
         </div>
@@ -200,6 +230,7 @@ function PromoRow({ promo, onSaved }: { promo: Promo; onSaved: () => void }) {
   );
 }
 
+// ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 // Main manager
 // ---------------------------------------------------------------------------
@@ -214,6 +245,7 @@ export function RatePromoManager({
 }) {
   const router = useRouter();
   const refresh = () => router.refresh();
+  const [newCouponRequired, setNewCouponRequired] = useState(false);
 
   const [planState, planAction, planPending] = useActionState<ActionResult | undefined, FormData>(createRatePlan, undefined);
   const [promoState, promoAction, promoPending] = useActionState<ActionResult | undefined, FormData>(createPromo, undefined);
@@ -292,6 +324,26 @@ export function RatePromoManager({
             <label className={labelCls}>Valid until (optional)</label>
             <input name="valid_until" type="date" className={inputCls} />
           </div>
+          <div className="col-span-2 flex items-center gap-3 pt-1">
+            <input
+              type="checkbox"
+              id="new-req-coupon"
+              name="requires_coupon"
+              value="true"
+              checked={newCouponRequired}
+              onChange={(e) => setNewCouponRequired(e.target.checked)}
+              className="h-4 w-4 rounded border-stone-300 accent-violet-600"
+            />
+            <label htmlFor="new-req-coupon" className="text-xs font-medium text-stone-700">
+              Requires guard-verified coupon / card at check-in
+            </label>
+          </div>
+          {newCouponRequired && (
+            <div className="col-span-2">
+              <label className={labelCls}>Total coupons issued (leave blank = unlimited)</label>
+              <input name="coupons_total" type="number" min="1" placeholder="e.g. 50" className={inputCls} />
+            </div>
+          )}
           <button type="submit" disabled={promoPending} className="col-span-2 rounded-lg bg-amber-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-60 sm:col-span-4">
             {promoPending ? "Adding…" : "+ Add promo"}
           </button>

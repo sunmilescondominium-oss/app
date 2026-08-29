@@ -43,6 +43,7 @@ export function CheckInForm({
     (p) => (!p.valid_from || p.valid_from <= today) && (!p.valid_until || p.valid_until >= today),
   );
   const promo = validPromos.find((p) => p.id === promoId);
+  const requiresCoupon = promo?.requires_coupon ?? false;
 
   // govDiscType: what the dropdown currently shows
   // discountApplied: true only after cashier clicks "Apply & capture ID"
@@ -147,6 +148,19 @@ export function CheckInForm({
             ))}
           </select>
         </div>
+        {requiresCoupon && (
+          <div className="col-span-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+            <label className={labelCls}>Promo coupon / card # (required by guard)</label>
+            <input
+              name="promo_coupon_no"
+              className={inputCls}
+              placeholder="e.g. PROMO-001"
+              style={{ textTransform: "uppercase" }}
+              required
+            />
+            <p className="mt-0.5 text-[10px] text-amber-800">Guard must have recorded this number at the entrance before check-in.</p>
+          </div>
+        )}
         <div>
           <label className={labelCls}>Gov&apos;t discount (optional)</label>
           <select

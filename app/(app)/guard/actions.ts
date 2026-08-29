@@ -64,6 +64,7 @@ export async function logEntry(
   const passengerCount = Number.isFinite(passengerCountRaw) && passengerCountRaw > 0
     ? passengerCountRaw : null;
   const notes = String(formData.get("notes") ?? "").trim() || null;
+  const discountCouponNo = String(formData.get("discount_coupon_no") ?? "").trim().toUpperCase() || null;
 
   // Get active shift to link
   const { data: shift } = await admin
@@ -87,6 +88,7 @@ export async function logEntry(
     driver_name: driverName,
     passenger_count: passengerCount,
     notes,
+    discount_coupon_no: discountCouponNo,
   });
   if (error) return { ok: false, error: error.message };
   revalidatePath("/guard");
