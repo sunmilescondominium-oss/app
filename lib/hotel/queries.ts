@@ -425,3 +425,9 @@ export async function getHotelDaySummary(date: string): Promise<HotelDaySummary>
     byMethod: [...byMethodMap].map(([method, total]) => ({ method, total: round2(total) })),
   };
 }
+
+export async function getPromoName(promoId: string): Promise<string | null> {
+  const supabase = createAdminClient();
+  const { data } = await supabase.from("promos").select("name").eq("id", promoId).maybeSingle();
+  return (data as { name: string } | null)?.name ?? null;
+}

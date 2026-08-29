@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireModule, userHasAnyRole } from "@/lib/auth/dal";
 import { canWriteModule, canReadModule } from "@/lib/rbac/modules";
-import { getStayDetail, listMenuItems, getLatestRoomCheck, listRoomBoard, getTransferRecord, getMaintenanceIssueForUnit } from "@/lib/hotel/queries";
+import { getStayDetail, listMenuItems, getLatestRoomCheck, listRoomBoard, getTransferRecord, getMaintenanceIssueForUnit, getPromoName } from "@/lib/hotel/queries";
 import { getSuggestedNextArNo } from "@/lib/hotel/session";
 import { stayTotals } from "@/lib/hotel/rates";
 import { computeTax } from "@/lib/hotel/tax";
@@ -20,6 +20,8 @@ import { TransferRoomModal } from "@/components/hotel/transfer-room-modal";
 import { SupervisorOpsPanel } from "@/components/hotel/supervisor-ops-panel";
 import { ExtraPersonPanel } from "@/components/hotel/extra-person-panel";
 import { MaintenanceIssuePanel } from "@/components/hotel/maintenance-issue-panel";
+import { BluetoothPrintButton } from "@/components/printing/bluetooth-print-button";
+import type { FolioData } from "@/lib/printing/format-folio";
 
 export const metadata = { title: "Folio" };
 
@@ -47,7 +49,10 @@ export default async function StayFolioPage({
   ]);
   if (!detail) notFound();
 
-  const maintenanceIssue = await getMaintenanceIssueForUnit(detail.stay.unit_id ?? "");
+  const [maintenanceIssue, promoName] = await Promise.all([
+    getMaintenanceIssueForUnit(detail.stay.unit_id ?? ""),
+    detail.stay.promo_id ? getPromoName(detail.stay.promo_id) : Promise.resolve(null),
+  ]);
 
   const { stay, payments, orders, extensions } = detail;
   const foodOrders = orders.filter((o) => o.menu_item_id !== null);
@@ -65,13 +70,57 @@ export default async function StayFolioPage({
   const t = stayTotals(stay, paid, ordersTotal);
   const tax = computeTax(t.total, stay.tax_mode, stay.tax_rate);
 
+  const siteBase = process.env.NEXT_PUBLIC_VERCEL_URL
+    ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
+    : process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : "";
+  const folioData: FolioData = {
+    brandName: "Sun Miles Condominium",
+    roomNumber: detail.unit_number ?? stay.unit_id ?? "",
+    arNo: payments[0]?.ar_no ?? null,
+    guestLabel: stay.guest_label,
+    checkIn: stay.check_in_at,
+    checkOut: stay.check_out_at,
+    plannedHours: stay.planned_hours,
+    stay: {
+      base_rate: stay.base_rate,
+      extra_hour_rate: stay.extra_hour_rate,
+      base_hours: stay.base_hours,
+      planned_hours: stay.planned_hours,
+      discount_amount: stay.discount_amount,
+      extra_person_amount: stay.extra_person_amount,
+    },
+    paid,
+    ordersTotal,
+    discountType: stay.discount_type,
+    promoName,
+    promoDiscountAmount: stay.promo_discount_amount,
+    extraPersons: stay.extra_persons,
+    extraPersonRate,
+    taxAmount: tax.tax,
+    taxLabel: tax.label,
+    payments: payments.map((p) => ({
+      amount: p.amount,
+      method: METHOD_LABEL[p.method] ?? p.method,
+      ar_no: p.ar_no,
+      or_no: p.receipt_no,
+      created_at: p.paid_at,
+    })),
+    orders: foodOrders.map((o) => ({ name: o.name, qty: o.qty, unit_price: o.unit_price })),
+    qrUrl: stay.portal_token ? `${siteBase}/guest/${stay.portal_token}` : null,
+  };
+
   return (
     <>
       <div className="no-print mb-4 flex items-center justify-between gap-3">
         <Link href="/hotel" className="text-sm font-medium text-amber-700 hover:underline">
           ← Room board
         </Link>
-        {isConsultant && <DeleteStayButton stayId={stayId} />}
+        <div className="flex items-center gap-3">
+          <BluetoothPrintButton folioData={folioData} />
+          {isConsultant && <DeleteStayButton stayId={stayId} />}
+        </div>
       </div>
 
       {/* Guest requests from the QR bill portal */}
