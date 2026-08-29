@@ -180,8 +180,21 @@ export function CheckInForm({
           </select>
         </div>
         <div>
+          <label className={labelCls}>Total guests in party *</label>
+          <input
+            name="guest_count"
+            type="number"
+            min={1}
+            max={20}
+            defaultValue={extraPersons + 1}
+            className={inputCls}
+            required
+          />
+          <p className="mt-0.5 text-[10px] text-stone-400">Guard will verify this count at the gate.</p>
+        </div>
+        <div>
           <label className={labelCls}>
-            Extra persons{extraPersonRate > 0 ? ` (₱${extraPersonRate.toLocaleString("en-PH")}/person)` : " (rate not set)"}
+            Extra persons charged{extraPersonRate > 0 ? ` (₱${extraPersonRate.toLocaleString("en-PH")}/person)` : " (rate not set)"}
           </label>
           <input
             name="extra_persons"

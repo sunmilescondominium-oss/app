@@ -173,6 +173,137 @@ export async function checkCouponNo(couponNo: string, windowMinutes: number): Pr
   return !!data;
 }
 
+// ---------------------------------------------------------------------------
+// Guard Hotel Room Board
+// ---------------------------------------------------------------------------
+
+export interface GuardRoomCard {
+  stayId: string;
+  unitId: string;
+  unitNumber: string;
+  guestLabel: string;
+  guestCount: number;
+  extraPersons: number;
+  checkInAt: string;
+  plannedHours: number;
+  status: string;
+  checkOutAt: string | null;
+  // Entry confirmation
+  guardEntryConfirmed: boolean;
+  guardEntryCount: number | null;
+  guardEntryConfirmedAt: string | null;
+  // Exit confirmation
+  guardExitConfirmed: boolean;
+  guardExitConfirmedAt: string | null;
+  // Room transfer
+  transferId: string | null;
+  transferFromUnit: string | null;
+  transferGuardAcknowledged: boolean;
+  transferAt: string | null;
+  // Carryover flag
+  fromPreviousShift: boolean;
+}
+
+export async function listOccupiedRoomsForGuard(
+  shiftStartedAt?: string,
+): Promise<GuardRoomCard[]> {
+  const admin = createAdminClient();
+
+  const { data: stays } = await admin
+    .from("stays")
+    .select(
+      `id, unit_id, guest_label, planned_hours, check_in_at, check_out_at, status,
+       guest_count, extra_persons,
+       guard_entry_confirmed, guard_entry_count, guard_entry_confirmed_at,
+       guard_exit_confirmed, guard_exit_confirmed_at,
+       units!inner(unit_number, business_line)`,
+    )
+    .in("status", ["active", "checked_out"])
+    .order("check_in_at", { ascending: true });
+
+  if (!stays || stays.length === 0) return [];
+
+  // Only hotel rooms; for checked_out stays only show if guard hasn't confirmed exit yet
+  const hotelStays = stays.filter((s) => {
+    const unitRaw = s.units as unknown;
+    const unit = (Array.isArray(unitRaw) ? unitRaw[0] : unitRaw) as { unit_number: string; business_line: string } | null;
+    if (!unit || unit.business_line !== "hotel") return false;
+    if (s.status === "checked_out" && Boolean(s.guard_exit_confirmed)) return false;
+    return true;
+  });
+
+  if (hotelStays.length === 0) return [];
+
+  const stayIds = hotelStays.map((s) => s.id as string);
+
+  // Get inbound transfers for these stays
+  const { data: transfers } = await admin
+    .from("hotel_room_transfers")
+    .select("id, to_stay_id, from_unit_id, guard_acknowledged, guard_acknowledged_at, transferred_at")
+    .in("to_stay_id", stayIds)
+    .order("transferred_at", { ascending: false });
+
+  // Resolve from_unit_number for each unique from_unit_id
+  const fromUnitIds = [...new Set((transfers ?? []).map((t) => t.from_unit_id as string))];
+  const fromUnitMap: Record<string, string> = {};
+  if (fromUnitIds.length > 0) {
+    const { data: fromUnits } = await admin
+      .from("units")
+      .select("id, unit_number")
+      .in("id", fromUnitIds);
+    for (const u of fromUnits ?? []) {
+      fromUnitMap[u.id as string] = u.unit_number as string;
+    }
+  }
+
+  type TransferRow = {
+    id: string;
+    to_stay_id: string;
+    from_unit_id: string;
+    guard_acknowledged: boolean;
+    guard_acknowledged_at: string | null;
+    transferred_at: string;
+  };
+
+  // Most-recent inbound transfer per stay
+  const transferMap: Record<string, TransferRow> = {};
+  for (const t of (transfers ?? []) as TransferRow[]) {
+    const sid = t.to_stay_id;
+    if (!transferMap[sid]) transferMap[sid] = t;
+  }
+
+  return hotelStays.map((s) => {
+    const unitRaw = s.units as unknown;
+    const unit = (Array.isArray(unitRaw) ? unitRaw[0] : unitRaw) as { unit_number: string } | null;
+    const t = transferMap[s.id as string];
+    const checkInAt = s.check_in_at as string;
+    return {
+      stayId: s.id as string,
+      unitId: s.unit_id as string,
+      unitNumber: unit?.unit_number ?? "?",
+      guestLabel: s.guest_label as string,
+      guestCount: Number(s.guest_count ?? 1),
+      extraPersons: Number(s.extra_persons ?? 0),
+      checkInAt,
+      plannedHours: Number(s.planned_hours),
+      status: s.status as string,
+      checkOutAt: (s.check_out_at as string | null) ?? null,
+      guardEntryConfirmed: Boolean(s.guard_entry_confirmed),
+      guardEntryCount: (s.guard_entry_count as number | null) ?? null,
+      guardEntryConfirmedAt: (s.guard_entry_confirmed_at as string | null) ?? null,
+      guardExitConfirmed: Boolean(s.guard_exit_confirmed),
+      guardExitConfirmedAt: (s.guard_exit_confirmed_at as string | null) ?? null,
+      transferId: t ? (t.id as string) : null,
+      transferFromUnit: t ? (fromUnitMap[t.from_unit_id as string] ?? null) : null,
+      transferGuardAcknowledged: t ? Boolean(t.guard_acknowledged) : true,
+      transferAt: t ? (t.transferred_at as string) : null,
+      fromPreviousShift: shiftStartedAt
+        ? new Date(checkInAt) < new Date(shiftStartedAt)
+        : false,
+    };
+  });
+}
+
 /** Get referral record for a stay. */
 export async function getStayReferral(stayId: string): Promise<{
   plateNumber: string;

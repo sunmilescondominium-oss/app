@@ -138,6 +138,10 @@ export async function checkIn(
 
   // Extra persons — rate comes from the room (unit), not the global setting
   const extra_persons = Math.max(0, parseInt(String(formData.get("extra_persons") ?? "0"), 10) || 0);
+  const guest_count = Math.max(
+    1,
+    parseInt(String(formData.get("guest_count") ?? "0"), 10) || (extra_persons + 1),
+  );
   let extra_person_rate = 0;
   let extra_person_amount = 0;
   if (extra_persons > 0) {
@@ -201,6 +205,7 @@ export async function checkIn(
       discount_type,
       tax_mode,
       tax_rate,
+      guest_count,
       extra_persons,
       extra_person_rate,
       extra_person_amount,
