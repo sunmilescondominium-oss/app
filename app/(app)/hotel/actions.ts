@@ -13,6 +13,7 @@ import { createCleaningTask } from "@/lib/housekeeping/create-task";
 import { createNotification } from "@/lib/notifications/queries";
 import type { ImportResult } from "@/lib/imports/types";
 import { getActiveSession } from "@/lib/hotel/session";
+import { checkReferralPlate } from "@/lib/guard/queries";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -208,6 +209,34 @@ export async function checkIn(
     collector_name: collectorLabel, ar_no,
     collected_on: todayManila(), remarks: "Hotel advance payment (check-in)",
   });
+
+  // Referral — verify plate against guard entrance log (hotel gate only)
+  const referralPlateRaw = String(formData.get("referral_plate") ?? "").trim();
+  if (referralPlateRaw) {
+    const { data: feeRow } = await admin.from("app_settings").select("value").eq("key", "referral_fee_hotel").maybeSingle();
+    const { data: winRow } = await admin.from("app_settings").select("value").eq("key", "referral_window_minutes").maybeSingle();
+    const referralFee = Number(feeRow?.value ?? 50);
+    const windowMin = parseInt(winRow?.value ?? "60", 10);
+    const check = await checkReferralPlate(referralPlateRaw, windowMin);
+    if (!check.found) {
+      // Hard block — referral cannot be paid without guard log confirmation
+      await admin.from("stays").delete().eq("id", data.id as string);
+      return { ok: false, error: `Referral plate "${referralPlateRaw.toUpperCase()}" was not found in the guard entrance log for the hotel gate in the last ${windowMin} minutes. Ask the guard to log the vehicle first, then retry check-in.` };
+    }
+    await admin.from("stay_referrals").insert({
+      stay_id: data.id as string,
+      guard_log_id: check.logId,
+      plate_number: check.plateNumber,
+      referral_amount: referralFee,
+      verified: true,
+      driver_id: check.driverId,
+      created_by: user.userId,
+    });
+    // Link the guard log entry to this stay so it can't be reused
+    if (check.logId) {
+      await admin.from("guard_entrance_log").update({ linked_stay_id: data.id as string }).eq("id", check.logId);
+    }
+  }
 
   await logAudit({
     actorUserId: user.userId,
@@ -1235,6 +1264,22 @@ export async function voidStay(stayId: string, reason: string): Promise<ActionRe
 
   // Auto-create housekeeping task so the room gets cleaned after the void
   await createCleaningTask({ unitId: stay.unit_id as string | null, stayId, actorUserId: user.userId, via: "checkout" });
+
+  // Alert admin/monitoring if guard already confirmed this guest entered
+  const adminForAlert = createAdminClient();
+  const { data: guardLog } = await adminForAlert
+    .from("guard_entrance_log")
+    .select("id, plate_number")
+    .eq("linked_stay_id", stayId)
+    .maybeSingle();
+  if (guardLog) {
+    const unitRow = await adminForAlert.from("units").select("unit_number").eq("id", stay.unit_id as string).maybeSingle();
+    const unitNo = unitRow.data?.unit_number ?? "unknown";
+    const alertBody = `Room ${unitNo} voided by ${actorLabel} — Reason: ${reason.trim()}. Guard had logged vehicle${guardLog.plate_number ? ` (${guardLog.plate_number})` : ""} entering. Verify cash.`;
+    for (const role of ["admin", "hotel_rental_monitoring", "owner"] as const) {
+      void createNotification({ kind: "stay_void_after_guard", title: "⚠️ Stay voided after guard entry", body: alertBody, link: `/hotel/${stayId}`, entityType: "stay", entityId: stayId, recipientRole: role, createdBy: user.userId });
+    }
+  }
 
   await logAudit({
     actorUserId: user.userId,

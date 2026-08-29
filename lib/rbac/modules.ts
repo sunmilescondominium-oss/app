@@ -58,7 +58,8 @@ export type ModuleKey =
   | "advances"
   | "scheduling"
   | "users"
-  | "settings";
+  | "settings"
+  | "guard";
 
 /**
  * Role groups for the permission matrix admin UI.
@@ -410,6 +411,15 @@ export const MODULES: Record<ModuleKey, ModuleDef> = {
     milestone: "Admin",
     read: ["admin", "managing_officer", "consultant", "accounting"],
     write: ["admin", "managing_officer", "accounting"],
+  },
+  guard: {
+    key: "guard",
+    path: "/guard",
+    label: "Guard Post",
+    blurb: "Entrance log, shifts & security.",
+    milestone: "Security",
+    read: ["guard", "admin", "managing_officer", "operations_manager", "hotel_rental_monitoring", "consultant", "owner"],
+    write: ["guard", "admin", "managing_officer"],
   },
 };
 

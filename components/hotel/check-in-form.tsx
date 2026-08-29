@@ -174,6 +174,16 @@ export function CheckInForm({
             className={inputCls}
           />
         </div>
+        <div className="col-span-2 sm:col-span-1">
+          <label className={labelCls}>Referral plate # (optional)</label>
+          <input
+            name="referral_plate"
+            className={inputCls}
+            placeholder="e.g. ABC 123"
+            style={{ textTransform: "uppercase" }}
+          />
+          <p className="mt-0.5 text-[10px] text-stone-400">Enter only if a tricycle/vehicle brought the guest. Must match guard entrance log.</p>
+        </div>
       </div>
 
       {/* Step 1: Recompute button — appears after selecting a discount type */}
