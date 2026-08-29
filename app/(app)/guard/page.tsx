@@ -104,7 +104,10 @@ export default async function GuardPage() {
       />
 
       {canManage && (
-        <div className="no-print mb-4 flex justify-end">
+        <div className="no-print mb-4 flex justify-end gap-4">
+          <Link href="/guard/referrals" className="text-sm font-medium text-amber-700 hover:underline">
+            Referral drivers →
+          </Link>
           <Link href="/guard/accounts" className="text-sm font-medium text-amber-700 hover:underline">
             Guard accounts →
           </Link>

@@ -5,7 +5,7 @@
 -- 1. Split promo discount from govt discount in hotel stays
 --    promo_discount_amount is frozen at check-in and never touched on extension;
 --    discount_amount = promo_discount + govt_discount recalculated on each extension.
-alter table public.hotel_stays
+alter table public.stays
   add column if not exists promo_discount_amount numeric(12,2) not null default 0,
   add column if not exists promo_coupon_no       text;
 
