@@ -48,6 +48,85 @@ export async function endShift(shiftId: string): Promise<ActionResult> {
   return { ok: true };
 }
 
+export async function endShiftWithHandover(
+  shiftId: string,
+  postId: string,
+  shiftType: "day" | "night",
+  incidentsNotes: string,
+  pendingItems: string,
+): Promise<ActionResult> {
+  const user = await requireModule("guard");
+  const admin = createAdminClient();
+
+  const now = new Date().toISOString();
+  const { error: shiftErr } = await admin
+    .from("guard_shifts")
+    .update({ ended_at: now })
+    .eq("id", shiftId)
+    .eq("guard_id", user.userId);
+  if (shiftErr) return { ok: false, error: shiftErr.message };
+
+  await admin.from("guard_handover_reports").insert({
+    outgoing_shift_id: shiftId,
+    outgoing_guard_id: user.userId,
+    post_id: postId,
+    shift_type: shiftType,
+    incidents_notes: incidentsNotes.trim() || null,
+    pending_items: pendingItems.trim() || null,
+  });
+
+  revalidatePath("/guard");
+  return { ok: true };
+}
+
+export async function acknowledgeHandover(handoverId: string): Promise<ActionResult> {
+  const user = await requireModule("guard");
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("guard_handover_reports")
+    .update({ acknowledged_at: new Date().toISOString(), acknowledged_by: user.userId })
+    .eq("id", handoverId)
+    .is("acknowledged_at", null);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/guard");
+  return { ok: true };
+}
+
+export async function acknowledgeNda(): Promise<ActionResult> {
+  const user = await requireModule("guard");
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("profiles")
+    .update({ guard_nda_acknowledged_at: new Date().toISOString() })
+    .eq("id", user.userId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/guard");
+  return { ok: true };
+}
+
+export async function updateGuardProfile(
+  targetUserId: string,
+  fields: {
+    guardAgency?: string;
+    guardPosition?: string;
+    guardContractExpiresAt?: string | null;
+  },
+): Promise<ActionResult> {
+  await requireModule("guard"); // caller must have guard module access (admin/supervisor)
+  const admin = createAdminClient();
+
+  const patch: Record<string, unknown> = {};
+  if (fields.guardAgency !== undefined) patch.guard_agency = fields.guardAgency.trim() || null;
+  if (fields.guardPosition !== undefined) patch.guard_position = fields.guardPosition.trim() || null;
+  if ("guardContractExpiresAt" in fields)
+    patch.guard_contract_expires_at = fields.guardContractExpiresAt || null;
+
+  const { error } = await admin.from("profiles").update(patch).eq("id", targetUserId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/guard/accounts");
+  return { ok: true };
+}
+
 export async function logEntry(
   _prev: ActionResult | undefined,
   formData: FormData,

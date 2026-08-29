@@ -350,6 +350,106 @@ export async function listOccupiedRoomsForGuard(
   });
 }
 
+// ---------------------------------------------------------------------------
+// Guard account management
+// ---------------------------------------------------------------------------
+
+export interface GuardAccountRow {
+  userId: string;
+  displayLabel: string;
+  email: string | null;
+  guardAgency: string | null;
+  guardPosition: string | null;
+  guardContractExpiresAt: string | null;
+  guardNdaAcknowledgedAt: string | null;
+  isExpired: boolean;
+}
+
+export async function listGuardAccounts(): Promise<GuardAccountRow[]> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("profiles")
+    .select("id, display_label, email, guard_agency, guard_position, guard_contract_expires_at, guard_nda_acknowledged_at")
+    .contains("roles", ["guard"])
+    .order("display_label");
+  const now = new Date().toISOString();
+  return (data ?? []).map((r) => ({
+    userId: r.id as string,
+    displayLabel: (r.display_label as string | null) ?? "Guard",
+    email: (r.email as string | null) ?? null,
+    guardAgency: (r.guard_agency as string | null) ?? null,
+    guardPosition: (r.guard_position as string | null) ?? null,
+    guardContractExpiresAt: (r.guard_contract_expires_at as string | null) ?? null,
+    guardNdaAcknowledgedAt: (r.guard_nda_acknowledged_at as string | null) ?? null,
+    isExpired: !!(r.guard_contract_expires_at && (r.guard_contract_expires_at as string) < now),
+  }));
+}
+
+export async function getGuardProfile(userId: string): Promise<GuardAccountRow | null> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("profiles")
+    .select("id, display_label, email, guard_agency, guard_position, guard_contract_expires_at, guard_nda_acknowledged_at")
+    .eq("id", userId)
+    .maybeSingle();
+  if (!data) return null;
+  const now = new Date().toISOString();
+  return {
+    userId: data.id as string,
+    displayLabel: (data.display_label as string | null) ?? "Guard",
+    email: (data.email as string | null) ?? null,
+    guardAgency: (data.guard_agency as string | null) ?? null,
+    guardPosition: (data.guard_position as string | null) ?? null,
+    guardContractExpiresAt: (data.guard_contract_expires_at as string | null) ?? null,
+    guardNdaAcknowledgedAt: (data.guard_nda_acknowledged_at as string | null) ?? null,
+    isExpired: !!(data.guard_contract_expires_at && (data.guard_contract_expires_at as string) < now),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Guard handover reports
+// ---------------------------------------------------------------------------
+
+export interface HandoverReport {
+  id: string;
+  outgoingGuardLabel: string;
+  postName: string;
+  shiftType: "day" | "night";
+  incidentsNotes: string | null;
+  pendingItems: string | null;
+  acknowledgedAt: string | null;
+  acknowledgedByLabel: string | null;
+  createdAt: string;
+}
+
+export async function getLastHandoverForPost(postId: string): Promise<HandoverReport | null> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("guard_handover_reports")
+    .select(`
+      id, shift_type, incidents_notes, pending_items, acknowledged_at, created_at,
+      outgoing_guard:profiles!guard_handover_reports_outgoing_guard_id_fkey(display_label),
+      acknowledged_by_profile:profiles!guard_handover_reports_acknowledged_by_fkey(display_label),
+      guard_posts(name)
+    `)
+    .eq("post_id", postId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!data) return null;
+  return {
+    id: data.id as string,
+    shiftType: data.shift_type as "day" | "night",
+    outgoingGuardLabel: ((data.outgoing_guard as { display_label?: string } | null)?.display_label) ?? "Guard",
+    postName: ((data.guard_posts as { name?: string } | null)?.name) ?? "",
+    incidentsNotes: (data.incidents_notes as string | null) ?? null,
+    pendingItems: (data.pending_items as string | null) ?? null,
+    acknowledgedAt: (data.acknowledged_at as string | null) ?? null,
+    acknowledgedByLabel: ((data.acknowledged_by_profile as { display_label?: string } | null)?.display_label) ?? null,
+    createdAt: data.created_at as string,
+  };
+}
+
 /** Get referral record for a stay. */
 export async function getStayReferral(stayId: string): Promise<{
   plateNumber: string;
