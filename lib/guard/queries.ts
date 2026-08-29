@@ -177,6 +177,13 @@ export async function checkCouponNo(couponNo: string, windowMinutes: number): Pr
 // Guard Hotel Room Board
 // ---------------------------------------------------------------------------
 
+export interface PersonEventCard {
+  id: string;
+  personCount: number;
+  feeAuthorizedAt: string | null;  // cashier clicked "Authorize Gate Entry"
+  entryConfirmedAt: string | null; // guard confirmed person entered
+}
+
 export interface GuardRoomCard {
   stayId: string;
   unitId: string;
@@ -200,6 +207,9 @@ export interface GuardRoomCard {
   transferFromUnit: string | null;
   transferGuardAcknowledged: boolean;
   transferAt: string | null;
+  // Mid-stay additional person events
+  pendingPersonEvents: PersonEventCard[];   // waiting for cashier authorization
+  readyToEnterEvents: PersonEventCard[];    // cashier authorized, guard must confirm
   // Carryover flag
   fromPreviousShift: boolean;
 }
@@ -272,11 +282,45 @@ export async function listOccupiedRoomsForGuard(
     if (!transferMap[sid]) transferMap[sid] = t;
   }
 
+  // Fetch open (not entry-confirmed) person events for these stays
+  const { data: personEventsRaw } = await admin
+    .from("hotel_stay_person_events")
+    .select("id, stay_id, person_count, fee_collected_at, confirmed_at")
+    .in("stay_id", stayIds)
+    .is("confirmed_at", null)        // only events not yet confirmed by guard
+    .order("created_at", { ascending: true });
+
+  type PersonEventRow = {
+    id: string;
+    stay_id: string;
+    person_count: number;
+    fee_collected_at: string | null;
+    confirmed_at: string | null;
+  };
+  const personEventsAll = (personEventsRaw ?? []) as PersonEventRow[];
+
+  // Group by stay_id
+  const personEventsByStay: Record<string, PersonEventRow[]> = {};
+  for (const ev of personEventsAll) {
+    if (!personEventsByStay[ev.stay_id]) personEventsByStay[ev.stay_id] = [];
+    personEventsByStay[ev.stay_id].push(ev);
+  }
+
   return hotelStays.map((s) => {
     const unitRaw = s.units as unknown;
     const unit = (Array.isArray(unitRaw) ? unitRaw[0] : unitRaw) as { unit_number: string } | null;
     const t = transferMap[s.id as string];
     const checkInAt = s.check_in_at as string;
+    const stayEvents = personEventsByStay[s.id as string] ?? [];
+
+    const pendingPersonEvents: PersonEventCard[] = stayEvents
+      .filter((ev) => !ev.fee_collected_at)
+      .map((ev) => ({ id: ev.id, personCount: ev.person_count, feeAuthorizedAt: null, entryConfirmedAt: null }));
+
+    const readyToEnterEvents: PersonEventCard[] = stayEvents
+      .filter((ev) => !!ev.fee_collected_at)
+      .map((ev) => ({ id: ev.id, personCount: ev.person_count, feeAuthorizedAt: ev.fee_collected_at, entryConfirmedAt: ev.confirmed_at }));
+
     return {
       stayId: s.id as string,
       unitId: s.unit_id as string,
@@ -297,6 +341,8 @@ export async function listOccupiedRoomsForGuard(
       transferFromUnit: t ? (fromUnitMap[t.from_unit_id as string] ?? null) : null,
       transferGuardAcknowledged: t ? Boolean(t.guard_acknowledged) : true,
       transferAt: t ? (t.transferred_at as string) : null,
+      pendingPersonEvents,
+      readyToEnterEvents,
       fromPreviousShift: shiftStartedAt
         ? new Date(checkInAt) < new Date(shiftStartedAt)
         : false,

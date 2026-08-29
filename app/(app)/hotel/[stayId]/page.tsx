@@ -19,6 +19,7 @@ import { PhotoDocPanel } from "@/components/capture/photo-doc-panel";
 import { TransferRoomModal } from "@/components/hotel/transfer-room-modal";
 import { SupervisorOpsPanel } from "@/components/hotel/supervisor-ops-panel";
 import { ExtraPersonPanel } from "@/components/hotel/extra-person-panel";
+import { GateEntryPanel } from "@/components/hotel/gate-entry-panel";
 import { MaintenanceIssuePanel } from "@/components/hotel/maintenance-issue-panel";
 import { BluetoothPrintButton } from "@/components/printing/bluetooth-print-button";
 import type { FolioData } from "@/lib/printing/format-folio";
@@ -49,9 +50,11 @@ export default async function StayFolioPage({
   ]);
   if (!detail) notFound();
 
-  const [maintenanceIssue, promoName] = await Promise.all([
+  const { getPersonEventsForStay } = await import("@/lib/hotel/queries");
+  const [maintenanceIssue, promoName, personEvents] = await Promise.all([
     getMaintenanceIssueForUnit(detail.stay.unit_id ?? ""),
     detail.stay.promo_id ? getPromoName(detail.stay.promo_id) : Promise.resolve(null),
+    getPersonEventsForStay(stayId),
   ]);
 
   const { stay, payments, orders, extensions } = detail;
@@ -202,6 +205,13 @@ export default async function StayFolioPage({
 
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="space-y-4">
+          {personEvents.length > 0 && (
+            <GateEntryPanel
+              events={personEvents}
+              canAuthorize={canManageExtras}
+            />
+          )}
+
           {stay.status === "active" && (
             <ExtraPersonPanel
               stayId={stay.id}

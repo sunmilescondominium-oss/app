@@ -8,6 +8,7 @@ import {
   listMenuItems,
   getGlobalTax,
   listRoomTax,
+  listPendingGateEntries,
 } from "@/lib/hotel/queries";
 import { getActiveSession, getSuggestedNextArNo } from "@/lib/hotel/session";
 import { PageHeader, Badge } from "@/components/ui";
@@ -30,7 +31,7 @@ export default async function HotelPage() {
   const canManageExtraRates = user.roleKeys.some((r) => ["admin", "accounting", "hotel_rental_monitoring", "managing_officer", "consultant"].includes(r));
 
   const isDemoMode = Boolean(user.demoMode);
-  const [board, ratePlans, promos, menu, globalTax, roomTax, activeSession, suggestedArNo] = await Promise.all([
+  const [board, ratePlans, promos, menu, globalTax, roomTax, activeSession, suggestedArNo, pendingGateEntries] = await Promise.all([
     listRoomBoard(isDemoMode),
     listRatePlans(),
     listPromos(),
@@ -39,6 +40,7 @@ export default async function HotelPage() {
     listRoomTax(),
     getActiveSession(),
     getSuggestedNextArNo(),
+    listPendingGateEntries(),
   ]);
   const occupied = board.filter((b) => b.stay).length;
   const isCashier    = userHasAnyRole(user, ["hotel_cashier"]);
@@ -80,6 +82,32 @@ export default async function HotelPage() {
               Open shift →
             </Link>
           )}
+        </div>
+      )}
+
+      {/* Gate entry alert banner — shown to cashier when guard reports extra persons */}
+      {pendingGateEntries.length > 0 && (
+        <div className="no-print mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
+          <p className="mb-1.5 text-sm font-semibold text-rose-900">
+            ⚠ {pendingGateEntries.reduce((s, e) => s + e.pendingCount, 0)} additional person{pendingGateEntries.reduce((s, e) => s + e.pendingCount, 0) !== 1 ? "s" : ""} waiting at gate — collect fee &amp; authorize entry
+          </p>
+          <ul className="flex flex-wrap gap-2">
+            {pendingGateEntries.map((e) => (
+              <li key={e.stayId}>
+                <Link
+                  href={`/hotel/${e.stayId}`}
+                  className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-3 py-1 text-xs font-medium text-rose-800 hover:bg-rose-200"
+                >
+                  Room {e.unitNumber} · {e.guestLabel}
+                  {e.pendingCount > 0 && (
+                    <span className="ml-1 rounded-full bg-rose-600 px-1.5 text-[10px] font-bold text-white">
+                      +{e.pendingCount}
+                    </span>
+                  )}
+                </Link>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 

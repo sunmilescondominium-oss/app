@@ -58,6 +58,91 @@ export async function acknowledgeTransfer(transferId: string): Promise<Result> {
   return { ok: true };
 }
 
+export async function reportAdditionalPerson(
+  stayId: string,
+  count: number,
+): Promise<Result> {
+  const user = await requireModule("guard");
+  if (!stayId || count < 1) return { ok: false, error: "Invalid input." };
+
+  const admin = createAdminClient();
+
+  // Verify stay is still active
+  const { data: stay } = await admin
+    .from("stays")
+    .select("id, status")
+    .eq("id", stayId)
+    .eq("status", "active")
+    .maybeSingle();
+  if (!stay) return { ok: false, error: "Stay not found or already checked out." };
+
+  const { error } = await admin.from("hotel_stay_person_events").insert({
+    stay_id: stayId,
+    event_type: "additional_reported",
+    person_count: count,
+    reported_by: user.userId,
+  });
+  if (error) return { ok: false, error: error.message };
+
+  // Also create a guard alert so it's visible to cashier
+  await admin.from("hotel_guard_alerts").insert({
+    stay_id: stayId,
+    alert_type: "additional_person",
+    message: `${count} additional person${count > 1 ? "s" : ""} at gate — fee not collected`,
+    raised_by: user.userId,
+  });
+
+  revalidatePath("/guard");
+  return { ok: true };
+}
+
+export async function confirmAdditionalEntry(
+  personEventId: string,
+  count: number,
+): Promise<Result> {
+  const user = await requireModule("guard");
+  if (!personEventId) return { ok: false, error: "Invalid event." };
+
+  const admin = createAdminClient();
+
+  // Verify fee was authorized before guard can confirm
+  const { data: ev } = await admin
+    .from("hotel_stay_person_events")
+    .select("id, stay_id, person_count, fee_collected_at, confirmed_at")
+    .eq("id", personEventId)
+    .maybeSingle();
+
+  if (!ev) return { ok: false, error: "Event not found." };
+  if (!ev.fee_collected_at) {
+    return { ok: false, error: "Cashier has not authorized entry yet. Wait for fee collection." };
+  }
+  if (ev.confirmed_at) return { ok: false, error: "Entry already confirmed." };
+
+  const now = new Date().toISOString();
+  const { error } = await admin
+    .from("hotel_stay_person_events")
+    .update({ confirmed_at: now, confirmed_by: user.userId, event_type: "entry_confirmed" })
+    .eq("id", personEventId);
+  if (error) return { ok: false, error: error.message };
+
+  // Increment guard entry count on the stay
+  const { data: stayRow } = await admin
+    .from("stays")
+    .select("guard_entry_count, guest_count")
+    .eq("id", ev.stay_id as string)
+    .maybeSingle();
+
+  const currentCount = Number(stayRow?.guard_entry_count ?? 0);
+  const newCount = currentCount + count;
+  await admin
+    .from("stays")
+    .update({ guard_entry_count: newCount, guest_count: Math.max(Number(stayRow?.guest_count ?? 1), newCount) })
+    .eq("id", ev.stay_id as string);
+
+  revalidatePath("/guard");
+  return { ok: true };
+}
+
 export async function confirmGuestExit(stayId: string): Promise<Result> {
   const user = await requireModule("guard");
   if (!stayId) return { ok: false, error: "Invalid stay." };

@@ -1136,6 +1136,50 @@ export async function removeExtraPersonCharge(chargeId: string, stayId: string):
   return { ok: true };
 }
 
+// ---- gate entry authorization (cashier signals guard that fee is collected) --
+
+export async function authorizeGateEntry(personEventId: string): Promise<ActionResult> {
+  const user = await requireAuth();
+  if (!userHasAnyRole(user, [...EXTRA_PERSON_ROLES]))
+    return { ok: false, error: "Not authorised to authorize gate entry." };
+  if (!personEventId) return { ok: false, error: "Invalid event ID." };
+
+  const admin = createAdminClient();
+
+  const { data: ev } = await admin
+    .from("hotel_stay_person_events")
+    .select("id, stay_id, fee_collected_at, confirmed_at")
+    .eq("id", personEventId)
+    .maybeSingle();
+
+  if (!ev) return { ok: false, error: "Gate entry event not found." };
+  if (ev.fee_collected_at) return { ok: false, error: "Already authorized." };
+  if (ev.confirmed_at) return { ok: false, error: "Entry already confirmed by guard." };
+
+  const now = new Date().toISOString();
+  const { error } = await admin
+    .from("hotel_stay_person_events")
+    .update({
+      fee_collected_at: now,
+      fee_collected_by: user.userId,
+      event_type: "fee_collected",
+    })
+    .eq("id", personEventId);
+  if (error) return { ok: false, error: error.message };
+
+  // Resolve matching guard alert
+  await admin
+    .from("hotel_guard_alerts")
+    .update({ resolved: true, resolved_at: now, resolved_by: user.userId })
+    .eq("stay_id", ev.stay_id as string)
+    .eq("alert_type", "additional_person")
+    .eq("resolved", false);
+
+  revalidatePath("/hotel");
+  revalidatePath(`/hotel/${ev.stay_id as string}`);
+  return { ok: true };
+}
+
 // ---- room transfer ----------------------------------------------------------
 
 const TRANSFER_REASONS = ["room_issue", "maintenance", "guest_preference", "other"] as const;

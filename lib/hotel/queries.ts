@@ -431,3 +431,89 @@ export async function getPromoName(promoId: string): Promise<string | null> {
   const { data } = await supabase.from("promos").select("name").eq("id", promoId).maybeSingle();
   return (data as { name: string } | null)?.name ?? null;
 }
+
+// ---------------------------------------------------------------------------
+// Gate entry: pending person events for cashier alert banner
+// ---------------------------------------------------------------------------
+
+export interface PendingGateEntry {
+  stayId: string;
+  unitNumber: string;
+  guestLabel: string;
+  pendingCount: number;   // persons waiting, fee not yet authorized
+  readyCount: number;     // fee authorized, guard confirming entry
+}
+
+export async function listPendingGateEntries(): Promise<PendingGateEntry[]> {
+  const admin = createAdminClient();
+  // Open events not yet confirmed by guard (either awaiting fee auth or awaiting guard confirm)
+  const { data: events } = await admin
+    .from("hotel_stay_person_events")
+    .select("stay_id, person_count, fee_collected_at, confirmed_at")
+    .is("confirmed_at", null);
+
+  if (!events || events.length === 0) return [];
+
+  type EvRow = { stay_id: string; person_count: number; fee_collected_at: string | null; confirmed_at: string | null };
+  const stayIds = [...new Set(events.map((e) => (e as EvRow).stay_id))];
+
+  const { data: stays } = await admin
+    .from("stays")
+    .select("id, guest_label, units!inner(unit_number)")
+    .in("id", stayIds)
+    .eq("status", "active");
+
+  const stayMap: Record<string, { guestLabel: string; unitNumber: string }> = {};
+  for (const s of stays ?? []) {
+    const unitRaw = s.units as unknown;
+    const unit = (Array.isArray(unitRaw) ? unitRaw[0] : unitRaw) as { unit_number: string } | null;
+    stayMap[s.id as string] = {
+      guestLabel: s.guest_label as string,
+      unitNumber: unit?.unit_number ?? "?",
+    };
+  }
+
+  // Group events by stay
+  const grouped: Record<string, { pending: number; ready: number }> = {};
+  for (const ev of events as EvRow[]) {
+    if (!grouped[ev.stay_id]) grouped[ev.stay_id] = { pending: 0, ready: 0 };
+    if (!ev.fee_collected_at) grouped[ev.stay_id].pending += ev.person_count;
+    else grouped[ev.stay_id].ready += ev.person_count;
+  }
+
+  return Object.entries(grouped)
+    .map(([stayId, { pending, ready }]) => {
+      const stay = stayMap[stayId];
+      if (!stay) return null;
+      return {
+        stayId,
+        unitNumber: stay.unitNumber,
+        guestLabel: stay.guestLabel,
+        pendingCount: pending,
+        readyCount: ready,
+      };
+    })
+    .filter((x): x is PendingGateEntry => x !== null);
+}
+
+export async function getPersonEventsForStay(stayId: string): Promise<{
+  id: string;
+  personCount: number;
+  feeAuthorizedAt: string | null;
+  entryConfirmedAt: string | null;
+  createdAt: string;
+}[]> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("hotel_stay_person_events")
+    .select("id, person_count, fee_collected_at, confirmed_at, created_at")
+    .eq("stay_id", stayId)
+    .order("created_at", { ascending: true });
+  return (data ?? []).map((r) => ({
+    id: r.id as string,
+    personCount: Number(r.person_count),
+    feeAuthorizedAt: (r.fee_collected_at as string | null) ?? null,
+    entryConfirmedAt: (r.confirmed_at as string | null) ?? null,
+    createdAt: r.created_at as string,
+  }));
+}

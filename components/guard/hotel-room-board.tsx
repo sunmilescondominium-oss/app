@@ -6,8 +6,11 @@ import {
   confirmGuestEntry,
   acknowledgeTransfer,
   confirmGuestExit,
+  reportAdditionalPerson,
+  confirmAdditionalEntry,
   type GuardRoomCard,
 } from "@/app/(app)/guard/hotel-room-actions";
+import type { PersonEventCard } from "@/lib/guard/queries";
 
 function formatManila(iso: string): string {
   return new Date(iso).toLocaleTimeString("en-PH", {
@@ -49,6 +52,53 @@ function EntryBadge({ room }: { room: GuardRoomCard }) {
   );
 }
 
+function PersonEventRow({
+  ev,
+  onRefresh,
+}: {
+  ev: PersonEventCard;
+  onRefresh: () => void;
+}) {
+  const [busy, start] = useTransition();
+
+  function handleConfirm() {
+    start(async () => {
+      await confirmAdditionalEntry(ev.id, ev.personCount);
+      onRefresh();
+    });
+  }
+
+  if (ev.entryConfirmedAt) {
+    return (
+      <li className="text-xs text-green-700">
+        ✓ +{ev.personCount} person{ev.personCount !== 1 ? "s" : ""} entered & confirmed
+      </li>
+    );
+  }
+  if (ev.feeAuthorizedAt) {
+    return (
+      <li className="flex items-center justify-between gap-2">
+        <span className="text-xs text-blue-700">
+          ✓ Fee collected — +{ev.personCount} may enter
+        </span>
+        <button
+          type="button"
+          onClick={handleConfirm}
+          disabled={busy}
+          className="rounded bg-blue-600 px-2 py-0.5 text-[10px] font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+        >
+          {busy ? "…" : "Confirm Entry"}
+        </button>
+      </li>
+    );
+  }
+  return (
+    <li className="text-xs text-amber-700">
+      ⏳ +{ev.personCount} person{ev.personCount !== 1 ? "s" : ""} waiting — cashier collecting fee
+    </li>
+  );
+}
+
 function RoomCard({
   room,
   onRefresh,
@@ -58,6 +108,8 @@ function RoomCard({
 }) {
   const [confirmingEntry, setConfirmingEntry] = useState(false);
   const [entryInput, setEntryInput] = useState(String(room.guestCount));
+  const [reportingExtra, setReportingExtra] = useState(false);
+  const [extraInput, setExtraInput] = useState("1");
   const [busy, startTransition] = useTransition();
   const [error, setError] = useState("");
 
@@ -95,6 +147,22 @@ function RoomCard({
     startTransition(async () => {
       const result = await confirmGuestExit(room.stayId);
       if (!result.ok) { setError(result.error); return; }
+      onRefresh();
+    });
+  }
+
+  function handleReportExtra() {
+    setError("");
+    const count = parseInt(extraInput, 10);
+    if (!Number.isFinite(count) || count < 1) {
+      setError("Enter a valid person count.");
+      return;
+    }
+    startTransition(async () => {
+      const result = await reportAdditionalPerson(room.stayId, count);
+      if (!result.ok) { setError(result.error); return; }
+      setReportingExtra(false);
+      setExtraInput("1");
       onRefresh();
     });
   }
@@ -188,6 +256,61 @@ function RoomCard({
           </div>
         )}
       </div>
+
+      {/* Additional persons section */}
+      {(room.pendingPersonEvents.length > 0 || room.readyToEnterEvents.length > 0 || room.status === "active") && (
+        <div className="border-t border-stone-100 px-4 py-3 space-y-2">
+          {(room.pendingPersonEvents.length > 0 || room.readyToEnterEvents.length > 0) && (
+            <ul className="space-y-1.5">
+              {room.pendingPersonEvents.map((ev) => (
+                <PersonEventRow key={ev.id} ev={ev} onRefresh={onRefresh} />
+              ))}
+              {room.readyToEnterEvents.map((ev) => (
+                <PersonEventRow key={ev.id} ev={ev} onRefresh={onRefresh} />
+              ))}
+            </ul>
+          )}
+
+          {room.status === "active" && !reportingExtra && (
+            <button
+              type="button"
+              onClick={() => setReportingExtra(true)}
+              className="text-xs font-medium text-rose-700 hover:text-rose-900 underline"
+            >
+              + Additional person at gate
+            </button>
+          )}
+
+          {reportingExtra && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-stone-600">How many:</span>
+              <input
+                type="number"
+                min={1}
+                max={10}
+                value={extraInput}
+                onChange={(e) => setExtraInput(e.target.value)}
+                className="w-16 rounded border border-stone-300 px-2 py-1 text-sm text-center"
+              />
+              <button
+                type="button"
+                onClick={handleReportExtra}
+                disabled={busy}
+                className="rounded bg-rose-600 px-3 py-1 text-xs font-semibold text-white hover:bg-rose-700 disabled:opacity-50"
+              >
+                {busy ? "…" : "Report"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setReportingExtra(false)}
+                className="text-xs text-stone-400 hover:text-stone-600"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Transfer badge */}
       {room.transferId && (
