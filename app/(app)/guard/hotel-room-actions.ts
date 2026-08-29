@@ -177,3 +177,23 @@ export async function confirmGuestExit(stayId: string): Promise<Result> {
   revalidatePath("/guard");
   return { ok: true };
 }
+
+export async function raiseUnauthorizedEntry(
+  stayId: string,
+  message: string,
+): Promise<Result> {
+  const user = await requireModule("guard");
+  if (!stayId) return { ok: false, error: "Invalid stay." };
+
+  const admin = createAdminClient();
+  const { error } = await admin.from("hotel_guard_alerts").insert({
+    stay_id: stayId,
+    alert_type: "unauthorized_entry",
+    message: message.trim() || null,
+    raised_by: user.userId,
+  });
+
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/guard");
+  return { ok: true };
+}

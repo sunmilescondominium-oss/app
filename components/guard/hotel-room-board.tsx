@@ -8,6 +8,7 @@ import {
   confirmGuestExit,
   reportAdditionalPerson,
   confirmAdditionalEntry,
+  raiseUnauthorizedEntry,
   type GuardRoomCard,
 } from "@/app/(app)/guard/hotel-room-actions";
 import type { PersonEventCard } from "@/lib/guard/queries";
@@ -110,6 +111,8 @@ function RoomCard({
   const [entryInput, setEntryInput] = useState(String(room.guestCount));
   const [reportingExtra, setReportingExtra] = useState(false);
   const [extraInput, setExtraInput] = useState("1");
+  const [reportingUnauthorized, setReportingUnauthorized] = useState(false);
+  const [unauthorizedNote, setUnauthorizedNote] = useState("");
   const [busy, startTransition] = useTransition();
   const [error, setError] = useState("");
 
@@ -147,6 +150,17 @@ function RoomCard({
     startTransition(async () => {
       const result = await confirmGuestExit(room.stayId);
       if (!result.ok) { setError(result.error); return; }
+      onRefresh();
+    });
+  }
+
+  function handleReportUnauthorized() {
+    setError("");
+    startTransition(async () => {
+      const result = await raiseUnauthorizedEntry(room.stayId, unauthorizedNote);
+      if (!result.ok) { setError(result.error); return; }
+      setReportingUnauthorized(false);
+      setUnauthorizedNote("");
       onRefresh();
     });
   }
@@ -307,6 +321,45 @@ function RoomCard({
               >
                 Cancel
               </button>
+            </div>
+          )}
+
+          {room.status === "active" && !reportingUnauthorized && (
+            <button
+              type="button"
+              onClick={() => setReportingUnauthorized(true)}
+              className="text-xs font-medium text-red-700 hover:text-red-900 underline"
+            >
+              ⚠ Report unauthorized entry
+            </button>
+          )}
+
+          {reportingUnauthorized && (
+            <div className="space-y-1.5">
+              <input
+                type="text"
+                placeholder="Note (optional)"
+                value={unauthorizedNote}
+                onChange={(e) => setUnauthorizedNote(e.target.value)}
+                className="w-full rounded border border-stone-300 px-2 py-1 text-xs"
+              />
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleReportUnauthorized}
+                  disabled={busy}
+                  className="rounded bg-red-700 px-3 py-1 text-xs font-semibold text-white hover:bg-red-800 disabled:opacity-50"
+                >
+                  {busy ? "…" : "Submit Alert"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setReportingUnauthorized(false); setUnauthorizedNote(""); }}
+                  className="text-xs text-stone-400 hover:text-stone-600"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           )}
         </div>

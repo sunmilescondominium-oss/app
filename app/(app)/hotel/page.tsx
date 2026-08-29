@@ -10,6 +10,7 @@ import {
   listRoomTax,
   listPendingGateEntries,
 } from "@/lib/hotel/queries";
+import { countOpenDiscrepancies } from "@/lib/hotel/discrepancy-queries";
 import { getActiveSession, getSuggestedNextArNo } from "@/lib/hotel/session";
 import { PageHeader, Badge } from "@/components/ui";
 import { HotelBoard } from "@/components/hotel/hotel-board";
@@ -31,7 +32,9 @@ export default async function HotelPage() {
   const canManageExtraRates = user.roleKeys.some((r) => ["admin", "accounting", "hotel_rental_monitoring", "managing_officer", "consultant"].includes(r));
 
   const isDemoMode = Boolean(user.demoMode);
-  const [board, ratePlans, promos, menu, globalTax, roomTax, activeSession, suggestedArNo, pendingGateEntries] = await Promise.all([
+  const isCashier    = userHasAnyRole(user, ["hotel_cashier"]);
+  const isSupervisor = userHasAnyRole(user, ["hotel_rental_monitoring", "admin", "managing_officer", "consultant", "accounting"]);
+  const [board, ratePlans, promos, menu, globalTax, roomTax, activeSession, suggestedArNo, pendingGateEntries, openDiscrepancies] = await Promise.all([
     listRoomBoard(isDemoMode),
     listRatePlans(),
     listPromos(),
@@ -41,10 +44,9 @@ export default async function HotelPage() {
     getActiveSession(),
     getSuggestedNextArNo(),
     listPendingGateEntries(),
+    isSupervisor ? countOpenDiscrepancies() : Promise.resolve(0),
   ]);
   const occupied = board.filter((b) => b.stay).length;
-  const isCashier    = userHasAnyRole(user, ["hotel_cashier"]);
-  const isSupervisor = userHasAnyRole(user, ["hotel_rental_monitoring", "admin", "managing_officer", "consultant", "accounting"]);
   const isOnDuty     = activeSession?.cashierUserId === user.userId;
   const hotelOpsLocked = !activeSession && isCashier && !isSupervisor;
 
@@ -128,6 +130,22 @@ export default async function HotelPage() {
         {isSupervisor && (
           <Link href="/hotel/transfers" className="text-sm font-medium text-amber-700 hover:underline">
             Room transfer log →
+          </Link>
+        )}
+        {isSupervisor && (
+          <Link
+            href="/hotel/discrepancies"
+            className={`inline-flex items-center gap-1.5 text-sm font-medium hover:underline ${
+              openDiscrepancies > 0 ? "text-rose-700" : "text-amber-700"
+            }`}
+          >
+            Discrepancy monitor
+            {openDiscrepancies > 0 && (
+              <span className="rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-bold text-white">
+                {openDiscrepancies}
+              </span>
+            )}
+            →
           </Link>
         )}
         {canManageConfig && (
