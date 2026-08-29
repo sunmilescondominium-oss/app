@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { requireModule } from "@/lib/auth/dal";
 import { myPayslip } from "@/lib/employee/queries";
 import { todayManila, peso } from "@/lib/collections/summary";
@@ -19,6 +20,7 @@ function t(iso: string | null): string {
 
 export default async function MyPayslipPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const user = await requireModule("employee");
+  if (user.roleKeys.includes("guard")) redirect("/me");
   const sp = await searchParams;
   const from = (typeof sp.from === "string" && sp.from) || monthStart();
   const to = (typeof sp.to === "string" && sp.to) || todayManila();

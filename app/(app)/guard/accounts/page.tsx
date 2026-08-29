@@ -49,6 +49,21 @@ export default async function GuardAccountsPage() {
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm font-semibold text-stone-800">{g.displayLabel}</span>
+                {g.guardOperation === "hotel" && (
+                  <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700">
+                    Hotel Ops
+                  </span>
+                )}
+                {g.guardOperation === "condo" && (
+                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                    Condo Ops
+                  </span>
+                )}
+                {!g.guardOperation && (
+                  <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[10px] text-stone-400">
+                    Unassigned
+                  </span>
+                )}
                 {g.isExpired && (
                   <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-semibold text-rose-700">
                     Expired

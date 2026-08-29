@@ -362,18 +362,14 @@ export interface GuardAccountRow {
   guardPosition: string | null;
   guardContractExpiresAt: string | null;
   guardNdaAcknowledgedAt: string | null;
+  guardOperation: "hotel" | "condo" | null;
   isExpired: boolean;
 }
 
-export async function listGuardAccounts(): Promise<GuardAccountRow[]> {
-  const admin = createAdminClient();
-  const { data } = await admin
-    .from("profiles")
-    .select("id, display_label, email, guard_agency, guard_position, guard_contract_expires_at, guard_nda_acknowledged_at")
-    .contains("roles", ["guard"])
-    .order("display_label");
-  const now = new Date().toISOString();
-  return (data ?? []).map((r) => ({
+const GUARD_SELECT = "id, display_label, email, guard_agency, guard_position, guard_contract_expires_at, guard_nda_acknowledged_at, guard_operation";
+
+function mapGuardRow(r: Record<string, unknown>, now: string): GuardAccountRow {
+  return {
     userId: r.id as string,
     displayLabel: (r.display_label as string | null) ?? "Guard",
     email: (r.email as string | null) ?? null,
@@ -381,29 +377,31 @@ export async function listGuardAccounts(): Promise<GuardAccountRow[]> {
     guardPosition: (r.guard_position as string | null) ?? null,
     guardContractExpiresAt: (r.guard_contract_expires_at as string | null) ?? null,
     guardNdaAcknowledgedAt: (r.guard_nda_acknowledged_at as string | null) ?? null,
+    guardOperation: (r.guard_operation as "hotel" | "condo" | null) ?? null,
     isExpired: !!(r.guard_contract_expires_at && (r.guard_contract_expires_at as string) < now),
-  }));
+  };
+}
+
+export async function listGuardAccounts(): Promise<GuardAccountRow[]> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("profiles")
+    .select(GUARD_SELECT)
+    .contains("roles", ["guard"])
+    .order("display_label");
+  const now = new Date().toISOString();
+  return (data ?? []).map((r) => mapGuardRow(r as Record<string, unknown>, now));
 }
 
 export async function getGuardProfile(userId: string): Promise<GuardAccountRow | null> {
   const admin = createAdminClient();
   const { data } = await admin
     .from("profiles")
-    .select("id, display_label, email, guard_agency, guard_position, guard_contract_expires_at, guard_nda_acknowledged_at")
+    .select(GUARD_SELECT)
     .eq("id", userId)
     .maybeSingle();
   if (!data) return null;
-  const now = new Date().toISOString();
-  return {
-    userId: data.id as string,
-    displayLabel: (data.display_label as string | null) ?? "Guard",
-    email: (data.email as string | null) ?? null,
-    guardAgency: (data.guard_agency as string | null) ?? null,
-    guardPosition: (data.guard_position as string | null) ?? null,
-    guardContractExpiresAt: (data.guard_contract_expires_at as string | null) ?? null,
-    guardNdaAcknowledgedAt: (data.guard_nda_acknowledged_at as string | null) ?? null,
-    isExpired: !!(data.guard_contract_expires_at && (data.guard_contract_expires_at as string) < now),
-  };
+  return mapGuardRow(data as Record<string, unknown>, new Date().toISOString());
 }
 
 // ---------------------------------------------------------------------------

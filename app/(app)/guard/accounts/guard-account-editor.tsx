@@ -10,6 +10,7 @@ export function GuardAccountEditor({ guard }: { guard: GuardAccountRow }) {
   const [open, setOpen] = useState(false);
   const [agency, setAgency] = useState(guard.guardAgency ?? "");
   const [position, setPosition] = useState(guard.guardPosition ?? "");
+  const [operation, setOperation] = useState<"hotel" | "condo" | "">(guard.guardOperation ?? "");
   const [expires, setExpires] = useState(
     guard.guardContractExpiresAt
       ? guard.guardContractExpiresAt.slice(0, 10)
@@ -25,6 +26,7 @@ export function GuardAccountEditor({ guard }: { guard: GuardAccountRow }) {
         guardAgency: agency,
         guardPosition: position,
         guardContractExpiresAt: expires ? `${expires}T23:59:59+08:00` : null,
+        guardOperation: operation || null,
       });
       if (!result.ok) { setError(result.error); return; }
       setOpen(false);
@@ -51,6 +53,18 @@ export function GuardAccountEditor({ guard }: { guard: GuardAccountRow }) {
               Edit — {guard.displayLabel}
             </h3>
             <div className="space-y-3">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-stone-600">Operation area</label>
+                <select
+                  value={operation}
+                  onChange={(e) => setOperation(e.target.value as "hotel" | "condo" | "")}
+                  className={inputCls}
+                >
+                  <option value="">— not assigned —</option>
+                  <option value="hotel">Hotel Operations</option>
+                  <option value="condo">Condo Operations</option>
+                </select>
+              </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-stone-600">Agency name</label>
                 <input

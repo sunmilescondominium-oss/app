@@ -110,6 +110,7 @@ export async function updateGuardProfile(
     guardAgency?: string;
     guardPosition?: string;
     guardContractExpiresAt?: string | null;
+    guardOperation?: "hotel" | "condo" | null;
   },
 ): Promise<ActionResult> {
   await requireModule("guard"); // caller must have guard module access (admin/supervisor)
@@ -120,6 +121,8 @@ export async function updateGuardProfile(
   if (fields.guardPosition !== undefined) patch.guard_position = fields.guardPosition.trim() || null;
   if ("guardContractExpiresAt" in fields)
     patch.guard_contract_expires_at = fields.guardContractExpiresAt || null;
+  if ("guardOperation" in fields)
+    patch.guard_operation = fields.guardOperation ?? null;
 
   const { error } = await admin.from("profiles").update(patch).eq("id", targetUserId);
   if (error) return { ok: false, error: error.message };
