@@ -38,7 +38,14 @@ const ADMIN_SECTIONS = [
     title: "App Settings",
     blurb: "Global system settings: operating timezone, and other location-specific configuration.",
     icon: "⚙️",
-    roles: ["admin", "managing_officer"],
+    roles: ["admin", "managing_officer", "consultant"],
+  },
+  {
+    href: "/admin/flags",
+    title: "Feature Flags",
+    blurb: "Enable or disable optional modules and features without a deployment.",
+    icon: "🚩",
+    roles: ["admin", "managing_officer", "consultant"],
   },
   {
     href: "/admin/health",

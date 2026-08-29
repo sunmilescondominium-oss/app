@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 
 export async function saveAppSetting(formData: FormData) {
   const user = await requireAuth();
-  if (!userHasAnyRole(user, ["admin", "managing_officer"])) {
+  if (!userHasAnyRole(user, ["admin", "managing_officer", "consultant"])) {
     throw new Error("Access denied.");
   }
 
