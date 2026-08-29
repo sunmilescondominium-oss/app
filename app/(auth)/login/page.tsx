@@ -7,10 +7,10 @@ import { ForgotPassword } from "@/components/auth/forgot-password";
 
 export const metadata = { title: "Sign in" };
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ reset?: string }> }) {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ reset?: string; timeout?: string }> }) {
   const user = await getSessionUser();
   if (user) redirect("/");
-  const { reset } = await searchParams;
+  const { reset, timeout } = await searchParams;
 
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-12">
@@ -43,6 +43,11 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
             Sign in with your staff account to continue.
           </p>
 
+          {timeout && (
+            <p className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+              Your session expired due to inactivity. Please sign in again.
+            </p>
+          )}
           {reset && (
             <p className="mt-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
               Password updated. You can sign in with your new password.

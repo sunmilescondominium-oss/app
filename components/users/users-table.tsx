@@ -13,6 +13,7 @@ import {
   sendAccessInvite,
   bulkSetUsersActive,
   bulkDeleteUsers,
+  forceSignOutUser,
   type ActionResult,
 } from "@/app/(app)/users/actions";
 import { signInAsUser } from "@/app/(app)/users/impersonate-actions";
@@ -251,6 +252,7 @@ export function UsersTable({
   currentUserId,
   canImpersonate = false,
   canHardDelete = false,
+  canForceSignOut = false,
 }: {
   users: ManagedUser[];
   roles: RoleOption[];
@@ -259,6 +261,7 @@ export function UsersTable({
   currentUserId: string;
   canImpersonate?: boolean;
   canHardDelete?: boolean;
+  canForceSignOut?: boolean;
 }) {
   const router = useRouter();
   const [modal, setModal] = useState<ModalState>(null);
@@ -317,6 +320,14 @@ export function UsersTable({
     const res = await signInAsUser(u.id);
     if (!res.ok) setToast({ msg: res.error, ok: false });
     // on success the action redirects.
+  }
+
+  async function forceSignOut(u: ManagedUser) {
+    if (!window.confirm(`Force sign out ${u.email}? Their current session will end immediately.`)) return;
+    setPendingId(u.id);
+    const res = await forceSignOutUser(u.id);
+    setPendingId(null);
+    setToast(res.ok ? { msg: "Signed out ✓", ok: true } : { msg: res.error, ok: false });
   }
 
   async function resetPw(u: ManagedUser) {
@@ -487,6 +498,17 @@ export function UsersTable({
                           className="rounded-md border border-stone-300 px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100 disabled:opacity-40"
                         >
                           Send reset
+                        </button>
+                      )}
+                      {canForceSignOut && u.id !== currentUserId && u.isActive && (
+                        <button
+                          type="button"
+                          onClick={() => forceSignOut(u)}
+                          disabled={pendingId === u.id}
+                          title="Immediately end this user's active session"
+                          className="rounded-md border border-rose-300 bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-700 hover:bg-rose-100 disabled:opacity-40"
+                        >
+                          Force sign out
                         </button>
                       )}
                       {canWrite && (

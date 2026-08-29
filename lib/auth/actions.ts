@@ -24,11 +24,19 @@ export async function requestPasswordReset(_prev: ResetState, formData: FormData
   return { sent: true };
 }
 
+function passwordStrengthError(pw: string): string | null {
+  if (pw.length < 8) return "Use at least 8 characters.";
+  if (!/[a-zA-Z]/.test(pw)) return "Include at least one letter.";
+  if (!/[0-9]/.test(pw)) return "Include at least one number.";
+  return null;
+}
+
 /** Set a new password after following the reset link (recovery session active). */
 export async function updatePasswordAfterReset(_prev: ResetState, formData: FormData): Promise<ResetState> {
   const pw = String(formData.get("new_password") ?? "");
   const confirm = String(formData.get("confirm_password") ?? "");
-  if (pw.length < 8) return { error: "Use at least 8 characters." };
+  const strengthErr = passwordStrengthError(pw);
+  if (strengthErr) return { error: strengthErr };
   if (pw !== confirm) return { error: "The two passwords do not match." };
 
   const supabase = await createClient();

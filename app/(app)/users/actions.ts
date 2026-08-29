@@ -15,6 +15,21 @@ import type { BulkResult } from "@/lib/data/bulk";
 import { randomBytes } from "node:crypto";
 
 const USER_DELETE_ROLES = ["consultant", "admin"];
+const FORCE_SIGNOUT_ROLES = ["consultant", "admin", "managing_officer"];
+
+/** Immediately invalidate all sessions for a user (kicks them out on next request). */
+export async function forceSignOutUser(userId: string): Promise<ActionResult> {
+  const actor = await requireModuleWrite("users");
+  if (!userHasAnyRole(actor, FORCE_SIGNOUT_ROLES))
+    return { ok: false, error: "Only admin, managing officer, or consultant can force sign out." };
+  if (userId === actor.userId)
+    return { ok: false, error: "You cannot force sign out your own account." };
+  const admin = createAdminClient();
+  const { error } = await admin.auth.admin.signOut(userId);
+  if (error) return { ok: false, error: error.message };
+  await logAudit({ actorUserId: actor.userId, actorRoles: actor.roleKeys, action: "update", entity: "profiles", entityId: userId, diff: { force_signout: true } });
+  return { ok: true };
+}
 
 /** Bulk deactivate/reactivate users (soft — bans/unbans at the auth level too). */
 export async function bulkSetUsersActive(ids: string[], active: boolean): Promise<BulkResult> {

@@ -59,5 +59,39 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
     return NextResponse.redirect(loginUrl);
   }
 
+  // Idle session timeout — only for authenticated staff on protected routes.
+  if (user && !isPublicPath(request.nextUrl.pathname)) {
+    const timeoutMs =
+      parseInt(process.env.SESSION_TIMEOUT_MINUTES ?? "240", 10) * 60_000;
+    const lastActiveCookie = request.cookies.get("last_active_at");
+    const now = Date.now();
+
+    if (lastActiveCookie) {
+      const lastActive = parseInt(lastActiveCookie.value, 10);
+      if (!isNaN(lastActive) && now - lastActive > timeoutMs) {
+        // Session idle too long — sign out and redirect.
+        await supabase.auth.signOut();
+        const url = request.nextUrl.clone();
+        url.pathname = "/login";
+        url.searchParams.set("timeout", "1");
+        const res = NextResponse.redirect(url);
+        // Copy cleared auth cookies from supabaseResponse to the redirect.
+        for (const cookie of supabaseResponse.cookies.getAll()) {
+          res.cookies.set(cookie.name, cookie.value, cookie);
+        }
+        res.cookies.delete("last_active_at");
+        return res;
+      }
+    }
+
+    // Stamp last active time on every response.
+    supabaseResponse.cookies.set("last_active_at", String(now), {
+      httpOnly: true,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 86400,
+    });
+  }
+
   return supabaseResponse;
 }

@@ -70,6 +70,7 @@ export default async function UsersPage() {
             currentUserId={user.userId}
             canImpersonate={user.allRoleKeys.includes("consultant")}
             canHardDelete={["consultant", "admin"].some((r) => user.allRoleKeys.includes(r))}
+            canForceSignOut={["consultant", "admin", "managing_officer"].some((r) => user.allRoleKeys.includes(r))}
           />
         </AdjustableColumns>
       </TableSearch>
