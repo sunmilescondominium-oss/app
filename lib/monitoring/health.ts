@@ -138,15 +138,15 @@ function checkConfig(): Check[] {
 
 async function checkMigrations(admin: ReturnType<typeof createAdminClient>): Promise<Check[]> {
   const tables = [
-    { table: "push_subscriptions",      migration: "0072", label: "Push subscriptions" },
-    { table: "push_notifications_log",  migration: "0072", label: "Push notifications log" },
-    { table: "app_settings",            migration: "0071", label: "App settings (timezone)" },
-    { table: "system_errors",           migration: "0073", label: "System error log" },
+    { table: "push_subscriptions",      migration: "0072", label: "Push subscriptions",           col: "id" },
+    { table: "push_notifications_log",  migration: "0072", label: "Push notifications log",        col: "id" },
+    { table: "app_settings",            migration: "0071", label: "App settings (timezone)",       col: "key" },
+    { table: "system_errors",           migration: "0073", label: "System error log",              col: "id" },
   ];
 
   const checks: Check[] = [];
-  for (const { table, migration, label } of tables) {
-    const { error } = await admin.from(table as "profiles").select("id").limit(1);
+  for (const { table, migration, label, col } of tables) {
+    const { error } = await admin.from(table as "profiles").select(col).limit(1);
     const missing = error?.code === "42P01" || error?.message?.includes("does not exist");
     checks.push(c(label,
       missing ? "error" : "ok",
