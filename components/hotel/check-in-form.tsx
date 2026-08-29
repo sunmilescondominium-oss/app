@@ -38,7 +38,11 @@ export function CheckInForm({
   const plan = ratePlans.find((p) => p.id === planId);
   const [hours, setHours] = useState<number>(ratePlans[0]?.base_hours ?? 3);
   const [promoId, setPromoId] = useState("");
-  const promo = promos.find((p) => p.id === promoId);
+  const today = new Date().toISOString().slice(0, 10);
+  const validPromos = promos.filter(
+    (p) => (!p.valid_from || p.valid_from <= today) && (!p.valid_until || p.valid_until >= today),
+  );
+  const promo = validPromos.find((p) => p.id === promoId);
 
   // govDiscType: what the dropdown currently shows
   // discountApplied: true only after cashier clicks "Apply & capture ID"
@@ -136,9 +140,9 @@ export function CheckInForm({
           <label className={labelCls}>Promo (optional)</label>
           <select name="promo_id" value={promoId} onChange={(e) => setPromoId(e.target.value)} className={inputCls}>
             <option value="">— none —</option>
-            {promos.map((p) => (
+            {validPromos.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.name} ({p.disc_type === "percent" ? `${p.disc_value}%` : peso(p.disc_value)})
+                {p.name} ({p.disc_type === "percent" ? `${p.disc_value}%` : peso(p.disc_value)}){p.valid_until ? ` · until ${p.valid_until}` : ""}
               </option>
             ))}
           </select>

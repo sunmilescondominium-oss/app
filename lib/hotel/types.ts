@@ -14,6 +14,8 @@ export interface Promo {
   disc_type: string;
   disc_value: number;
   is_active: boolean;
+  valid_from: string | null;
+  valid_until: string | null;
 }
 
 export interface Stay {

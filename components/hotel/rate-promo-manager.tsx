@@ -126,13 +126,27 @@ function PromoRow({ promo, onSaved }: { promo: Promo; onSaved: () => void }) {
     });
   }
 
+  const today = new Date().toISOString().slice(0, 10);
+  const isExpired = !!promo.valid_until && promo.valid_until < today;
+  const notYetValid = !!promo.valid_from && promo.valid_from > today;
+
   if (!editing) {
     return (
       <li className="flex items-center justify-between gap-2 rounded-lg border border-stone-200 bg-white px-3 py-2">
         <div className="min-w-0">
-          <p className="truncate font-medium text-stone-900">{promo.name}</p>
+          <div className="flex items-center gap-2">
+            <p className="truncate font-medium text-stone-900">{promo.name}</p>
+            {isExpired && (
+              <span className="shrink-0 rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-700">Expired</span>
+            )}
+            {notYetValid && !isExpired && (
+              <span className="shrink-0 rounded bg-stone-100 px-1.5 py-0.5 text-[10px] font-semibold text-stone-500">Upcoming</span>
+            )}
+          </div>
           <p className="text-xs text-stone-500">
             {promo.disc_type === "percent" ? `${promo.disc_value}% off` : `${peso(promo.disc_value)} off`}
+            {promo.valid_from && <> · from {promo.valid_from}</>}
+            {promo.valid_until && <> · until {promo.valid_until}</>}
           </p>
         </div>
         <div className="flex shrink-0 gap-2">
@@ -162,6 +176,14 @@ function PromoRow({ promo, onSaved }: { promo: Promo; onSaved: () => void }) {
           <div>
             <label className={labelCls}>Value</label>
             <input name="disc_value" type="number" min="0" step="0.01" defaultValue={promo.disc_value} className={inputCls} />
+          </div>
+          <div>
+            <label className={labelCls}>Valid from (optional)</label>
+            <input name="valid_from" type="date" defaultValue={promo.valid_from ?? ""} className={inputCls} />
+          </div>
+          <div>
+            <label className={labelCls}>Valid until (optional)</label>
+            <input name="valid_until" type="date" defaultValue={promo.valid_until ?? ""} className={inputCls} />
           </div>
         </div>
         {err && <p className="text-xs text-red-600">{err}</p>}
@@ -261,6 +283,14 @@ export function RatePromoManager({
           <div>
             <label className={labelCls}>Value</label>
             <input name="disc_value" type="number" placeholder="20" className={inputCls} />
+          </div>
+          <div>
+            <label className={labelCls}>Valid from (optional)</label>
+            <input name="valid_from" type="date" className={inputCls} />
+          </div>
+          <div>
+            <label className={labelCls}>Valid until (optional)</label>
+            <input name="valid_until" type="date" className={inputCls} />
           </div>
           <button type="submit" disabled={promoPending} className="col-span-2 rounded-lg bg-amber-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-60 sm:col-span-4">
             {promoPending ? "Adding…" : "+ Add promo"}

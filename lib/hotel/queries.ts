@@ -79,6 +79,8 @@ export async function listPromos(): Promise<Promo[]> {
     disc_type: r.disc_type as string,
     disc_value: Number(r.disc_value),
     is_active: r.is_active as boolean,
+    valid_from: (r.valid_from as string | null) ?? null,
+    valid_until: (r.valid_until as string | null) ?? null,
   }));
 }
 

@@ -590,7 +590,9 @@ export async function createPromo(
   if (!name) return { ok: false, error: "Name is required." };
   if (!["percent", "amount"].includes(disc_type)) return { ok: false, error: "Invalid discount type." };
 
-  const { error } = await supabase.from("promos").insert({ name, disc_type, disc_value });
+  const valid_from = String(formData.get("valid_from") ?? "").trim() || null;
+  const valid_until = String(formData.get("valid_until") ?? "").trim() || null;
+  const { error } = await supabase.from("promos").insert({ name, disc_type, disc_value, valid_from, valid_until });
   if (error) return { ok: false, error: error.message };
   await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "create", entity: "promos", entityId: name });
   revalidatePath("/hotel");
@@ -609,9 +611,11 @@ export async function updatePromo(id: string, formData: FormData): Promise<Actio
   if (!name) return { ok: false, error: "Name is required." };
   if (!["percent", "amount"].includes(disc_type)) return { ok: false, error: "Invalid discount type." };
 
-  const { error } = await supabase.from("promos").update({ name, disc_type, disc_value }).eq("id", id);
+  const valid_from = String(formData.get("valid_from") ?? "").trim() || null;
+  const valid_until = String(formData.get("valid_until") ?? "").trim() || null;
+  const { error } = await supabase.from("promos").update({ name, disc_type, disc_value, valid_from, valid_until }).eq("id", id);
   if (error) return { ok: false, error: error.message };
-  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "update", entity: "promos", entityId: id, diff: { name, disc_type, disc_value } });
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "update", entity: "promos", entityId: id, diff: { name, disc_type, disc_value, valid_from, valid_until } });
   revalidatePath("/hotel");
   return { ok: true };
 }
