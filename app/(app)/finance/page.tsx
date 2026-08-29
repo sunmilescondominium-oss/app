@@ -70,9 +70,14 @@ export default async function FinancePage({
         <button type="submit" className="rounded-lg bg-stone-800 px-4 py-2 text-sm font-medium text-white hover:bg-stone-900">
           Apply
         </button>
-        <a href={`/api/export/finance-pl?from=${from}&to=${to}`} className="ml-auto rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100">
-          ⬇ Export to Sheets
-        </a>
+        <div className="ml-auto flex gap-2">
+          <a href={`/api/export/finance-pl?from=${from}&to=${to}`} className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100">
+            ⬇ Export to Sheets
+          </a>
+          <a href={`/api/finance/bir-export?from=${from}&to=${to}`} className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-700 transition hover:bg-amber-100">
+            ⬇ BIR CSV
+          </a>
+        </div>
       </form>
 
       {canWrite && (
