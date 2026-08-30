@@ -37,6 +37,19 @@ export default async function GuardAccountsPage() {
         badge={<Badge>{guards.length} guard{guards.length !== 1 ? "s" : ""}</Badge>}
       />
 
+      {/* Warn about unassigned operation types */}
+      {(() => {
+        const unassigned = guards.filter((g) => !g.guardOperation);
+        return unassigned.length > 0 ? (
+          <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            <span className="font-semibold">
+              {unassigned.length} guard{unassigned.length !== 1 ? "s" : ""} unassigned:
+            </span>{" "}
+            {unassigned.map((g) => g.displayLabel).join(", ")} — click Edit to set their operation area (Hotel or Condo).
+          </div>
+        ) : null;
+      })()}
+
       {guards.length === 0 && (
         <div className="rounded-xl border border-dashed border-stone-200 p-8 text-center text-sm text-stone-400">
           No guard accounts found. Assign the "guard" role to a user to add them here.

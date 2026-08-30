@@ -21,6 +21,7 @@ export function GuardAccountEditor({ guard }: { guard: GuardAccountRow }) {
 
   function save() {
     setError("");
+    if (!operation) { setError("Operation area is required — select Hotel or Condo."); return; }
     start(async () => {
       const result = await updateGuardProfile(guard.userId, {
         guardAgency: agency,
