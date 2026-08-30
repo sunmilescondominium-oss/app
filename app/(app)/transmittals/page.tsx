@@ -1,12 +1,14 @@
 import Link from "next/link";
 import { requireModule } from "@/lib/auth/dal";
-import { listTransmittals, getReceiptSeries } from "@/lib/collections/queries";
+import { listTransmittals, getReceiptSeries, listDeletedTransmittals } from "@/lib/collections/queries";
 import { listAccountOptions } from "@/lib/banking/queries";
 import { peso, todayManila } from "@/lib/collections/summary";
 import { PageHeader, Badge } from "@/components/ui";
 import { BuildTransmittalForm } from "@/components/transmittals/build-form";
 import { ReceiptSeriesPanel } from "@/components/transmittals/receipt-series";
 import { HelpPanel } from "@/components/guide/help";
+import { DeletedTransmittalsPanel } from "@/components/collections/deleted-records-panel";
+import { restoreTransmittal, purgeTransmittal } from "@/app/(app)/collections/actions";
 
 export const metadata = { title: "Transmittals" };
 
@@ -28,10 +30,16 @@ export default async function TransmittalsPage() {
     ["hotel_rental_monitoring", "accounting", "hotel_cashier"].includes(r),
   );
   const canSeries = user.roleKeys.some((r) => ["admin", "hotel_rental_monitoring"].includes(r));
-  const [transmittals, series, bankAccounts] = await Promise.all([
+  const canRestore = user.allRoleKeys.some((r) =>
+    ["admin", "managing_officer", "consultant", "accounting"].includes(r),
+  );
+  const isConsultant = user.allRoleKeys.includes("consultant");
+
+  const [transmittals, series, bankAccounts, deletedTransmittals] = await Promise.all([
     listTransmittals(),
     canSeries ? getReceiptSeries() : Promise.resolve([]),
     canBuild ? listAccountOptions() : Promise.resolve([]),
+    canRestore ? listDeletedTransmittals() : Promise.resolve([]),
   ]);
 
   // Daily reconciliation tally (accounting) — collected vs deposited per day.
@@ -162,6 +170,16 @@ export default async function TransmittalsPage() {
           </tbody>
         </table>
       </div>
+
+      {canRestore && deletedTransmittals.length > 0 && (
+        <DeletedTransmittalsPanel
+          items={deletedTransmittals}
+          canRestore={canRestore}
+          canPurge={isConsultant}
+          onRestore={restoreTransmittal}
+          onPurge={purgeTransmittal}
+        />
+      )}
     </>
   );
 }

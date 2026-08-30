@@ -81,9 +81,73 @@ export async function listCollections(date: string): Promise<Collection[]> {
     .from("collections")
     .select("*, units(unit_number, properties(name))")
     .eq("collected_on", date)
+    .is("deleted_at", null)
     .order("created_at", { ascending: true });
   if (error) throw new Error(error.message);
   return (data ?? []).map(mapCollection);
+}
+
+export interface DeletedCollection {
+  id: string;
+  business_line: string;
+  amount: number;
+  or_number: string | null;
+  payment_type: string;
+  collected_on: string;
+  deleted_at: string;
+  deleted_by: string | null;
+  unit: { unit_number: string; property_name?: string } | null;
+}
+
+export async function listDeletedCollections(): Promise<DeletedCollection[]> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("collections")
+    .select("id, business_line, amount, or_number, payment_type, collected_on, deleted_at, deleted_by, units(unit_number, properties(name))")
+    .not("deleted_at", "is", null)
+    .order("deleted_at", { ascending: false })
+    .limit(100);
+  return (data ?? []).map((r: Record<string, unknown>) => {
+    const u = r.units as { unit_number: string; properties?: { name?: string } | null } | null;
+    return {
+      id: r.id as string,
+      business_line: r.business_line as string,
+      amount: Number(r.amount),
+      or_number: (r.or_number as string) ?? null,
+      payment_type: r.payment_type as string,
+      collected_on: r.collected_on as string,
+      deleted_at: r.deleted_at as string,
+      deleted_by: (r.deleted_by as string) ?? null,
+      unit: u ? { unit_number: u.unit_number, property_name: u.properties?.name } : null,
+    };
+  });
+}
+
+export interface DeletedTransmittal {
+  id: string;
+  transmittal_date: string;
+  total_amount: number;
+  status: string;
+  deleted_at: string;
+  deleted_by: string | null;
+}
+
+export async function listDeletedTransmittals(): Promise<DeletedTransmittal[]> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("transmittals")
+    .select("id, transmittal_date, total_amount, status, deleted_at, deleted_by")
+    .not("deleted_at", "is", null)
+    .order("deleted_at", { ascending: false })
+    .limit(100);
+  return (data ?? []).map((r: Record<string, unknown>) => ({
+    id: r.id as string,
+    transmittal_date: r.transmittal_date as string,
+    total_amount: Number(r.total_amount),
+    status: r.status as string,
+    deleted_at: r.deleted_at as string,
+    deleted_by: (r.deleted_by as string) ?? null,
+  }));
 }
 
 export async function listUnitOptions(): Promise<UnitOption[]> {
@@ -117,6 +181,7 @@ export async function listTransmittals(limit = 60): Promise<Transmittal[]> {
   const { data, error } = await supabase
     .from("transmittals")
     .select("*")
+    .is("deleted_at", null)
     .order("transmittal_date", { ascending: false })
     .order("created_at", { ascending: false })
     .limit(limit);
@@ -143,6 +208,7 @@ export async function getTransmittal(id: string): Promise<TransmittalDetail | nu
     .from("collections")
     .select("*, units(unit_number, properties(name))")
     .eq("transmittal_id", id)
+    .is("deleted_at", null)
     .order("created_at", { ascending: true });
 
   const d = data as Record<string, unknown>;

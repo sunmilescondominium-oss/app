@@ -196,14 +196,20 @@ const HARD_DELETE_ROLES = ["admin", "managing_officer", "consultant", "accountin
 async function syncTransmittalTotal(
   admin: ReturnType<typeof createAdminClient>,
   transmittalId: string,
+  deletedBy?: string,
 ): Promise<void> {
   const { data: remaining } = await admin
     .from("collections")
     .select("amount")
-    .eq("transmittal_id", transmittalId);
+    .eq("transmittal_id", transmittalId)
+    .is("deleted_at", null);
 
   if (!remaining || remaining.length === 0) {
-    await admin.from("transmittals").delete().eq("id", transmittalId);
+    // Soft-delete the now-empty transmittal
+    await admin.from("transmittals").update({
+      deleted_at: new Date().toISOString(),
+      deleted_by: deletedBy ?? null,
+    }).eq("id", transmittalId);
     revalidatePath("/transmittals");
   } else {
     const newTotal =
@@ -239,12 +245,13 @@ export async function bulkDeleteCollections(ids: string[]): Promise<BulkResult> 
   }
   let affected = 0;
   if (deletable.length) {
-    const { error } = await admin.from("collections").delete().in("id", deletable);
+    const now = new Date().toISOString();
+    const { error } = await admin.from("collections").update({ deleted_at: now, deleted_by: user.userId }).in("id", deletable);
     if (error) return { ok: false, error: error.message };
     affected = deletable.length;
     // Recalculate total for every transmittal that lost a collection.
     for (const tId of affectedTransmittalIds) {
-      await syncTransmittalTotal(admin, tId);
+      await syncTransmittalTotal(admin, tId, user.userId);
     }
   }
   await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "delete", entity: "collections", entityId: null, diff: { bulk_delete: affected, skipped: skipped.length } });
@@ -664,12 +671,13 @@ export async function deleteCollection(id: string): Promise<ActionResult> {
   if (!isConsultant && c?.transmittal_id)
     return { ok: false, error: "This entry is part of a transmittal and can't be deleted." };
 
-  const { error } = await admin.from("collections").delete().eq("id", id);
+  const now = new Date().toISOString();
+  const { error } = await admin.from("collections").update({ deleted_at: now, deleted_by: user.userId }).eq("id", id);
   if (error) return { ok: false, error: error.message };
 
   // Keep transmittal total in sync when a linked collection is removed.
   if (c?.transmittal_id) {
-    await syncTransmittalTotal(admin, c.transmittal_id as string);
+    await syncTransmittalTotal(admin, c.transmittal_id as string, user.userId);
   }
 
   await logAudit({
@@ -680,5 +688,132 @@ export async function deleteCollection(id: string): Promise<ActionResult> {
     entityId: id,
   });
   revalidatePath("/collections");
+  return { ok: true };
+}
+
+const RESTORE_ROLES = ["admin", "managing_officer", "consultant", "accounting"];
+
+export async function restoreCollection(id: string): Promise<ActionResult> {
+  const user = await requireModuleWrite("collections");
+  if (!user.allRoleKeys.some((r) => RESTORE_ROLES.includes(r)))
+    return { ok: false, error: "Only admin/accounting/management can restore deleted records." };
+
+  const admin = createAdminClient();
+  const { data: c } = await admin
+    .from("collections")
+    .select("transmittal_id, amount, deleted_at")
+    .eq("id", id)
+    .maybeSingle();
+  if (!c?.deleted_at) return { ok: false, error: "Record not found or not deleted." };
+
+  const { error } = await admin
+    .from("collections")
+    .update({ deleted_at: null, deleted_by: null })
+    .eq("id", id);
+  if (error) return { ok: false, error: error.message };
+
+  // If it belongs to a transmittal, re-add its amount to the total.
+  if (c.transmittal_id) {
+    await syncTransmittalTotal(admin, c.transmittal_id as string);
+  }
+
+  await logAudit({
+    actorUserId: user.userId,
+    actorRoles: user.roleKeys,
+    action: "update",
+    entity: "collections",
+    entityId: id,
+    diff: { restored: true },
+  });
+  revalidatePath("/collections");
+  return { ok: true };
+}
+
+export async function purgeCollection(id: string): Promise<ActionResult> {
+  const user = await requireModuleWrite("collections");
+  if (!user.allRoleKeys.includes("consultant"))
+    return { ok: false, error: "Only the consultant can permanently purge records." };
+
+  const admin = createAdminClient();
+  const { data: c } = await admin
+    .from("collections")
+    .select("transmittal_id, deleted_at")
+    .eq("id", id)
+    .maybeSingle();
+  if (!c) return { ok: false, error: "Record not found." };
+  if (!c.deleted_at) return { ok: false, error: "Soft-delete the record first before purging." };
+
+  const { error } = await admin.from("collections").delete().eq("id", id);
+  if (error) return { ok: false, error: error.message };
+
+  await logAudit({
+    actorUserId: user.userId,
+    actorRoles: user.roleKeys,
+    action: "delete",
+    entity: "collections",
+    entityId: id,
+    diff: { purged: true },
+  });
+  revalidatePath("/collections");
+  return { ok: true };
+}
+
+export async function restoreTransmittal(id: string): Promise<ActionResult> {
+  const user = await requireModuleWrite("transmittals");
+  if (!user.allRoleKeys.some((r) => RESTORE_ROLES.includes(r)))
+    return { ok: false, error: "Only admin/accounting/management can restore deleted records." };
+
+  const admin = createAdminClient();
+  const { data: t } = await admin
+    .from("transmittals")
+    .select("deleted_at")
+    .eq("id", id)
+    .maybeSingle();
+  if (!t?.deleted_at) return { ok: false, error: "Transmittal not found or not deleted." };
+
+  const { error } = await admin
+    .from("transmittals")
+    .update({ deleted_at: null, deleted_by: null })
+    .eq("id", id);
+  if (error) return { ok: false, error: error.message };
+
+  await logAudit({
+    actorUserId: user.userId,
+    actorRoles: user.roleKeys,
+    action: "update",
+    entity: "transmittals",
+    entityId: id,
+    diff: { restored: true },
+  });
+  revalidatePath("/transmittals");
+  return { ok: true };
+}
+
+export async function purgeTransmittal(id: string): Promise<ActionResult> {
+  const user = await requireModuleWrite("transmittals");
+  if (!user.allRoleKeys.includes("consultant"))
+    return { ok: false, error: "Only the consultant can permanently purge records." };
+
+  const admin = createAdminClient();
+  const { data: t } = await admin
+    .from("transmittals")
+    .select("deleted_at")
+    .eq("id", id)
+    .maybeSingle();
+  if (!t) return { ok: false, error: "Transmittal not found." };
+  if (!t.deleted_at) return { ok: false, error: "Soft-delete the record first before purging." };
+
+  const { error } = await admin.from("transmittals").delete().eq("id", id);
+  if (error) return { ok: false, error: error.message };
+
+  await logAudit({
+    actorUserId: user.userId,
+    actorRoles: user.roleKeys,
+    action: "delete",
+    entity: "transmittals",
+    entityId: id,
+    diff: { purged: true },
+  });
+  revalidatePath("/transmittals");
   return { ok: true };
 }

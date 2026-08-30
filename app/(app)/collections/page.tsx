@@ -1,13 +1,15 @@
 import Link from "next/link";
 import { requireModule } from "@/lib/auth/dal";
 import { canWriteModule, canEditCollections } from "@/lib/rbac/modules";
-import { listCollections, listUnitOptions } from "@/lib/collections/queries";
+import { listCollections, listUnitOptions, listDeletedCollections } from "@/lib/collections/queries";
 import { getBankNameMap, getBankItemsMap } from "@/lib/collections/bank-config";
 import { getActiveItemTypes } from "@/lib/collections/item-types";
 import { summarizeCollections, peso, todayManila } from "@/lib/collections/summary";
 import { APP_BRAND_SHORT } from "@/lib/config";
 import { PageHeader, Badge } from "@/components/ui";
 import { CollectionsPanel } from "@/components/collections/collections-panel";
+import { DeletedCollectionsPanel } from "@/components/collections/deleted-records-panel";
+import { restoreCollection, purgeCollection } from "./actions";
 
 export const metadata = { title: "Collections" };
 
@@ -19,20 +21,24 @@ export default async function CollectionsPage({
   const user = await requireModule("collections");
   const canWrite = canWriteModule(user.roleKeys, "collections");
   const canEdit = canEditCollections(user.roleKeys);
-  const isConsultant = user.roleKeys.includes("consultant");
+  const isConsultant = user.allRoleKeys.includes("consultant");
   const canClearChecks = user.roleKeys.some((r) =>
     ["accounting", "managing_officer", "consultant", "admin"].includes(r),
+  );
+  const canRestore = user.allRoleKeys.some((r) =>
+    ["admin", "managing_officer", "consultant", "accounting"].includes(r),
   );
 
   const sp = await searchParams;
   const date = (typeof sp.date === "string" && sp.date) || todayManila();
 
-  const [collections, unitOptions, itemTypes, bankMap, bankItemsMap] = await Promise.all([
+  const [collections, unitOptions, itemTypes, bankMap, bankItemsMap, deletedCollections] = await Promise.all([
     listCollections(date),
     canWrite ? listUnitOptions() : Promise.resolve([]),
     getActiveItemTypes(),
     getBankNameMap(),
     getBankItemsMap(),
+    canRestore ? listDeletedCollections() : Promise.resolve([]),
   ]);
   const summary = summarizeCollections(date, collections);
 
@@ -141,6 +147,16 @@ export default async function CollectionsPage({
 
       {!canWrite && (
         <p className="mt-4 text-xs text-stone-400">You have view-only access to collections.</p>
+      )}
+
+      {canRestore && deletedCollections.length > 0 && (
+        <DeletedCollectionsPanel
+          items={deletedCollections}
+          canRestore={canRestore}
+          canPurge={isConsultant}
+          onRestore={restoreCollection}
+          onPurge={purgeCollection}
+        />
       )}
     </>
   );

@@ -116,6 +116,7 @@ export async function fetchUntransmittedCollections(): Promise<FetchCollectionsR
     .from("collections")
     .select("id, or_number, amount, business_line, payment_type, collected_on")
     .is("transmittal_id", null)
+    .is("deleted_at", null)
     .order("collected_on", { ascending: false })
     .order("created_at", { ascending: true });
   if (error) return { ok: false, error: error.message };
@@ -166,7 +167,8 @@ export async function buildTransmittalForDate(
     .from("collections")
     .select("id, amount")
     .in("id", selectedIds)
-    .is("transmittal_id", null);
+    .is("transmittal_id", null)
+    .is("deleted_at", null);
   if (cErr) return { ok: false, error: cErr.message };
   if (!cols || cols.length === 0)
     return { ok: false, error: "None of the selected collections are available (already transmitted or not found)." };
@@ -274,10 +276,11 @@ export async function fixTransmittalTotal(id: string): Promise<void> {
   const { data: cols } = await admin
     .from("collections")
     .select("amount")
-    .eq("transmittal_id", id);
+    .eq("transmittal_id", id)
+    .is("deleted_at", null);
 
   if (!cols || cols.length === 0) {
-    await admin.from("transmittals").delete().eq("id", id);
+    await admin.from("transmittals").update({ deleted_at: new Date().toISOString(), deleted_by: user.userId }).eq("id", id);
     await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "delete", entity: "transmittals", entityId: id, diff: { reason: "no remaining collections" } });
     revalidatePath("/transmittals");
     return;

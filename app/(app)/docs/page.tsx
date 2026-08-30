@@ -3,8 +3,8 @@ import { PageHeader } from "@/components/ui";
 
 export const metadata = { title: "Documentation" };
 
-const VERSION = "v1.25";
-const BUILD = 25;
+const VERSION = "v1.26";
+const BUILD = 26;
 
 const MODULES = [
   { name: "Hotel Operations", path: "/hotel", roles: "Hotel cashier, monitoring, room attendant, management", desc: "Room board with live timers, check-in / check-out, folio, orders, extensions, cashier shifts, AR register, discrepancy tracking, and day-end report." },
@@ -46,6 +46,18 @@ const ROLES = [
 ];
 
 const CHANGELOG = [
+  {
+    version: "v1.26",
+    label: "Soft-Delete & Audit Trail for Financial Records",
+    items: [
+      "Collections and transmittals now soft-delete instead of hard-delete — deleted rows stay in the database for audit",
+      "Deleted records visible in a collapsed audit panel at the bottom of /collections and /transmittals",
+      "Admin / accounting / managing officer can restore any deleted record with one click",
+      "Consultant-only permanent purge with a confirmation modal before hard DELETE",
+      "Transmittal automatically soft-deleted when its last active collection is removed; restored when a collection is restored",
+      "Migration 0099: deleted_at + deleted_by columns on collections and transmittals",
+    ],
+  },
   {
     version: "v1.25",
     label: "Security & Audit Hardening",
@@ -193,7 +205,7 @@ export default async function DocsPage() {
           </div>
           <div>
             <p className="text-sm font-medium text-stone-700 mb-1">Latest migration</p>
-            <code className="rounded bg-stone-100 px-2 py-1 text-xs text-stone-600">0096_guard_operation_type.sql</code>
+            <code className="rounded bg-stone-100 px-2 py-1 text-xs text-stone-600">0099_soft_delete_financial.sql</code>
           </div>
           <div>
             <p className="text-sm font-medium text-stone-700 mb-1">Stack</p>
