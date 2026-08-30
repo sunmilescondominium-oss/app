@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { APP_BRAND_SHORT } from "@/lib/config";
 
 const CONSENT_EN = (label: string) =>
   `A photo of your ${label} ID card is required to avail of this discount, for audit purposes as required by Philippine law. Your photo will be securely stored and automatically deleted after 48 hours in accordance with the Data Privacy Act of 2012 (Republic Act No. 10173). By proceeding, you give your informed consent to this temporary processing of your personal data.`;
@@ -70,7 +71,7 @@ export function DiscountIdCapture({
       hour: "2-digit", minute: "2-digit", second: "2-digit",
       hour12: true,
     });
-    const stamp = `${label} ID — ${ts} (Asia/Manila) | Sun Miles PMS`;
+    const stamp = `${label} ID — ${ts} (Asia/Manila) | ${APP_BRAND_SHORT}`;
     const fontSize = Math.max(13, Math.round(canvas.width / 50));
     ctx.font = `bold ${fontSize}px monospace`;
     const textWidth = ctx.measureText(stamp).width;

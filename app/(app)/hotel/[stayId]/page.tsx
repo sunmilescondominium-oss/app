@@ -8,7 +8,7 @@ import { stayTotals } from "@/lib/hotel/rates";
 import { computeTax } from "@/lib/hotel/tax";
 import { peso, fmtDateTime } from "@/lib/collections/summary";
 import { getAppTimezone } from "@/lib/settings/app-settings";
-import { APP_BRAND_SHORT, HOTEL_PAYMENT_METHODS } from "@/lib/config";
+import { APP_BRAND_SHORT, APP_LEGAL_NAME, HOTEL_PAYMENT_METHODS } from "@/lib/config";
 import { OrdersPanel } from "@/components/hotel/orders-panel";
 import { ReceiptFrame } from "@/components/hotel/receipt-frame";
 import { FolioActions } from "@/components/hotel/folio-actions";
@@ -79,7 +79,7 @@ export default async function StayFolioPage({
     ? `https://${process.env.VERCEL_URL}`
     : "";
   const folioData: FolioData = {
-    brandName: "Sun Miles Condominium",
+    brandName: APP_LEGAL_NAME,
     roomNumber: detail.unit_number ?? stay.unit_id ?? "",
     arNo: payments[0]?.ar_no ?? null,
     guestLabel: stay.guest_label,

@@ -17,6 +17,7 @@ config({ path: ".env.local" });
 import { createHash } from "node:crypto";
 import postgres from "postgres";
 import { createClient } from "@supabase/supabase-js";
+import { APP_DEMO_DOMAIN } from "../lib/config";
 
 function requireEnv(name: string): string {
   const v = process.env[name];
@@ -24,7 +25,7 @@ function requireEnv(name: string): string {
   return v;
 }
 
-const DEMO_DOMAIN = "demo.sunmiles.local";
+const DEMO_DOMAIN = APP_DEMO_DOMAIN;
 const DEMO_PASSWORD = "demo1234"; // testing only
 const hashPasscode = (empNo: string, pin: string) => createHash("sha256").update(`${empNo}:${pin}`).digest("hex");
 

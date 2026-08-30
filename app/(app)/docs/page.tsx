@@ -3,8 +3,8 @@ import { PageHeader } from "@/components/ui";
 
 export const metadata = { title: "Documentation" };
 
-const VERSION = "v1.26";
-const BUILD = 26;
+const VERSION = "v1.27";
+const BUILD = 27;
 
 const MODULES = [
   { name: "Hotel Operations", path: "/hotel", roles: "Hotel cashier, monitoring, room attendant, management", desc: "Room board with live timers, check-in / check-out, folio, orders, extensions, cashier shifts, AR register, discrepancy tracking, and day-end report." },
@@ -46,6 +46,19 @@ const ROLES = [
 ];
 
 const CHANGELOG = [
+  {
+    version: "v1.27",
+    label: "System Hardening — Security, Performance & Multi-Tenancy Prep",
+    items: [
+      "Notifications table: RLS policies added — role-scoped reads; no client writes",
+      "Cron auth guard fixed — open-auth bypass when CRON_SECRET unset is now blocked",
+      "N+1 query eliminated in postdated-check notifications — one batch query replaces per-row lookups",
+      "Audit log: failed inserts now fall back to system_errors table instead of silently dropping",
+      "Index added on collections.unit_id and time_records.work_date for faster filters",
+      "All hardcoded brand strings (Sun Miles PMS, Sun Miles Condominium, domain literals) moved to lib/config.ts constants — multi-tenancy ready",
+      "Migration 0100: notifications RLS + performance indexes",
+    ],
+  },
   {
     version: "v1.26",
     label: "Soft-Delete & Audit Trail for Financial Records",

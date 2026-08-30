@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { APP_BRAND_SHORT } from "@/lib/config";
 
 /**
  * Live in-app camera capture. Because the frame is grabbed from a getUserMedia
@@ -91,7 +92,7 @@ export function CameraCapture({
     }
     ctx.font = `500 ${Math.round(fs * 0.7)}px system-ui, sans-serif`;
     ctx.textAlign = "right";
-    ctx.fillText("Sun Miles PMS · live capture", w - pad, h - fs * 0.9 - pad * 0.5);
+    ctx.fillText(`${APP_BRAND_SHORT} · live capture`, w - pad, h - fs * 0.9 - pad * 0.5);
     ctx.textAlign = "left";
 
     const blob: Blob | null = await new Promise((res) => canvas.toBlob((b) => res(b), "image/jpeg", 0.75));

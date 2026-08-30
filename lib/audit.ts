@@ -23,6 +23,15 @@ export async function logAudit(entry: {
     entity_id: entry.entityId ?? null,
     diff: entry.diff ?? null,
   });
-  // Never let audit failure break the primary mutation — log and move on.
-  if (error) console.error("audit_log insert failed:", error.message);
+  if (error) {
+    console.error("audit_log insert failed:", error.message);
+    // Fallback: write the failure itself to system_errors so it surfaces in /admin/health.
+    try {
+      await admin.from("system_errors").insert({
+        source: "audit_log",
+        message: `audit_log insert failed: ${error.message}`,
+        context: { entity: entry.entity, action: entry.action, entityId: entry.entityId ?? null },
+      });
+    } catch { /* truly last-resort — never block */ }
+  }
 }

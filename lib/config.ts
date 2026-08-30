@@ -17,6 +17,15 @@ export const APP_BRAND =
 // Management so the meaning is unmistakable.
 export const APP_BRAND_SHORT = "Sun Miles Property Management";
 
+// Legal entity name — used on printed folios, NDAs, and documents.
+export const APP_LEGAL_NAME = "Sun Miles Condominium";
+
+// Domain used for demo/seed accounts. Change per tenant — never hardcode elsewhere.
+export const APP_DEMO_DOMAIN = "demo.sunmiles.local";
+
+// Domain used in CSV import templates. Change per tenant.
+export const APP_STAFF_DOMAIN = "sunmiles.local";
+
 /**
  * Business lines a unit can belong to. Recategorizing a unit between lines is a
  * data change (units.business_line), never a code change. This typed list is

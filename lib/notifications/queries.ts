@@ -127,16 +127,22 @@ export async function notifyPostdatedChecksDue(): Promise<void> {
       .not("check_date", "is", null)
       .gte("check_date", today)
       .lte("check_date", tomorrowStr)
+      .is("deleted_at", null)
       .limit(50);
 
-    for (const c of checks ?? []) {
-      const { data: existing } = await admin
-        .from("notifications")
-        .select("id")
-        .eq("kind", "postdated_check_due")
-        .eq("entity_id", c.id as string)
-        .maybeSingle();
-      if (existing) continue;
+    if (!checks || checks.length === 0) return;
+
+    // Batch-fetch already-notified collection ids — one query instead of one per check.
+    const checkIds = checks.map((c) => c.id as string);
+    const { data: existing } = await admin
+      .from("notifications")
+      .select("entity_id")
+      .eq("kind", "postdated_check_due")
+      .in("entity_id", checkIds);
+    const notified = new Set((existing ?? []).map((r) => r.entity_id as string));
+
+    for (const c of checks) {
+      if (notified.has(c.id as string)) continue;
 
       const checkDate = c.check_date as string;
       const isToday = checkDate === today;

@@ -4,15 +4,14 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 
+function authorized(req: Request): boolean {
+  const secret = process.env.CRON_SECRET;
+  if (!secret) return false;
+  return req.headers.get("authorization") === `Bearer ${secret}`;
+}
+
 export async function GET(req: Request) {
-  // Vercel cron secret guard
-  const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret) {
-    const auth = req.headers.get("authorization") ?? "";
-    if (auth !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-  }
+  if (!authorized(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const overdue = await listOverdueReservations();
   if (overdue.length === 0) return NextResponse.json({ processed: 0 });

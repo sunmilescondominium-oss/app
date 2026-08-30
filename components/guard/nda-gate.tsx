@@ -3,6 +3,7 @@
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { acknowledgeNda } from "@/app/(app)/guard/actions";
+import { APP_LEGAL_NAME } from "@/lib/config";
 
 export function NdaGate() {
   const router = useRouter();
@@ -23,7 +24,7 @@ export function NdaGate() {
       </p>
       <div className="mb-5 max-h-60 overflow-y-auto rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 text-xs leading-relaxed text-stone-700 space-y-3">
         <p>
-          As a security guard assigned to Sun Miles properties, you agree to:
+          As a security guard assigned to {APP_LEGAL_NAME}, you agree to:
         </p>
         <ol className="list-decimal pl-4 space-y-2">
           <li>Keep all guest, tenant, and operational information strictly confidential. You must not disclose room numbers, guest names, payment amounts, or any other property information to unauthorized persons.</li>
@@ -34,7 +35,7 @@ export function NdaGate() {
           <li>Understand that this system access may be revoked at any time without prior notice for any breach of these terms.</li>
         </ol>
         <p>
-          By clicking "I Acknowledge" below, you confirm that you have read, understood, and agree to comply with all the terms above for the duration of your engagement with Sun Miles properties.
+          By clicking "I Acknowledge" below, you confirm that you have read, understood, and agree to comply with all the terms above for the duration of your engagement with {APP_LEGAL_NAME}.
         </p>
       </div>
       <button

@@ -2,6 +2,7 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { todayManila } from "@/lib/collections/summary";
 import { EXTERNAL_ROLE_KEYS } from "@/lib/rbac/modules";
+import { APP_DEMO_DOMAIN } from "@/lib/config";
 
 export type BoardStatus = "checked_in" | "checked_out" | "on_ob" | "on_leave" | "absent" | "off";
 
@@ -48,7 +49,7 @@ export async function todayBoard(): Promise<{ date: string; items: BoardItem[] }
 
   // Demo accounts (seeded @demo.sunmiles.local) are always sorted to the bottom.
   const { data: authList } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-  const demoIds = new Set((authList?.users ?? []).filter((u) => (u.email ?? "").endsWith("@demo.sunmiles.local")).map((u) => u.id));
+  const demoIds = new Set((authList?.users ?? []).filter((u) => (u.email ?? "").endsWith(`@${APP_DEMO_DOMAIN}`)).map((u) => u.id));
 
   // Employees only — a user counts as staff if they hold at least one non-external
   // role. Tenants/buyers/guests (external roles) are excluded from the kiosk.

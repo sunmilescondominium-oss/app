@@ -1,4 +1,5 @@
 import "server-only";
+import { APP_BRAND_SHORT } from "@/lib/config";
 
 /**
  * Server-only environment access. Importing this file from a client component
@@ -74,7 +75,7 @@ export const serverEnv = {
   },
   /** From-address for Resend. Resend's shared onboarding sender works for tests. */
   get resendFrom() {
-    return process.env.RESEND_FROM ?? "Sun Miles PMS <onboarding@resend.dev>";
+    return process.env.RESEND_FROM ?? `${APP_BRAND_SHORT} <onboarding@resend.dev>`;
   },
   /** Comma-separated recipient(s) for operational alerts. */
   get alertEmailTo() {
