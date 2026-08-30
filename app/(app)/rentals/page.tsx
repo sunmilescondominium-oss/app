@@ -31,6 +31,9 @@ export default async function RentalsPage() {
           <Link href="/rentals/tenants" className="rounded-lg border border-indigo-300 bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100">
             👥 Tenants
           </Link>
+          <Link href="/rentals/settings" className="rounded-lg border border-stone-300 px-3 py-2 text-sm font-semibold text-stone-700 transition hover:bg-stone-50">
+            ⚙ Settings
+          </Link>
         </div>
       </div>
 
