@@ -3,8 +3,8 @@ import { PageHeader } from "@/components/ui";
 
 export const metadata = { title: "Documentation" };
 
-const VERSION = "v1.24";
-const BUILD = 24;
+const VERSION = "v1.25";
+const BUILD = 25;
 
 const MODULES = [
   { name: "Hotel Operations", path: "/hotel", roles: "Hotel cashier, monitoring, room attendant, management", desc: "Room board with live timers, check-in / check-out, folio, orders, extensions, cashier shifts, AR register, discrepancy tracking, and day-end report." },
@@ -46,6 +46,17 @@ const ROLES = [
 ];
 
 const CHANGELOG = [
+  {
+    version: "v1.25",
+    label: "Security & Audit Hardening",
+    items: [
+      "Feature flags audit log — every toggle records who changed it, from/to state, and timestamp",
+      "Feature flags page shows change history per flag (last 5 entries)",
+      "Guard accounts: operation area (Hotel/Condo) is now required — can't save without selecting; unassigned guards shown as a warning banner",
+      "Consultant override checks fixed in collections (transmittal delete) and rate-cards — now use allRoleKeys so they work even when consultant is acting as another role",
+      "Migration 0098: feature_flags_history table",
+    ],
+  },
   {
     version: "v1.24",
     label: "App Settings — Audit Log, Confirmation & Restore",
