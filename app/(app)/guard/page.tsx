@@ -103,16 +103,21 @@ export default async function GuardPage() {
         }
       />
 
-      {canManage && (
-        <div className="no-print mb-4 flex justify-end gap-4">
-          <Link href="/guard/referrals" className="text-sm font-medium text-amber-700 hover:underline">
-            Referral drivers →
-          </Link>
-          <Link href="/guard/accounts" className="text-sm font-medium text-amber-700 hover:underline">
-            Guard accounts →
-          </Link>
-        </div>
-      )}
+      <div className="no-print mb-4 flex justify-end gap-4">
+        <Link href="/guard/help" className="text-sm font-medium text-stone-400 hover:text-stone-600 hover:underline">
+          Help →
+        </Link>
+        {canManage && (
+          <>
+            <Link href="/guard/referrals" className="text-sm font-medium text-amber-700 hover:underline">
+              Referral drivers →
+            </Link>
+            <Link href="/guard/accounts" className="text-sm font-medium text-amber-700 hover:underline">
+              Guard accounts →
+            </Link>
+          </>
+        )}
+      </div>
 
       {expiryWarning !== null && (
         <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">
