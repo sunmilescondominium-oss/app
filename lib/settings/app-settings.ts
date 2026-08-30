@@ -35,12 +35,12 @@ export async function upsertAppSetting(
   updatedBy: string,
 ): Promise<void> {
   const admin = createAdminClient();
-  const { error } = await admin.from("app_settings").upsert(
-    { key, value, updated_by: updatedBy, updated_at: new Date().toISOString() },
-    { onConflict: "key" },
-  );
+  const { error } = await admin
+    .from("app_settings")
+    .update({ value, updated_by: updatedBy, updated_at: new Date().toISOString() })
+    .eq("key", key);
   if (error) {
-    console.error("[app-settings] upsert error:", error);
+    console.error("[app-settings] update error:", error);
     throw new Error(`Failed to save setting: ${error.message}`);
   }
 }
