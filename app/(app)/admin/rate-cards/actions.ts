@@ -16,7 +16,7 @@ export async function upsertRateCard(
   formData: FormData,
 ): Promise<RcActionResult> {
   const user = await requireModuleWrite("collections");
-  if (!user.roleKeys.some((r) => ALLOWED_ROLES.includes(r))) {
+  if (!user.allRoleKeys.some((r) => ALLOWED_ROLES.includes(r))) {
     return { ok: false, error: "You don't have permission to manage rate cards." };
   }
 
@@ -50,7 +50,7 @@ export async function upsertRateCard(
 
 export async function deleteRateCard(id: string): Promise<RcActionResult> {
   const user = await requireModuleWrite("collections");
-  if (!user.roleKeys.some((r) => ALLOWED_ROLES.includes(r))) {
+  if (!user.allRoleKeys.some((r) => ALLOWED_ROLES.includes(r))) {
     return { ok: false, error: "No permission." };
   }
   const admin = createAdminClient();
@@ -65,7 +65,7 @@ export async function generateMonthlyBills(
   formData: FormData,
 ): Promise<RcActionResult> {
   const user = await requireModuleWrite("collections");
-  if (!user.roleKeys.some((r) => ALLOWED_ROLES.includes(r))) {
+  if (!user.allRoleKeys.some((r) => ALLOWED_ROLES.includes(r))) {
     return { ok: false, error: "No permission." };
   }
 

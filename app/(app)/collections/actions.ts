@@ -221,7 +221,7 @@ async function syncTransmittalTotal(
 export async function bulkDeleteCollections(ids: string[]): Promise<BulkResult> {
   const user = await requireModuleWrite("collections");
   if (!userHasAnyRole(user, HARD_DELETE_ROLES)) return { ok: false, error: "Only accounting / admin can bulk-delete collections." };
-  const isConsultant = user.roleKeys.includes("consultant");
+  const isConsultant = user.allRoleKeys.includes("consultant");
   const list = Array.from(new Set(ids.filter(Boolean)));
   if (list.length === 0) return { ok: false, error: "No rows selected." };
   const admin = createAdminClient();
@@ -651,7 +651,7 @@ export async function editCollection(
 
 export async function deleteCollection(id: string): Promise<ActionResult> {
   const user = await requireModuleWrite("collections");
-  const isConsultant = user.roleKeys.includes("consultant");
+  const isConsultant = user.allRoleKeys.includes("consultant");
   const admin = createAdminClient();
 
   // Always fetch transmittal_id first — needed for total recalc after deletion.
