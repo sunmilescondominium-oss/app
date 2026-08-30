@@ -437,3 +437,52 @@ export async function markDuePaid(id: string): Promise<ActionResult> {
   revalidatePath("/rentals");
   return { ok: true };
 }
+
+// ── AirBnB order management (staff) ──────────────────────────────────────────
+
+export async function fulfillAirbnbOrder(orderId: string): Promise<ActionResult> {
+  const user = await requireModuleWrite("rentals");
+  const admin = createAdminClient();
+  const { data: order } = await admin.from("airbnb_orders").select("id, status, lease_id").eq("id", orderId).maybeSingle();
+  if (!order) return { ok: false, error: "Order not found." };
+  if (order.status !== "pending") return { ok: false, error: "Only pending orders can be fulfilled." };
+  const { error } = await admin.from("airbnb_orders").update({ status: "fulfilled" }).eq("id", orderId);
+  if (error) return { ok: false, error: error.message };
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "update", entity: "airbnb_orders", entityId: orderId, diff: { status: "fulfilled" } });
+  revalidatePath("/rentals");
+  return { ok: true };
+}
+
+export async function cancelAirbnbOrder(orderId: string): Promise<ActionResult> {
+  const user = await requireModuleWrite("rentals");
+  const admin = createAdminClient();
+  const { data: order } = await admin.from("airbnb_orders").select("id, status").eq("id", orderId).maybeSingle();
+  if (!order) return { ok: false, error: "Order not found." };
+  if (order.status === "cancelled") return { ok: false, error: "Already cancelled." };
+  const { error } = await admin.from("airbnb_orders").update({ status: "cancelled" }).eq("id", orderId);
+  if (error) return { ok: false, error: error.message };
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "update", entity: "airbnb_orders", entityId: orderId, diff: { status: "cancelled" } });
+  revalidatePath("/rentals");
+  return { ok: true };
+}
+
+// ── AirBnB request management (staff) ────────────────────────────────────────
+
+export async function updateAirbnbRequest(
+  requestId: string,
+  status: "scheduled" | "done" | "cancelled",
+): Promise<ActionResult> {
+  const user = await requireModuleWrite("rentals");
+  const admin = createAdminClient();
+  const { data: req } = await admin.from("airbnb_requests").select("id, status").eq("id", requestId).maybeSingle();
+  if (!req) return { ok: false, error: "Request not found." };
+  if (req.status === "cancelled" || req.status === "done") return { ok: false, error: "Cannot update a completed or cancelled request." };
+  const patch: Record<string, unknown> = { status };
+  if (status === "scheduled") patch.scheduled_at = new Date().toISOString();
+  if (status === "cancelled") { patch.cancelled_at = new Date().toISOString(); patch.cancelled_by_guest = false; }
+  const { error } = await admin.from("airbnb_requests").update(patch).eq("id", requestId);
+  if (error) return { ok: false, error: error.message };
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "update", entity: "airbnb_requests", entityId: requestId, diff: { status } });
+  revalidatePath("/rentals");
+  return { ok: true };
+}

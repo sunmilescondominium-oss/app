@@ -10,6 +10,7 @@ import { RenterDetails, LeaseDocsChecklist } from "@/components/rentals/renter-d
 import { listDocPhotos } from "@/lib/docs/photos";
 import { PhotoDocPanel } from "@/components/capture/photo-doc-panel";
 import { listAirbnbOrders, listAirbnbRequests } from "@/lib/airbnb/queries";
+import { AirbnbOrdersPanel } from "@/components/rentals/airbnb-orders-panel";
 
 export const metadata = { title: "Unit" };
 
@@ -96,46 +97,8 @@ export default async function RentalUnitPage({ params }: { params: Promise<{ uni
       )}
 
       {/* AirBnB orders + requests */}
-      {unit.businessLine === "airbnb" && unit.lease && (airbnbOrders.length > 0 || airbnbRequests.length > 0) && (
-        <div className="mb-6 grid gap-4 lg:grid-cols-2">
-          {airbnbOrders.length > 0 && (
-            <div className="rounded-2xl border border-stone-200 bg-white p-4">
-              <p className="mb-3 text-sm font-semibold text-stone-800">Guest Orders</p>
-              <div className="space-y-3">
-                {airbnbOrders.map((o) => (
-                  <div key={o.id} className="rounded-lg border border-stone-100 p-3">
-                    <div className="mb-1 flex items-center justify-between">
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize ${o.status === "delivered" ? "bg-emerald-100 text-emerald-700" : o.status === "cancelled" ? "bg-stone-100 text-stone-500" : "bg-amber-100 text-amber-700"}`}>{o.status}</span>
-                      <span className="text-xs text-stone-400">{new Date(o.createdAt).toLocaleString("en-PH", { timeZone: "Asia/Manila", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
-                    </div>
-                    {o.items.map((i) => (
-                      <p key={i.id} className="text-xs text-stone-600">{i.qty}× {i.name} — ₱{i.subtotal.toLocaleString("en-PH", { minimumFractionDigits: 2 })}</p>
-                    ))}
-                    <p className="mt-1 text-xs font-semibold text-stone-800">Total: ₱{o.total.toLocaleString("en-PH", { minimumFractionDigits: 2 })}</p>
-                    {o.notes && <p className="mt-0.5 text-xs text-stone-400">{o.notes}</p>}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          {airbnbRequests.length > 0 && (
-            <div className="rounded-2xl border border-stone-200 bg-white p-4">
-              <p className="mb-3 text-sm font-semibold text-stone-800">Guest Requests</p>
-              <div className="space-y-2">
-                {airbnbRequests.map((r) => (
-                  <div key={r.id} className="flex items-start justify-between gap-2 rounded-lg border border-stone-100 p-3">
-                    <div>
-                      <p className="text-sm capitalize text-stone-800">{r.requestType}</p>
-                      {r.notes && <p className="text-xs text-stone-500">{r.notes}</p>}
-                      <p className="text-[10px] text-stone-400">{new Date(r.createdAt).toLocaleString("en-PH", { timeZone: "Asia/Manila", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
-                    </div>
-                    <span className={`mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize ${r.status === "completed" ? "bg-emerald-100 text-emerald-700" : r.status === "cancelled" ? "bg-stone-100 text-stone-500" : "bg-amber-100 text-amber-700"}`}>{r.status}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+      {unit.businessLine === "airbnb" && unit.lease && (
+        <AirbnbOrdersPanel orders={airbnbOrders} requests={airbnbRequests} />
       )}
 
       {/* Renter details + document checklist */}
