@@ -3,8 +3,8 @@ import { PageHeader } from "@/components/ui";
 
 export const metadata = { title: "Documentation" };
 
-const VERSION = "v1.23";
-const BUILD = 23;
+const VERSION = "v1.24";
+const BUILD = 24;
 
 const MODULES = [
   { name: "Hotel Operations", path: "/hotel", roles: "Hotel cashier, monitoring, room attendant, management", desc: "Room board with live timers, check-in / check-out, folio, orders, extensions, cashier shifts, AR register, discrepancy tracking, and day-end report." },
@@ -46,6 +46,19 @@ const ROLES = [
 ];
 
 const CHANGELOG = [
+  {
+    version: "v1.24",
+    label: "App Settings — Audit Log, Confirmation & Restore",
+    items: [
+      "Save feedback: green/red toast appears immediately after every setting change",
+      "Confirmation modal for sensitive settings (referral fee, referral window, timezone) — must click Confirm before the change takes effect",
+      "Full audit log: every change archives the old value to app_settings_history before overwriting",
+      "History panel per setting (last 5 changes) with one-click Restore to any prior value",
+      "Migration 0097: app_settings_history table + updated write policy to include consultant role",
+      "Docs page (this page) updated — Documentation module added to nav for all staff",
+      "Feature Flags UI at /admin/flags: consultant / admin / managing_officer can toggle flags without a deploy",
+    ],
+  },
   {
     version: "v1.23",
     label: "Guard Portal — Agency Rules & Operation Types",
