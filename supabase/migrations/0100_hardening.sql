@@ -22,7 +22,6 @@ create policy "notifications_own_read" on public.notifications
         select 1 from public.user_roles ur
         where ur.user_id = auth.uid()
           and ur.role_key = recipient_role
-          and ur.is_active = true
       )
     )
   );
@@ -42,7 +41,6 @@ create policy "notifications_mark_read" on public.notifications
         select 1 from public.user_roles ur
         where ur.user_id = auth.uid()
           and ur.role_key = recipient_role
-          and ur.is_active = true
       )
     )
   )
