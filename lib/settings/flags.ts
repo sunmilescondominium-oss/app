@@ -44,6 +44,33 @@ export async function isModuleEnabled(key: ModuleKey): Promise<boolean> {
   return isFeatureEnabled(flag);
 }
 
+export interface FlagHistory {
+  id: number;
+  key: string;
+  old_enabled: boolean;
+  new_enabled: boolean;
+  changed_by: string | null;
+  changed_by_role: string | null;
+  changed_at: string;
+}
+
+export async function getAllFlagHistory(): Promise<Record<string, FlagHistory[]>> {
+  const { createAdminClient } = await import("@/lib/supabase/admin");
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("feature_flags_history")
+    .select("id, key, old_enabled, new_enabled, changed_by, changed_by_role, changed_at")
+    .order("changed_at", { ascending: false })
+    .limit(100);
+
+  const grouped: Record<string, FlagHistory[]> = {};
+  for (const entry of (data ?? []) as FlagHistory[]) {
+    if (!grouped[entry.key]) grouped[entry.key] = [];
+    if (grouped[entry.key].length < 5) grouped[entry.key].push(entry);
+  }
+  return grouped;
+}
+
 /** Full flag rows for the admin settings UI (service-safe read via RLS). */
 export async function listFeatureFlags(): Promise<FeatureFlag[]> {
   const supabase = await createClient();
