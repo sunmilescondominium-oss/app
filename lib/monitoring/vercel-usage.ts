@@ -15,8 +15,8 @@ const HOBBY_INVOCATIONS  = 1_000_000;
 const HOBBY_BANDWIDTH    = 100 * 1024 * 1024 * 1024; // 100 GB
 
 export async function fetchVercelUsage(): Promise<VercelUsage> {
-  const token  = process.env.VERCEL_API_TOKEN;
-  const teamId = process.env.VERCEL_TEAM_ID;
+  const token  = process.env.PMS_VERCEL_TOKEN;
+  const teamId = process.env.PMS_VERCEL_TEAM_ID;
 
   const base: VercelUsage = {
     invocations: null,
