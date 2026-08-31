@@ -1,8 +1,10 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { roomCharge, round2 } from "@/lib/hotel/rates";
 import type {
   Collection,
+  StayBilling,
   Transmittal,
   TransmittalDetail,
   UnitOption,
@@ -75,6 +77,67 @@ function mapCollection(r: Record<string, unknown>): Collection {
   };
 }
 
+async function fetchStayBillingByReceiptNos(
+  receiptNos: string[],
+): Promise<Map<string, StayBilling>> {
+  if (!receiptNos.length) return new Map();
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("stay_payments")
+    .select(`
+      receipt_no,
+      stays(
+        id, guest_label, checked_in_at, checked_out_at,
+        planned_hours, base_hours, base_rate, extra_hour_rate,
+        extra_persons, extra_person_amount, discount_amount,
+        stay_orders(qty, unit_price, menu_item_id)
+      )
+    `)
+    .in("receipt_no", receiptNos);
+
+  const map = new Map<string, StayBilling>();
+  for (const row of (data ?? []) as unknown as Array<{
+    receipt_no: string;
+    stays: {
+      id: string;
+      guest_label: string;
+      checked_in_at: string;
+      checked_out_at: string | null;
+      planned_hours: number;
+      base_hours: number;
+      base_rate: number;
+      extra_hour_rate: number;
+      extra_persons: number | null;
+      extra_person_amount: number | null;
+      discount_amount: number | null;
+      stay_orders: { qty: number; unit_price: number; menu_item_id: string | null }[];
+    } | null;
+  }>) {
+    if (!row.receipt_no || !row.stays) continue;
+    const s = row.stays;
+    const rc = roomCharge(Number(s.base_rate), Number(s.extra_hour_rate), Number(s.base_hours), Number(s.planned_hours));
+    const extraPersonTotal = round2(Number(s.extra_person_amount ?? 0));
+    const incidentalsTotal = round2(
+      (s.stay_orders ?? []).reduce((sum, o) => sum + Number(o.qty) * Number(o.unit_price), 0),
+    );
+    const discountAmount = round2(Math.min(rc, Number(s.discount_amount ?? 0)));
+    const totalCharge = round2(Math.max(0, rc + extraPersonTotal + incidentalsTotal - discountAmount));
+    map.set(row.receipt_no, {
+      stayId: s.id,
+      guestLabel: s.guest_label,
+      roomCharge: rc,
+      extraPersonTotal,
+      incidentalsTotal,
+      discountAmount,
+      totalCharge,
+      plannedHours: Number(s.planned_hours),
+      checkedInAt: s.checked_in_at,
+      checkedOutAt: s.checked_out_at,
+    });
+  }
+  return map;
+}
+
 export async function listCollections(date: string): Promise<Collection[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -84,7 +147,18 @@ export async function listCollections(date: string): Promise<Collection[]> {
     .is("deleted_at", null)
     .order("created_at", { ascending: true });
   if (error) throw new Error(error.message);
-  return (data ?? []).map(mapCollection);
+  const collections = (data ?? []).map(mapCollection);
+
+  // Enrich hotel/short-stay rows with full stay billing data
+  const hotelOrNos = collections
+    .filter((c) => c.business_line === "hotel" && c.or_number)
+    .map((c) => c.or_number as string);
+  const billingMap = await fetchStayBillingByReceiptNos(hotelOrNos);
+  return collections.map((c) =>
+    c.or_number && billingMap.has(c.or_number)
+      ? { ...c, stayBilling: billingMap.get(c.or_number) ?? null }
+      : c,
+  );
 }
 
 export interface DeletedCollection {

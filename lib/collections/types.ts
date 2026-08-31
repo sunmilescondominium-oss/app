@@ -1,3 +1,16 @@
+export interface StayBilling {
+  stayId: string;
+  roomCharge: number;
+  extraPersonTotal: number;
+  incidentalsTotal: number;
+  discountAmount: number;
+  totalCharge: number;
+  guestLabel: string;
+  plannedHours: number;
+  checkedInAt: string;
+  checkedOutAt: string | null;
+}
+
 export interface Collection {
   id: string;
   business_line: string;
@@ -20,6 +33,7 @@ export interface Collection {
   remarks: string | null;
   created_at: string;
   unit?: { unit_number: string; property_name?: string } | null;
+  stayBilling?: StayBilling | null;
 }
 
 export interface DailySummaryRow {

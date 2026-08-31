@@ -32,9 +32,12 @@ const METHOD: Record<string, string> = {
   cash: "Cash", gcash: "GCash", maya: "Maya", bank_transfer: "Bank",
 };
 const STATUS_BADGE: Record<string, string> = {
-  checked_in:  "bg-emerald-100 text-emerald-800",
+  active:      "bg-emerald-100 text-emerald-800",
   checked_out: "bg-stone-100 text-stone-600",
-  reserved:    "bg-amber-100 text-amber-800",
+};
+const STATUS_LABEL: Record<string, string> = {
+  active:      "Checked In",
+  checked_out: "Checked Out",
 };
 
 export default async function HotelCollectionReportPage({
@@ -125,8 +128,8 @@ export default async function HotelCollectionReportPage({
                     {e.unitNumber}
                   </span>
                   <span className="text-sm font-semibold text-stone-800">{e.guestLabel}</span>
-                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize ${STATUS_BADGE[e.status] ?? "bg-stone-100 text-stone-500"}`}>
-                    {e.status.replace("_", " ")}
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${STATUS_BADGE[e.status] ?? "bg-stone-100 text-stone-500"}`}>
+                    {STATUS_LABEL[e.status] ?? e.status}
                   </span>
                 </div>
                 {/* Time period */}

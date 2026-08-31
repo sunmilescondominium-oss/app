@@ -11,6 +11,12 @@ import { COLLECTION_CATEGORIES, PAYMENT_TYPES } from "@/lib/config";
 import type { CollectionItemType } from "@/lib/collections/item-types-shared";
 import type { Collection, UnitOption } from "@/lib/collections/types";
 
+function fmtTime(iso: string) {
+  return new Date(iso).toLocaleTimeString("en-PH", {
+    timeZone: "Asia/Manila", hour: "2-digit", minute: "2-digit", hour12: true,
+  });
+}
+
 const CAT_LABEL: Record<string, string> = Object.fromEntries(
   COLLECTION_CATEGORIES.map((c) => [c.key, c.label]),
 );
@@ -131,30 +137,33 @@ export function CollectionsPanel({
       )}
 
       <div className="table-wrap">
-        <table className="w-full min-w-[760px] text-left text-sm">
+        <table className="w-full min-w-[900px] text-left text-sm">
           <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
             <tr>
               {canWrite && <th className="no-print px-3 py-3"><input type="checkbox" checked={allSelected} onChange={toggleAllSel} aria-label="Select all" className="h-4 w-4 accent-amber-600" /></th>}
               <th className="px-4 py-3">Receipt #</th>
               <th className="px-4 py-3">Category</th>
               <th className="px-4 py-3">Unit</th>
-              <th className="px-4 py-3">Charge</th>
+              <th className="px-4 py-3">Charge / time</th>
               <th className="px-4 py-3">Payment</th>
+              <th className="px-4 py-3 text-right">Room total</th>
               <th className="px-4 py-3">Collected by</th>
               <th className="px-4 py-3">AR No</th>
-              <th className="px-4 py-3 text-right">Amount</th>
+              <th className="px-4 py-3 text-right">Amount paid</th>
               {(canWrite || canEdit) && <th className="no-print px-4 py-3 text-right">·</th>}
             </tr>
           </thead>
           <tbody>
             {collections.length === 0 && (
               <tr>
-                <td colSpan={8 + (canWrite ? 1 : 0) + (canWrite || canEdit ? 1 : 0)} className="px-4 py-10 text-center text-stone-500">
+                <td colSpan={9 + (canWrite ? 1 : 0) + (canWrite || canEdit ? 1 : 0)} className="px-4 py-10 text-center text-stone-500">
                   No collections recorded for {date}.
                 </td>
               </tr>
             )}
-            {collections.map((c) => (
+            {collections.map((c) => {
+              const sb = c.stayBilling;
+              return (
               <tr key={c.id} className="border-b border-stone-100 last:border-0">
                 {canWrite && <td className="no-print px-3 py-3">{(!c.transmittal_id || isConsultant) && <input type="checkbox" checked={selected.has(c.id)} onChange={() => toggleSel(c.id)} aria-label="Select" className="h-4 w-4 accent-amber-600" />}</td>}
                 <td className="px-4 py-3 font-medium text-stone-900">
@@ -186,14 +195,48 @@ export function CollectionsPanel({
                   </div>
                 </td>
                 <td className="px-4 py-3">{CAT_LABEL[c.business_line] ?? c.business_line}</td>
-                <td className="px-4 py-3">{c.unit?.unit_number ?? "—"}</td>
+                <td className="px-4 py-3">
+                  {c.unit?.unit_number ?? "—"}
+                  {sb && (
+                    <div className="mt-0.5 text-[10px] text-stone-400">
+                      {sb.guestLabel}
+                    </div>
+                  )}
+                </td>
                 <td className="px-4 py-3 text-xs">
-                  {c.charge_type ? (itemTypes.find((t) => t.key === c.charge_type)?.label ?? c.charge_type) : (c.unit_id ? <span className="text-stone-400">—</span> : null)}
+                  {sb ? (
+                    <div className="flex flex-col gap-0.5">
+                      <span className="font-medium text-stone-700">{sb.plannedHours}h</span>
+                      <span className="text-stone-400">
+                        {fmtTime(sb.checkedInAt)}
+                        {sb.checkedOutAt ? ` → ${fmtTime(sb.checkedOutAt)}` : " · active"}
+                      </span>
+                    </div>
+                  ) : c.charge_type ? (
+                    itemTypes.find((t) => t.key === c.charge_type)?.label ?? c.charge_type
+                  ) : (
+                    c.unit_id ? <span className="text-stone-400">—</span> : null
+                  )}
                 </td>
                 <td className="px-4 py-3">{PAY_LABEL[c.payment_type] ?? c.payment_type}</td>
+                <td className="px-4 py-3 text-right">
+                  {sb ? (
+                    <div className="flex flex-col items-end gap-0.5">
+                      <span className="tabular-nums font-semibold text-stone-800">{peso(sb.totalCharge)}</span>
+                      <div className="flex flex-col items-end gap-0 text-[10px] text-stone-400">
+                        <span>Room {peso(sb.roomCharge)}</span>
+                        {sb.extraPersonTotal > 0 && <span>+Pax {peso(sb.extraPersonTotal)}</span>}
+                        {sb.incidentalsTotal > 0 && <span>+Inc {peso(sb.incidentalsTotal)}</span>}
+                        {sb.discountAmount > 0 && <span className="text-rose-500">−Disc {peso(sb.discountAmount)}</span>}
+                      </div>
+                    </div>
+                  ) : (
+                    <span className="text-stone-300">—</span>
+                  )}
+                </td>
                 <td className="px-4 py-3">{c.collector_name ?? roleLabel(c.collected_by_role)}</td>
                 <td className="px-4 py-3 font-mono text-xs text-stone-600">{c.ar_no ?? "—"}</td>
-                <td className="px-4 py-3 text-right tabular-nums">{peso(c.amount)}</td>
+                <td className="px-4 py-3 text-right tabular-nums font-medium text-stone-800">{peso(c.amount)}</td>
                 {(canWrite || canEdit) && (
                   <td className="no-print px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-3">
@@ -232,7 +275,8 @@ export function CollectionsPanel({
                   </td>
                 )}
               </tr>
-            ))}
+            );
+            })}
           </tbody>
         </table>
       </div>

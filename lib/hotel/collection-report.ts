@@ -84,32 +84,26 @@ export async function listHotelCollectionReport(date: string): Promise<StayRepor
   const start = `${date}T00:00:00+08:00`;
   const end   = `${date}T23:59:59.999+08:00`;
 
-  // Fetch stays checked in today + stays checked out today (overnight stays)
-  const [{ data: checkedIn }, { data: checkedOut }] = await Promise.all([
-    admin.from("stays").select(SELECT)
-      .gte("checked_in_at", start).lte("checked_in_at", end)
-      .neq("status", "cancelled")
-      .order("checked_in_at", { ascending: true }),
-    admin.from("stays").select(SELECT)
-      .gte("checked_out_at", start).lte("checked_out_at", end)
-      .lt("checked_in_at", start) // only those that started before today
-      .neq("status", "cancelled")
-      .order("checked_in_at", { ascending: true }),
-  ]);
+  // Step 1: find all stay_ids that have a payment on this date
+  // (mirrors the AR register approach — payment date drives "day's business")
+  const { data: payments } = await admin
+    .from("stay_payments")
+    .select("stay_id")
+    .gte("paid_at", start)
+    .lte("paid_at", end);
 
-  // Merge and deduplicate by id
-  const seen = new Set<string>();
-  const rows: RawStay[] = [];
-  const allRows = [
-    ...((checkedIn as unknown as RawStay[]) ?? []),
-    ...((checkedOut as unknown as RawStay[]) ?? []),
-  ];
-  for (const s of allRows) {
-    if (!seen.has(s.id)) {
-      seen.add(s.id);
-      rows.push(s);
-    }
-  }
+  if (!payments?.length) return [];
+
+  const stayIds = [...new Set((payments as { stay_id: string }[]).map((p) => p.stay_id))];
+
+  // Step 2: fetch those stays with full detail (orders, all payments)
+  const { data: rawRows } = await admin
+    .from("stays")
+    .select(SELECT)
+    .in("id", stayIds)
+    .order("checked_in_at", { ascending: true });
+
+  const rows = (rawRows as unknown as RawStay[]) ?? [];
 
   return rows.map((s) => {
     const rc = roomCharge(
