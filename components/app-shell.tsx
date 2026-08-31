@@ -72,6 +72,8 @@ export function AppShell({
         : "text-stone-600 hover:bg-stone-100/80 hover:text-stone-900"
     }`;
 
+  const helpActive = pathname === "/help" || pathname === "/docs";
+
   const nav = (
     <nav className="flex flex-col gap-0.5">
       <Link href="/dashboard" onClick={() => setOpen(false)} className={linkCls(pathname === "/dashboard")}>
@@ -95,6 +97,13 @@ export function AppShell({
           </Link>
         );
       })}
+      <div className="mt-1 border-t border-stone-100 pt-1">
+        <Link href="/help" onClick={() => setOpen(false)} className={linkCls(helpActive)}>
+          {helpActive && <span className="absolute inset-y-2 left-0 w-1 rounded-full bg-amber-500" />}
+          <span className="font-semibold">📖 Help & Docs</span>
+          <span className="mt-0.5 block text-xs text-stone-400">Guides and release notes</span>
+        </Link>
+      </div>
     </nav>
   );
 
