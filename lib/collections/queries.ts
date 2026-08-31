@@ -77,44 +77,47 @@ function mapCollection(r: Record<string, unknown>): Collection {
   };
 }
 
-async function fetchStayBillingByReceiptNos(
-  receiptNos: string[],
+// Fetch stay billing keyed by unit_id, for hotel collections on a specific date.
+// Collections don't carry stay_id, so we join via unit_id + date overlap.
+async function fetchStayBillingByUnitDate(
+  unitIds: string[],
+  date: string, // YYYY-MM-DD Manila date
 ): Promise<Map<string, StayBilling>> {
-  if (!receiptNos.length) return new Map();
+  if (!unitIds.length) return new Map();
   const admin = createAdminClient();
+
+  const dayStart = `${date}T00:00:00+08:00`;
+  const dayEnd   = `${date}T23:59:59.999+08:00`;
+
+  // Stays whose check-in was on or before end-of-day AND are either still
+  // active OR checked out on or after start-of-day (covers same-day stays
+  // and overnight stays that checked out this day).
   const { data } = await admin
-    .from("stay_payments")
+    .from("stays")
     .select(`
-      receipt_no,
-      stays(
-        id, guest_label, checked_in_at, checked_out_at,
-        planned_hours, base_hours, base_rate, extra_hour_rate,
-        extra_persons, extra_person_amount, discount_amount,
-        stay_orders(qty, unit_price, menu_item_id)
-      )
+      id, unit_id, guest_label, status,
+      checked_in_at, checked_out_at,
+      planned_hours, base_hours, base_rate, extra_hour_rate,
+      extra_persons, extra_person_amount, discount_amount,
+      stay_orders(qty, unit_price, menu_item_id)
     `)
-    .in("receipt_no", receiptNos);
+    .in("unit_id", unitIds)
+    .lte("checked_in_at", dayEnd)
+    .or(`checked_out_at.is.null,checked_out_at.gte.${dayStart}`)
+    .order("checked_in_at", { ascending: false }); // latest check-in wins per unit
+
+  type RawRow = {
+    id: string; unit_id: string; guest_label: string; status: string;
+    checked_in_at: string; checked_out_at: string | null;
+    planned_hours: number; base_hours: number; base_rate: number;
+    extra_hour_rate: number; extra_persons: number | null;
+    extra_person_amount: number | null; discount_amount: number | null;
+    stay_orders: { qty: number; unit_price: number; menu_item_id: string | null }[];
+  };
 
   const map = new Map<string, StayBilling>();
-  for (const row of (data ?? []) as unknown as Array<{
-    receipt_no: string;
-    stays: {
-      id: string;
-      guest_label: string;
-      checked_in_at: string;
-      checked_out_at: string | null;
-      planned_hours: number;
-      base_hours: number;
-      base_rate: number;
-      extra_hour_rate: number;
-      extra_persons: number | null;
-      extra_person_amount: number | null;
-      discount_amount: number | null;
-      stay_orders: { qty: number; unit_price: number; menu_item_id: string | null }[];
-    } | null;
-  }>) {
-    if (!row.receipt_no || !row.stays) continue;
-    const s = row.stays;
+  for (const s of (data as unknown as RawRow[]) ?? []) {
+    if (map.has(s.unit_id)) continue; // already got the most-recent stay for this unit
     const rc = roomCharge(Number(s.base_rate), Number(s.extra_hour_rate), Number(s.base_hours), Number(s.planned_hours));
     const extraPersonTotal = round2(Number(s.extra_person_amount ?? 0));
     const incidentalsTotal = round2(
@@ -122,7 +125,7 @@ async function fetchStayBillingByReceiptNos(
     );
     const discountAmount = round2(Math.min(rc, Number(s.discount_amount ?? 0)));
     const totalCharge = round2(Math.max(0, rc + extraPersonTotal + incidentalsTotal - discountAmount));
-    map.set(row.receipt_no, {
+    map.set(s.unit_id, {
       stayId: s.id,
       guestLabel: s.guest_label,
       roomCharge: rc,
@@ -149,14 +152,18 @@ export async function listCollections(date: string): Promise<Collection[]> {
   if (error) throw new Error(error.message);
   const collections = (data ?? []).map(mapCollection);
 
-  // Enrich hotel/short-stay rows with full stay billing data
-  const hotelOrNos = collections
-    .filter((c) => c.business_line === "hotel" && c.or_number)
-    .map((c) => c.or_number as string);
-  const billingMap = await fetchStayBillingByReceiptNos(hotelOrNos);
+  // Enrich hotel/short-stay rows with full stay billing data (join by unit_id + date)
+  const hotelUnitIds = [
+    ...new Set(
+      collections
+        .filter((c) => c.business_line === "hotel" && c.unit_id)
+        .map((c) => c.unit_id as string),
+    ),
+  ];
+  const billingMap = await fetchStayBillingByUnitDate(hotelUnitIds, date);
   return collections.map((c) =>
-    c.or_number && billingMap.has(c.or_number)
-      ? { ...c, stayBilling: billingMap.get(c.or_number) ?? null }
+    c.unit_id && billingMap.has(c.unit_id)
+      ? { ...c, stayBilling: billingMap.get(c.unit_id) ?? null }
       : c,
   );
 }

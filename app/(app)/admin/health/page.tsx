@@ -1,7 +1,9 @@
+import Link from "next/link";
 import { requireAuth, userHasAnyRole } from "@/lib/auth/dal";
 import { PageHeader } from "@/components/ui";
 import { runHealthChecks, type Check, type CheckStatus } from "@/lib/monitoring/health";
 import { listSystemErrors, type SystemError } from "@/lib/monitoring/error-log";
+import { fetchVercelUsage, type VercelUsage } from "@/lib/monitoring/vercel-usage";
 import { CopyButton } from "./copy-button";
 
 export const dynamic = "force-dynamic";
@@ -41,22 +43,33 @@ function CheckRow({ check }: { check: Check }) {
 
 // ── Progress bar ──────────────────────────────────────────────────────────────
 
-function UsageBar({ used, limit, label }: { used: number | null; limit: number; label: string }) {
+const pretty = (n: number, unit: "bytes" | "count" = "bytes") => {
+  if (unit === "count") {
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
+    if (n >= 1_000)     return `${(n / 1_000).toFixed(0)}K`;
+    return `${n}`;
+  }
+  if (n >= 1_073_741_824) return `${(n / 1_073_741_824).toFixed(1)} GB`;
+  if (n >= 1_048_576)     return `${(n / 1_048_576).toFixed(1)} MB`;
+  if (n >= 1_024)         return `${(n / 1_024).toFixed(1)} KB`;
+  return `${n} B`;
+};
+
+function UsageBar({
+  used, limit, label, unit = "bytes", warnAbove = 80,
+}: {
+  used: number | null; limit: number; label: string;
+  unit?: "bytes" | "count"; warnAbove?: number;
+}) {
   const pct = used != null ? Math.min(100, Math.round((used / limit) * 100)) : null;
-  const tone = pct == null ? "stone" : pct > 80 ? "rose" : pct > 60 ? "amber" : "emerald";
-  const pretty = (n: number) => {
-    if (n >= 1_073_741_824) return `${(n / 1_073_741_824).toFixed(1)} GB`;
-    if (n >= 1_048_576)     return `${(n / 1_048_576).toFixed(1)} MB`;
-    if (n >= 1_024)         return `${(n / 1_024).toFixed(1)} KB`;
-    return `${n} B`;
-  };
+  const tone = pct == null ? "stone" : pct >= 100 ? "rose" : pct > warnAbove ? "amber" : "emerald";
 
   return (
     <div>
       <div className="mb-1 flex items-center justify-between text-xs">
         <span className="font-medium text-stone-700">{label}</span>
         <span className="text-stone-500">
-          {used != null ? `${pretty(used)} / ${pretty(limit)}` : `— / ${pretty(limit)}`}
+          {used != null ? `${pretty(used, unit)} / ${pretty(limit, unit)}` : `— / ${pretty(limit, unit)}`}
           {pct != null && <span className="ml-1 font-semibold">({pct}%)</span>}
         </span>
       </div>
@@ -70,10 +83,89 @@ function UsageBar({ used, limit, label }: { used: number | null; limit: number; 
           />
         )}
       </div>
-      {pct != null && pct > 80 && (
+      {pct != null && pct >= 100 && (
         <p className="mt-1 text-[11px] font-semibold text-rose-600">
-          ⚠️ Approaching free tier limit — consider upgrading or archiving data
+          🚨 Free tier limit reached — service may be paused
         </p>
+      )}
+      {pct != null && pct > warnAbove && pct < 100 && (
+        <p className="mt-1 text-[11px] font-semibold text-amber-600">
+          ⚠️ Approaching free tier limit
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ── Vercel usage card ─────────────────────────────────────────────────────────
+
+function VercelUsageCard({ usage }: { usage: VercelUsage }) {
+  const invPct  = usage.invocations != null
+    ? Math.min(100, Math.round((usage.invocations / usage.invocationsLimit) * 100))
+    : null;
+  const bwPct   = usage.bandwidthBytes != null
+    ? Math.min(100, Math.round((usage.bandwidthBytes / usage.bandwidthLimitBytes) * 100))
+    : null;
+  const critical = (invPct != null && invPct >= 90) || (bwPct != null && bwPct >= 90);
+
+  return (
+    <div className={`rounded-xl border bg-white p-4 ${critical ? "border-rose-300" : "border-stone-200"}`}>
+      <div className="mb-3 flex items-center justify-between">
+        <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">
+          Vercel Invocations
+        </p>
+        {usage.source === "api" ? (
+          <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">Live data</span>
+        ) : (
+          <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-semibold text-stone-500">No token set</span>
+        )}
+      </div>
+
+      <div className="space-y-3">
+        <UsageBar
+          used={usage.invocations}
+          limit={usage.invocationsLimit}
+          label="Function invocations (1M/mo Hobby)"
+          unit="count"
+          warnAbove={75}
+        />
+        <UsageBar
+          used={usage.bandwidthBytes}
+          limit={usage.bandwidthLimitBytes}
+          label="Bandwidth (100 GB/mo Hobby)"
+          unit="bytes"
+          warnAbove={75}
+        />
+      </div>
+
+      {usage.billingPeriodStart && (
+        <p className="mt-2 text-[10px] text-stone-400">
+          Billing period: {new Date(usage.billingPeriodStart).toLocaleDateString("en-PH")} →{" "}
+          {usage.billingPeriodEnd ? new Date(usage.billingPeriodEnd).toLocaleDateString("en-PH") : "present"}
+        </p>
+      )}
+
+      {/* Upgrade warning */}
+      {critical && (
+        <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">
+          <p className="font-semibold">Action required: upgrade Vercel plan</p>
+          <p className="mt-0.5">At 100% usage, Vercel pauses the project. Upgrade to Pro (~$20/mo) to keep the site running and pay per additional invocation.</p>
+        </div>
+      )}
+
+      {/* Setup instructions when no token */}
+      {usage.source === "static" && (
+        <div className="mt-3 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 text-[11px] text-stone-600 space-y-1">
+          <p className="font-semibold text-stone-700">⚠️ Notification on Aug 27: 100% of 1M invocations used</p>
+          <p>To show live data here, add to Vercel Environment Variables:</p>
+          <p className="font-mono bg-white rounded px-2 py-1 mt-1 text-stone-700">VERCEL_API_TOKEN=your_token</p>
+          <p className="font-mono bg-white rounded px-2 py-1 text-stone-700">VERCEL_TEAM_ID=your_team_id</p>
+          <p className="mt-1">Get your token at vercel.com → Settings → Tokens. Team ID is in vercel.com → Settings → General.</p>
+        </div>
+      )}
+
+      {usage.error && usage.source === "api" && (
+        <p className="mt-2 text-[11px] text-rose-600">API error: {usage.error}</p>
       )}
     </div>
   );
@@ -133,9 +225,10 @@ export default async function HealthPage() {
     return <p className="p-8 text-sm text-stone-500">Access denied.</p>;
   }
 
-  const [report, errors] = await Promise.all([
+  const [report, errors, vercel] = await Promise.all([
     runHealthChecks(),
     listSystemErrors(30),
+    fetchVercelUsage(),
   ]);
 
   const diagnosticsText = buildDiagnosticsText(report, errors);
@@ -209,14 +302,14 @@ export default async function HealthPage() {
           </p>
         </div>
 
-        {/* Free tier */}
-        <div className="rounded-xl border border-stone-200 bg-white p-4 sm:col-span-2 lg:col-span-1">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-stone-500">Free Tier Usage</p>
+        {/* Supabase free tier */}
+        <div className="rounded-xl border border-stone-200 bg-white p-4">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-stone-500">Supabase Free Tier</p>
           <div className="space-y-4">
             <UsageBar
               used={report.storage.dbSizeBytes}
               limit={report.storage.dbLimitBytes}
-              label="Supabase DB (500 MB free)"
+              label="Database (500 MB free)"
             />
             <div className="border-t border-stone-100 pt-3 space-y-1.5 text-xs text-stone-600">
               <div className="flex justify-between">
@@ -224,19 +317,21 @@ export default async function HealthPage() {
                 <span className="font-semibold">{report.storage.pushSubscriptionCount} device(s)</span>
               </div>
               <div className="flex justify-between">
-                <span>Active users</span>
+                <span>Active users (MAU)</span>
                 <span className="font-semibold">
-                  {report.storage.userCount} / {report.storage.userLimitMonthly.toLocaleString()} MAU
+                  {report.storage.userCount} / {report.storage.userLimitMonthly.toLocaleString()}
                 </span>
               </div>
             </div>
             <div className="border-t border-stone-100 pt-3 text-[11px] text-stone-400 space-y-0.5">
-              <p>Vercel Hobby: 100 GB bandwidth/mo · daily cron only</p>
               <p>Supabase Free: 500 MB DB · 1 GB storage · 50k MAU</p>
               <p>VAPID push: free (no limit)</p>
             </div>
           </div>
         </div>
+
+        {/* Vercel free tier */}
+        <VercelUsageCard usage={vercel} />
 
         {/* Error log */}
         <div className="rounded-xl border border-stone-200 bg-white p-4 sm:col-span-2">
@@ -288,17 +383,24 @@ export default async function HealthPage() {
         </div>
       </div>
 
+      {/* Changelog link */}
+      <div className="mt-2 text-right">
+        <Link href="/admin/changelog" className="text-xs font-medium text-amber-700 hover:underline">
+          View system changelog →
+        </Link>
+      </div>
+
       {/* What to watch */}
       <div className="mt-6 rounded-xl border border-stone-200 bg-stone-50 p-4">
         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">What to watch on free tiers</p>
         <div className="grid gap-x-6 gap-y-2 text-xs text-stone-600 sm:grid-cols-2 lg:grid-cols-3">
           {[
+            ["Vercel invocations &gt; 750K", "1M/month Hobby limit — at 100% the site is paused. Upgrade to Pro to pay per use beyond the limit"],
+            ["Vercel bandwidth &gt; 80 GB", "100 GB/month Hobby limit — heavy image serving can push this above free tier"],
             ["Supabase DB &gt; 400 MB", "Approach 500 MB free limit — archive old records or export data"],
             ["Supabase storage &gt; 800 MB", "Photos and documents count toward 1 GB free — delete old repair/doc photos"],
             ["Supabase MAU &gt; 40 000", "Monthly active users over 50 000 will suspend auth — unlikely but monitor if you scale"],
-            ["Vercel bandwidth &gt; 80 GB", "100 GB/month Hobby limit — heavy image serving can push this"],
             ["DB latency &gt; 500ms", "Supabase may be throttling or your DB is under load — check Supabase dashboard"],
-            ["GitHub push failing", "Check if GitHub token is still valid — re-auth with gh auth login if needed"],
           ].map(([title, desc]) => (
             <div key={title} className="flex gap-2">
               <span className="shrink-0 text-amber-500">⚠</span>

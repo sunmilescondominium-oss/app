@@ -61,6 +61,13 @@ const ADMIN_SECTIONS = [
     icon: "🩺",
     roles: ["admin", "managing_officer", "consultant"],
   },
+  {
+    href: "/admin/changelog",
+    title: "Changelog",
+    blurb: "Recent features, bug fixes, and improvements to the Sun Miles PMS — timestamped and categorized.",
+    icon: "📝",
+    roles: ["admin", "managing_officer", "consultant"],
+  },
 ] as const;
 
 export default async function AdminPage() {
