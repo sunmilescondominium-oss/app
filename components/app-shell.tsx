@@ -74,7 +74,7 @@ export function AppShell({
         : "text-stone-600 hover:bg-stone-100/80 hover:text-stone-900"
     }`;
 
-  const helpActive = pathname === "/help" || pathname === "/docs";
+  const helpActive = pathname === "/help";
 
   const nav = (
     <nav className="flex flex-col gap-0.5">
