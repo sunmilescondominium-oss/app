@@ -19,17 +19,17 @@ export default async function ChatThreadPage({
   // Validate that the current user is allowed to chat with this partner
   const allowedRoles = await getAllowedChatRoles(user.roleKeys as string[]);
 
-  const admin = createAdminClient();
-  const { data: partnerProfile } = await admin
-    .from("profiles")
-    .select("user_id, display_name, role_label, role_keys")
-    .eq("user_id", partnerId)
-    .maybeSingle();
-
-  if (!partnerProfile) notFound();
   if (user.userId === partnerId) notFound();
 
-  const partnerRoles: string[] = (partnerProfile.role_keys as string[] | null) ?? [];
+  const admin = createAdminClient();
+  const [{ data: partnerProfile }, { data: partnerRoleRows }] = await Promise.all([
+    admin.from("profiles").select("id, display_label").eq("id", partnerId).maybeSingle(),
+    admin.from("user_roles").select("role_key").eq("user_id", partnerId),
+  ]);
+
+  if (!partnerProfile) notFound();
+
+  const partnerRoles: string[] = (partnerRoleRows ?? []).map((r) => r.role_key as string);
   const chatAllowed = partnerRoles.some((r) => allowedRoles.has(r));
   if (!chatAllowed) notFound();
 
@@ -43,8 +43,8 @@ export default async function ChatThreadPage({
       <ThreadClient
         myUserId={user.userId}
         partnerId={partnerId}
-        partnerName={(partnerProfile.display_name as string) ?? "Unknown"}
-        partnerRole={partnerProfile.role_label as string | null}
+        partnerName={(partnerProfile.display_label as string) ?? "Unknown"}
+        partnerRole={null}
         initialMessages={initialMessages}
       />
     </div>
