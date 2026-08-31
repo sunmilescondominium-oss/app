@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireModule, userHasAnyRole } from "@/lib/auth/dal";
 import { listGuardPosts, listEntranceLogReport } from "@/lib/guard/queries";
 import { PageHeader } from "@/components/ui";
+import { PrintButton } from "@/components/guard/print-button";
 
 export const metadata = { title: "Guard Log Report" };
 
@@ -96,13 +97,7 @@ export default async function GuardLogReportPage({
         >
           View →
         </button>
-        <button
-          type="button"
-          onClick={() => window.print()}
-          className="no-print rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-50"
-        >
-          Print
-        </button>
+        <PrintButton />
       </form>
 
       {/* Summary cards */}
