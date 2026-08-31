@@ -159,8 +159,13 @@ function VercelUsageCard({ usage }: { usage: VercelUsage }) {
           <p className="font-semibold text-stone-700">⚠️ Notification on Aug 27: 100% of 1M invocations used</p>
           <p>To show live data here, add to Vercel Environment Variables:</p>
           <p className="font-mono bg-white rounded px-2 py-1 mt-1 text-stone-700">VERCEL_API_TOKEN=your_token</p>
-          <p className="font-mono bg-white rounded px-2 py-1 text-stone-700">VERCEL_TEAM_ID=your_team_id</p>
-          <p className="mt-1">Get your token at vercel.com → Settings → Tokens. Team ID is in vercel.com → Settings → General.</p>
+          <p className="mt-1">Get your token at vercel.com → Settings → Tokens.</p>
+          <p className="text-stone-500">
+            <strong className="text-stone-600">Hobby / personal account:</strong> no Team ID needed — only the token above is required.
+          </p>
+          <p className="text-stone-500">
+            <strong className="text-stone-600">Pro / team account:</strong> also add <span className="font-mono bg-white rounded px-1 text-stone-700">VERCEL_TEAM_ID=team_…</span> (found in vercel.com → Settings → General).
+          </p>
         </div>
       )}
 

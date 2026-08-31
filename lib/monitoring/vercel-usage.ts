@@ -29,8 +29,8 @@ export async function fetchVercelUsage(): Promise<VercelUsage> {
     error: null,
   };
 
-  if (!token || !teamId) {
-    base.error = "VERCEL_API_TOKEN or VERCEL_TEAM_ID not set";
+  if (!token) {
+    base.error = "VERCEL_API_TOKEN not set";
     return base;
   }
 
@@ -40,9 +40,12 @@ export async function fetchVercelUsage(): Promise<VercelUsage> {
   const from  = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
   const to    = now.getTime();
 
+  // teamId is only needed for team/Pro accounts; personal Hobby accounts omit it.
+  const teamParam = teamId ? `&teamId=${teamId}` : "";
+
   try {
     const res = await fetch(
-      `https://api.vercel.com/v2/usage/billing?teamId=${teamId}&from=${from}&to=${to}`,
+      `https://api.vercel.com/v2/usage/billing?from=${from}&to=${to}${teamParam}`,
       {
         headers: { Authorization: `Bearer ${token}` },
         cache: "no-store",
