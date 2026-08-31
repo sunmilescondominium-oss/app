@@ -104,7 +104,7 @@ export default async function GuardPage() {
       />
 
       <div className="no-print mb-4 flex justify-end gap-4">
-        <Link href="/guard/help" className="text-sm font-medium text-stone-400 hover:text-stone-600 hover:underline">
+        <Link href="/help" className="text-sm font-medium text-stone-400 hover:text-stone-600 hover:underline">
           Help →
         </Link>
         {canManage && (

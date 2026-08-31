@@ -212,6 +212,9 @@ export function AppShell({
                 build {commitSha}
               </p>
             )}
+            <a href="/help" className="mt-2 inline-block text-[11px] font-medium text-stone-400 hover:text-amber-700 hover:underline">
+              Help →
+            </a>
           </div>
         </aside>
 
@@ -235,9 +238,10 @@ export function AppShell({
               </div>
               <div className="flex-1 overflow-y-auto p-3">{nav}</div>
               <div className="border-t border-stone-200/80 p-4">
-                <p className="text-[11px] leading-relaxed text-stone-400">
-                  {APP_BRAND}
-                </p>
+                <p className="text-[11px] leading-relaxed text-stone-400">{APP_BRAND}</p>
+                <a href="/help" className="mt-2 inline-block text-[11px] font-medium text-stone-400 hover:text-amber-700 hover:underline">
+                  Help →
+                </a>
               </div>
             </aside>
           </div>
