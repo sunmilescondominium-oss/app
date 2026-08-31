@@ -58,6 +58,8 @@ export async function getAllowedChatRoles(myRoles: string[]): Promise<Set<string
 /** Check whether role X can chat with role Y (either direction). */
 export async function canChat(roleX: string, roleY: string): Promise<boolean> {
   if (roleX === roleY) return false;
+  // Management can always chat with everyone — no DB row required
+  if (MANAGEMENT_ROLES.has(roleX) || MANAGEMENT_ROLES.has(roleY)) return true;
   const [a, b] = pairKey(roleX, roleY);
   const admin = createAdminClient();
   const { data } = await admin
@@ -69,17 +71,18 @@ export async function canChat(roleX: string, roleY: string): Promise<boolean> {
   return data?.enabled === true;
 }
 
-/** Toggle (upsert) a role pair. Always stores in canonical order. */
+/** Toggle (upsert) a role pair. Always stores in canonical order. Returns error string or null. */
 export async function setChatPermission(
   roleX: string,
   roleY: string,
   enabled: boolean,
-): Promise<void> {
+): Promise<{ error: string | null }> {
   const [a, b] = pairKey(roleX, roleY);
   const admin = createAdminClient();
-  await admin
+  const { error } = await admin
     .from("chat_role_permissions")
     .upsert({ role_a: a, role_b: b, enabled }, { onConflict: "role_a,role_b" });
+  return { error: error?.message ?? null };
 }
 
 /** Fetch all pairs with their enabled status (for the admin UI). */

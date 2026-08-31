@@ -54,12 +54,12 @@ export async function listConversations(myUserId: string): Promise<ConversationP
   // Fetch profile info for all partners
   const { data: profiles } = await admin
     .from("profiles")
-    .select("user_id, display_name, role_label, avatar_url")
-    .in("user_id", partnerIds);
+    .select("id, display_label")
+    .in("id", partnerIds);
 
   const profileMap = new Map((profiles ?? []).map((p) => [
-    p.user_id as string,
-    { displayName: (p.display_name as string) ?? "Unknown", roleLabel: p.role_label as string | null, avatarUrl: p.avatar_url as string | null },
+    p.id as string,
+    { displayName: (p.display_label as string) ?? "Unknown", roleLabel: null as string | null, avatarUrl: null as string | null },
   ]));
 
   return partnerIds
@@ -137,25 +137,37 @@ export async function getChattableStaff(allowedRoles: string[], myUserId: string
   if (allowedRoles.length === 0) return [];
   const admin = createAdminClient();
 
-  // Profiles with any of the allowed role keys
-  const { data } = await admin
+  // Find users with any of the allowed role keys
+  const { data: roleRows } = await admin
+    .from("user_roles")
+    .select("user_id, role_key")
+    .in("role_key", allowedRoles)
+    .neq("user_id", myUserId);
+
+  if (!roleRows || roleRows.length === 0) return [];
+
+  // Group role keys per user
+  const userRoleMap = new Map<string, string[]>();
+  for (const row of roleRows) {
+    const uid = row.user_id as string;
+    if (!userRoleMap.has(uid)) userRoleMap.set(uid, []);
+    userRoleMap.get(uid)!.push(row.role_key as string);
+  }
+
+  const userIds = Array.from(userRoleMap.keys());
+
+  // Fetch display labels for those users (active only)
+  const { data: profiles } = await admin
     .from("profiles")
-    .select("user_id, display_name, role_label, avatar_url, role_keys")
-    .neq("user_id", myUserId)
-    .not("role_keys", "is", null);
+    .select("id, display_label, is_active")
+    .in("id", userIds)
+    .eq("is_active", true);
 
-  if (!data) return [];
-
-  return data
-    .filter((p) => {
-      const keys = (p.role_keys as string[] | null) ?? [];
-      return keys.some((k) => allowedRoles.includes(k));
-    })
-    .map((p) => ({
-      userId: p.user_id as string,
-      displayName: (p.display_name as string) ?? "Unknown",
-      roleLabel: p.role_label as string | null,
-      avatarUrl: p.avatar_url as string | null,
-      roleKeys: (p.role_keys as string[] | null) ?? [],
-    }));
+  return (profiles ?? []).map((p) => ({
+    userId: p.id as string,
+    displayName: (p.display_label as string) ?? "Unknown",
+    roleLabel: null,
+    avatarUrl: null,
+    roleKeys: userRoleMap.get(p.id as string) ?? [],
+  }));
 }

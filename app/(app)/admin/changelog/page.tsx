@@ -13,6 +13,18 @@ interface ChangeEntry {
 const CHANGELOG: ChangeEntry[] = [
   {
     date: "2026-08-31",
+    tag: "fix",
+    title: "Chat: permissions toggle now saves; accounting can start new conversations",
+    details: [
+      "Chat permission toggles were silently failing — the upsert returned no error to the UI so state appeared saved but reverted on page reload. Error is now propagated back so failed saves show an error message.",
+      "Management override added: admin, managing_officer, and consultant can always chat with all staff without requiring a DB row — this is also how getAllowedChatRoles already worked, so canChat is now consistent.",
+      "Accounting and other non-management staff now see a populated 'New conversation' dropdown — the previous query was selecting columns (display_name, role_keys, avatar_url) that do not exist on the profiles table, causing Supabase to return an error and the function to return an empty list.",
+      "Fixed by querying user_roles for role keys and profiles for display_label (the actual column name), then joining client-side.",
+      "sendMessage permission check similarly fixed — recipient roles now come from user_roles rather than a non-existent role_keys column on profiles.",
+    ],
+  },
+  {
+    date: "2026-08-31",
     tag: "improvement",
     title: "Collections table: column reorder, Time column, same-stay Room Total",
     details: [

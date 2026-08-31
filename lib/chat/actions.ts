@@ -21,13 +21,12 @@ export async function sendMessage(recipientId: string, body: string): Promise<Ac
 
   // Check role permission — any of sender's roles must be allowed to chat with any recipient role
   const admin = createAdminClient();
-  const { data: recipientProfile } = await admin
-    .from("profiles")
-    .select("role_keys")
-    .eq("user_id", recipientId)
-    .maybeSingle();
+  const { data: recipientRoleRows } = await admin
+    .from("user_roles")
+    .select("role_key")
+    .eq("user_id", recipientId);
 
-  const recipientRoles: string[] = (recipientProfile?.role_keys as string[] | null) ?? [];
+  const recipientRoles: string[] = (recipientRoleRows ?? []).map((r) => r.role_key as string);
   if (recipientRoles.length === 0) return { ok: false, error: "Recipient not found." };
 
   const senderRoles = user.roleKeys as string[];
@@ -96,7 +95,8 @@ export async function toggleChatPermission(
   if (!user.roleKeys.some((r) => SUPER.includes(r as string))) {
     return { ok: false, error: "Unauthorized." };
   }
-  await setChatPermission(roleA, roleB, enabled);
+  const { error } = await setChatPermission(roleA, roleB, enabled);
+  if (error) return { ok: false, error };
   revalidatePath("/admin/chat-permissions");
   return { ok: true };
 }
