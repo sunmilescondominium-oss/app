@@ -370,13 +370,13 @@ export interface GuardAccountRow {
   isExpired: boolean;
 }
 
-const GUARD_SELECT = "id, display_label, email, guard_agency, guard_position, guard_contract_expires_at, guard_nda_acknowledged_at, guard_operation";
+const GUARD_SELECT = "id, display_label, guard_agency, guard_position, guard_contract_expires_at, guard_nda_acknowledged_at, guard_operation";
 
 function mapGuardRow(r: Record<string, unknown>, now: string): GuardAccountRow {
   return {
     userId: r.id as string,
     displayLabel: (r.display_label as string | null) ?? "Guard",
-    email: (r.email as string | null) ?? null,
+    email: null,
     guardAgency: (r.guard_agency as string | null) ?? null,
     guardPosition: (r.guard_position as string | null) ?? null,
     guardContractExpiresAt: (r.guard_contract_expires_at as string | null) ?? null,
@@ -388,10 +388,16 @@ function mapGuardRow(r: Record<string, unknown>, now: string): GuardAccountRow {
 
 export async function listGuardAccounts(): Promise<GuardAccountRow[]> {
   const admin = createAdminClient();
+  const { data: roleRows } = await admin
+    .from("user_roles")
+    .select("user_id")
+    .eq("role_key", "guard");
+  if (!roleRows || roleRows.length === 0) return [];
+  const guardIds = roleRows.map((r) => r.user_id as string);
   const { data } = await admin
     .from("profiles")
     .select(GUARD_SELECT)
-    .contains("roles", ["guard"])
+    .in("id", guardIds)
     .order("display_label");
   const now = new Date().toISOString();
   return (data ?? []).map((r) => mapGuardRow(r as Record<string, unknown>, now));
