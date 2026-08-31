@@ -14,6 +14,7 @@ import { OpenShiftForm } from "./open-shift-form";
 import { CloseShiftForm } from "./close-shift-form";
 import { CancelArForm } from "./cancel-ar-form";
 import { SupervisorPanel } from "./supervisor-panel";
+import { StartBaggingButton } from "./start-bagging-button";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Cashier Shifts" };
@@ -117,8 +118,20 @@ export default async function ShiftsPage() {
               </div>
               <p className="text-xs text-amber-700">
                 Shift opened {fmt(active.openedAt)} · Beginning AR: <strong>{active.beginningArNo}</strong>
-                {active.shiftType === "day" && " · Collection cutoff: 5:40 PM"}
-                {active.shiftType === "night" && " · Collection cutoff: 5:40 AM"}
+                {(() => {
+                  // If bagging was manually triggered (window <= 25 min), show that cutoff
+                  const st = active.collectionStartsAt;
+                  const en = active.collectionEndsAt;
+                  if (st && en) {
+                    const diffMs = new Date(en).getTime() - new Date(st).getTime();
+                    if (diffMs <= 25 * 60 * 1000) {
+                      return ` · Bagging cutoff: ${fmt(en)}`;
+                    }
+                  }
+                  if (active.shiftType === "day")   return " · Collection cutoff: 5:40 PM";
+                  if (active.shiftType === "night") return " · Collection cutoff: 5:40 AM";
+                  return null;
+                })()}
               </p>
             </div>
             {isOnDuty && (
@@ -175,6 +188,16 @@ export default async function ShiftsPage() {
               </p>
               <OpenShiftForm suggested={suggested} />
             </div>
+          )}
+
+          {/* Start counting & bagging — on-duty cashier or supervisor */}
+          {active && (isOnDuty || isSupervisor) && (
+            <StartBaggingButton
+              sessionId={active.id}
+              collectionStartsAt={active.collectionStartsAt}
+              collectionEndsAt={active.collectionEndsAt}
+              isOnDuty={isOnDuty}
+            />
           )}
 
           {/* Close shift — only the on-duty cashier or supervisor */}

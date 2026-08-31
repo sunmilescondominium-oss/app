@@ -498,6 +498,44 @@ export async function correctShiftPayment(
   return { ok: true };
 }
 
+export async function startBagging(
+  sessionId: string,
+): Promise<ActionResult & { endsAt?: string }> {
+  const user = await requireAuth();
+  if (!userHasAnyRole(user, [...CASHIER_ROLES]))
+    return { ok: false, error: "Access denied." };
+
+  const admin = createAdminClient();
+  const { data: session } = await admin
+    .from("hotel_cashier_sessions")
+    .select("id, cashier_user_id, closed_at")
+    .eq("id", sessionId)
+    .maybeSingle();
+
+  if (!session) return { ok: false, error: "Session not found." };
+  if (session.closed_at) return { ok: false, error: "Session is already closed." };
+
+  const isSupervisor = userHasAnyRole(user, [...SUPERVISOR_ROLES]);
+  const isOwnSession = (session.cashier_user_id as string) === user.userId;
+  if (!isOwnSession && !isSupervisor)
+    return { ok: false, error: "Only the on-duty cashier can start bagging." };
+
+  const now = new Date();
+  const startsAt = now.toISOString();
+  const endsAt = new Date(now.getTime() + 20 * 60 * 1000).toISOString();
+
+  const { error } = await admin
+    .from("hotel_cashier_sessions")
+    .update({ collection_starts_at: startsAt, collection_ends_at: endsAt })
+    .eq("id", sessionId);
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/hotel");
+  revalidatePath("/hotel/shifts");
+  return { ok: true, endsAt };
+}
+
 export async function acknowledgeShiftReport(
   reportId: string,
   acknowledgedNotes: string,

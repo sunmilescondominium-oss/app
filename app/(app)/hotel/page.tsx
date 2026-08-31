@@ -87,6 +87,27 @@ export default async function HotelPage() {
         </div>
       )}
 
+      {/* Bagging-in-progress warning */}
+      {activeSession && (() => {
+        const st = activeSession.collectionStartsAt;
+        const en = activeSession.collectionEndsAt;
+        if (!st || !en) return null;
+        const diffMs = new Date(en).getTime() - new Date(st).getTime();
+        const stillOpen = new Date(en) > new Date();
+        if (diffMs > 25 * 60 * 1000 || !stillOpen) return null;
+        const cutoffLabel = new Date(en).toLocaleTimeString("en-PH", {
+          timeZone: "Asia/Manila", hour: "2-digit", minute: "2-digit",
+        });
+        return (
+          <div className="no-print mb-4 rounded-xl border border-amber-400 bg-amber-100 px-4 py-2.5 text-sm">
+            <span className="font-semibold text-amber-900">⏱ Bagging in progress</span>
+            <span className="ml-2 text-amber-800">
+              New check-in payments after <strong>{cutoffLabel}</strong> will be collected by the next cashier.
+            </span>
+          </div>
+        );
+      })()}
+
       {/* Gate entry alert banner — shown to cashier when guard reports extra persons */}
       {pendingGateEntries.length > 0 && (
         <div className="no-print mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
