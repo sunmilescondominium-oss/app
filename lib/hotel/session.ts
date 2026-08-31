@@ -206,7 +206,30 @@ export async function getSuggestedNextArNo(): Promise<string> {
     return baseAr;
   }
 
-  // Fallback: global receipt_series
+  // No active session — use the last closed session's ending_ar_no + 1
+  const { data: lastSession } = await admin
+    .from("hotel_cashier_sessions")
+    .select("ending_ar_no, beginning_ar_no, opened_at, closed_at")
+    .not("closed_at", "is", null)
+    .order("closed_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const lastAr = (lastSession?.ending_ar_no as string | null)
+    ?? (lastSession?.beginning_ar_no as string | null);
+
+  if (lastAr) {
+    const match = lastAr.match(/^([A-Za-z\-]+)(\d+)$/);
+    if (match) {
+      const prefix = match[1];
+      const padLen = match[2].length;
+      const num = parseInt(match[2], 10) + 1;
+      return `${prefix}${String(num).padStart(padLen, "0")}`;
+    }
+    return lastAr;
+  }
+
+  // Ultimate fallback: global receipt_series
   const { data } = await admin
     .from("receipt_series")
     .select("prefix, next_no")
