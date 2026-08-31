@@ -14,6 +14,64 @@ const CHANGELOG: ChangeEntry[] = [
   {
     date: "2026-08-31",
     tag: "improvement",
+    title: "Collections table: column reorder, Time column, same-stay Room Total",
+    details: [
+      "Column order is now: Category → Unit → Time → Charge/Stay → Room Total → Amount Paid → AR No → Payment → Collected By → Receipt #.",
+      "New 'Time' column shows when each collection was recorded — this is exactly what the Time sort button was already sorting by, now made visible.",
+      "Room Total suppresses duplicates: when one stay has multiple collection rows (e.g. ₱350 room + ₱40 bottled water paid separately), the full breakdown appears only on the first row; subsequent rows for the same stay show '↑ same stay' instead of repeating ₱390.",
+      "Receipt # moved to the last column before the action buttons.",
+    ],
+  },
+  {
+    date: "2026-08-31",
+    tag: "feature",
+    title: "Hotel cashier: Start Counting & Bagging button with 20-min cutoff",
+    details: [
+      "New 'Start Counting & Bagging' button on the /hotel/shifts page lets the on-duty cashier manually initiate the collection cutoff.",
+      "Clicking sets collection_starts_at = NOW() and collection_ends_at = NOW() + 20 minutes on the active session.",
+      "A live mm:ss countdown replaces the button and shows how long the 20-minute grace window has remaining.",
+      "After the window closes, a green confirmation appears: 'Bagging window closed — you may now close your shift.'",
+      "Hotel Ops page shows a 'Bagging in progress' warning banner while the window is open so the cashier knows while processing last guests.",
+      "The shift report's existing pre/post cutoff split automatically uses this manual cutoff time — no DB migration required.",
+      "Active session banner on /hotel/shifts switches from the fixed '5:40 PM / 5:40 AM' label to the actual manual bagging cutoff time once triggered.",
+    ],
+  },
+  {
+    date: "2026-08-31",
+    tag: "fix",
+    title: "Hotel collection report and AR register: correct DB column names",
+    details: [
+      "Queries were referencing checked_in_at / checked_out_at which do not exist in the stays table — the correct columns are check_in_at / check_out_at.",
+      "Supabase silently returns null for unknown columns, causing raw UUIDs instead of room numbers, ₱0 room charges, and 'unknown' status to appear in the hotel collection report.",
+      "Fixed in lib/hotel/collection-report.ts, lib/collections/queries.ts, and lib/hotel/ar-register.ts.",
+    ],
+  },
+  {
+    date: "2026-08-31",
+    tag: "fix",
+    title: "Hotel collection report: per-stay redesign with timestamp matching",
+    details: [
+      "Report was showing all payments for a unit on one row (per-room model), making it impossible to distinguish multiple guests using the same room in one day.",
+      "Redesigned to a per-stay model: each guest check-in produces its own row with correct charge and payment matching.",
+      "Collections are matched to stays using a 30-minute grace window after checkout so late-entered payments still attribute correctly.",
+      "Results sorted by unit number then check-in time.",
+      "Detailed incidental line items (e.g. Bottled Water ₱40) now appear in the Payments column.",
+    ],
+  },
+  {
+    date: "2026-08-31",
+    tag: "fix",
+    title: "Chat permissions: all role pairs shown even with empty DB table",
+    details: [
+      "The chat_role_permissions table starts empty so the page was showing no controls.",
+      "Page now generates all N×N staff-role pairs client-side from a hardcoded STAFF_ROLES list and merges with DB for enabled/disabled state.",
+      "Management roles (admin, managing_officer, consultant) can always chat all staff — no DB row needed.",
+      "Staff can always initiate chat with management — also requires no DB row.",
+    ],
+  },
+  {
+    date: "2026-08-31",
+    tag: "improvement",
     title: "Collections table: room billing detail inline",
     details: [
       "Hotel/short-stay rows now show Room total (room charge + extra persons + incidentals + discount) directly in the table — no need to open the hotel room report for a quick figure.",
