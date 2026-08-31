@@ -6,6 +6,7 @@ import { AppShell, type NavModule, type RoleOption } from "@/components/app-shel
 import { getLang } from "@/lib/i18n-server";
 import { navLabel, navBlurb } from "@/lib/i18n";
 import { countUnreadNotifications, notifyPostdatedChecksDue } from "@/lib/notifications/queries";
+import { countUnreadChat } from "@/lib/chat/queries";
 import { demoableRoles } from "@/lib/auth/demo-hierarchy";
 
 /**
@@ -67,7 +68,10 @@ export default async function AppLayout({
 
   const commitSha = process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? null;
   void notifyPostdatedChecksDue(); // fire-and-forget — never blocks render
-  const unreadNotifications = await countUnreadNotifications(user.userId, user.roleKeys);
+  const [unreadNotifications, unreadChat] = await Promise.all([
+    countUnreadNotifications(user.userId, user.roleKeys),
+    countUnreadChat(user.userId),
+  ]);
 
   return (
     <AppShell
@@ -81,6 +85,7 @@ export default async function AppLayout({
       commitSha={commitSha}
       isSuperUser={user.roleKeys.some((r) => ["consultant", "admin", "managing_officer"].includes(r))}
       unreadNotifications={unreadNotifications}
+      unreadChat={unreadChat}
     >
       {children}
     </AppShell>

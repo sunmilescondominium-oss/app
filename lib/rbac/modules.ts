@@ -60,7 +60,8 @@ export type ModuleKey =
   | "users"
   | "settings"
   | "guard"
-  | "docs";
+  | "docs"
+  | "chat";
 
 /**
  * Role groups for the permission matrix admin UI.
@@ -430,6 +431,15 @@ export const MODULES: Record<ModuleKey, ModuleDef> = {
     milestone: "Admin",
     read: STAFF_ROLE_KEYS,
     write: [],
+  },
+  chat: {
+    key: "chat",
+    path: "/chat",
+    label: "💬 Messages",
+    blurb: "Staff messaging.",
+    milestone: "Chat",
+    read: STAFF_ROLE_KEYS,
+    write: STAFF_ROLE_KEYS,
   },
 };
 

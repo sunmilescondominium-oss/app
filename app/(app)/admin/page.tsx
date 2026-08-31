@@ -48,6 +48,13 @@ const ADMIN_SECTIONS = [
     roles: ["admin", "managing_officer", "consultant"],
   },
   {
+    href: "/admin/chat-permissions",
+    title: "Chat Permissions",
+    blurb: "Enable or disable messaging between specific role pairs. Controls who staff can chat with.",
+    icon: "💬",
+    roles: ["admin", "managing_officer", "consultant"],
+  },
+  {
     href: "/admin/health",
     title: "System Health",
     blurb: "Connectivity, configuration, free tier usage, and error log. Copy diagnostics to share with your developer.",

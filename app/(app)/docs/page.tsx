@@ -5,8 +5,8 @@ import { releaseNotificationSent } from "./actions";
 
 export const metadata = { title: "Documentation" };
 
-const VERSION = "v1.28";
-const BUILD = 28;
+const VERSION = "v1.29";
+const BUILD = 29;
 
 const SUPER = ["admin", "managing_officer", "consultant"];
 
@@ -137,6 +137,12 @@ const MODULES: Module[] = [
     visibleTo: ["guard"],
   },
   {
+    name: "Messages (Chat)", path: "/chat",
+    roleDesc: "All staff",
+    desc: "Person-to-person staff messaging with role-based access restrictions and real-time delivery.",
+    visibleTo: ["*"],
+  },
+  {
     name: "Users & Roles", path: "/users",
     roleDesc: "Admin, management",
     desc: "Staff accounts, role assignment, email invite, password reset, and verified-email badge.",
@@ -175,6 +181,23 @@ type ChangelogEntry = {
 };
 
 const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: "v1.29",
+    date: "2026-08-31",
+    label: "Staff Chat — Person-to-Person Messaging",
+    notifyRoles: ALL_STAFF,
+    items: [
+      "New 💬 Messages module — staff can send real-time person-to-person messages within the app",
+      "Role-restricted access: each role can only message roles with a direct work relationship (e.g. guard ↔ hotel cashier, accounting ↔ errand liaison)",
+      "Supabase Realtime subscription — messages appear instantly without page refresh",
+      "Bell notification sent when recipient receives a new message while away",
+      "Unread badge on the Messages nav item — shows count of unread messages",
+      "Inbox view shows all conversations sorted by latest message with unread count per conversation",
+      "New chat picker — search staff by name or role to start a conversation",
+      "Chat Permissions panel under Settings — admin can toggle any role pair on/off at runtime, no deployment needed",
+      "57 default role pairs seeded covering all operational relationships",
+    ],
+  },
   {
     version: "v1.28",
     date: "2026-08-31",
