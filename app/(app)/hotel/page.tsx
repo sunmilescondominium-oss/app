@@ -121,6 +121,9 @@ export default async function HotelPage() {
         <Link href="/hotel/day" className="text-sm font-medium text-amber-700 hover:underline">
           Day-end / remittance report →
         </Link>
+        <Link href="/hotel/collection-report" className="text-sm font-medium text-amber-700 hover:underline">
+          Room collection report →
+        </Link>
         <Link href="/hotel/ar-register" className="text-sm font-medium text-amber-700 hover:underline">
           AR / OR register →
         </Link>

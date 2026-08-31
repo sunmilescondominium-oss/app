@@ -83,10 +83,10 @@ export default async function CollectionsPage({
         </a>
         {canSeeARRegister && (
           <Link
-            href={`/hotel/ar-register?date=${date}`}
+            href={`/hotel/collection-report?date=${date}`}
             className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800 hover:bg-amber-100"
           >
-            🧾 Hotel AR register (itemized) →
+            🧾 Hotel room report →
           </Link>
         )}
         {canWrite && (
