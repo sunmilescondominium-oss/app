@@ -22,6 +22,9 @@ export default async function CollectionsPage({
   const canWrite = canWriteModule(user.roleKeys, "collections");
   const canEdit = canEditCollections(user.roleKeys);
   const isConsultant = user.allRoleKeys.includes("consultant");
+  const canSeeARRegister = user.roleKeys.some((r) =>
+    ["hotel_rental_monitoring", "admin", "managing_officer", "consultant", "accounting", "hotel_cashier"].includes(r),
+  );
   const canClearChecks = user.roleKeys.some((r) =>
     ["accounting", "managing_officer", "consultant", "admin"].includes(r),
   );
@@ -78,6 +81,14 @@ export default async function CollectionsPage({
         <a href={`/api/export/collections?date=${date}`} className="ml-auto rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100">
           ⬇ Export to Sheets
         </a>
+        {canSeeARRegister && (
+          <Link
+            href={`/hotel/ar-register?date=${date}`}
+            className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800 hover:bg-amber-100"
+          >
+            🧾 Hotel AR register (itemized) →
+          </Link>
+        )}
         {canWrite && (
           <Link href="/admin/rate-cards" className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-medium text-sky-700 hover:bg-sky-100">
             Rate cards

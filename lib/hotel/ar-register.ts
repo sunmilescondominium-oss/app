@@ -26,6 +26,9 @@ export interface ARRegisterEntry {
   orNo: string | null;
   voidedAsTest: boolean;
   stayId: string;
+  checkedInAt: string | null;
+  checkedOutAt: string | null;
+  plannedHours: number | null;
   breakdown: PaymentBreakdown | null;
   edits: { oldArNo: string | null; newArNo: string | null; oldOrNo: string | null; newOrNo: string | null; reason: string; editedAt: string }[];
 }
@@ -37,7 +40,7 @@ export async function listARRegister(date: string): Promise<ARRegisterEntry[]> {
 
   const { data: payments } = await admin
     .from("stay_payments")
-    .select("id, ar_no, receipt_no, amount, method, paid_at, stay_id, breakdown, stays(guest_label, voided_as_test, units:unit_id(unit_number))")
+    .select("id, ar_no, receipt_no, amount, method, paid_at, stay_id, breakdown, stays(guest_label, voided_as_test, checked_in_at, checked_out_at, planned_hours, units:unit_id(unit_number))")
     .gte("paid_at", start)
     .lte("paid_at", end)
     .order("paid_at", { ascending: true });
@@ -66,7 +69,9 @@ export async function listARRegister(date: string): Promise<ARRegisterEntry[]> {
   }
 
   return payments.map((p) => {
-    const stay = (p.stays && !Array.isArray(p.stays)) ? p.stays as { guest_label: string; voided_as_test: boolean; units: { unit_number: string } | null } : null;
+    const stay = (p.stays && !Array.isArray(p.stays))
+      ? p.stays as { guest_label: string; voided_as_test: boolean; checked_in_at: string | null; checked_out_at: string | null; planned_hours: number | null; units: { unit_number: string } | null }
+      : null;
     const unit = stay?.units;
     return {
       paymentId: p.id as string,
@@ -79,6 +84,9 @@ export async function listARRegister(date: string): Promise<ARRegisterEntry[]> {
       orNo: (p.receipt_no as string | null) ?? null,
       voidedAsTest: stay?.voided_as_test ?? false,
       stayId: p.stay_id as string,
+      checkedInAt: stay?.checked_in_at ?? null,
+      checkedOutAt: stay?.checked_out_at ?? null,
+      plannedHours: stay?.planned_hours ?? null,
       breakdown: (p.breakdown as PaymentBreakdown | null) ?? null,
       edits: editsByPayment.get(p.id as string) ?? [],
     };

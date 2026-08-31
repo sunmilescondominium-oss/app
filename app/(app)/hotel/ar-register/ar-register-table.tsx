@@ -114,6 +114,31 @@ function EntryCard({
 
       {expanded && (
         <div className="border-t border-stone-100 px-3 pb-3 pt-2">
+          {/* Stay time period */}
+          {entry.checkedInAt && (
+            <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-0.5 rounded-lg bg-stone-50 px-2.5 py-1.5 text-xs text-stone-600">
+              <span>
+                <span className="text-stone-400">Check-in:</span>{" "}
+                <strong>{fmtTime(entry.checkedInAt)}</strong>
+              </span>
+              {entry.checkedOutAt ? (
+                <span>
+                  <span className="text-stone-400">Check-out:</span>{" "}
+                  <strong>{fmtTime(entry.checkedOutAt)}</strong>
+                </span>
+              ) : entry.plannedHours ? (
+                <span>
+                  <span className="text-stone-400">Planned:</span>{" "}
+                  <strong>{entry.plannedHours}h</strong>
+                </span>
+              ) : null}
+              {entry.checkedInAt && entry.checkedOutAt && (
+                <span className="text-stone-400">
+                  ({Math.round((new Date(entry.checkedOutAt).getTime() - new Date(entry.checkedInAt).getTime()) / 3_600_000 * 10) / 10}h actual)
+                </span>
+              )}
+            </div>
+          )}
           <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-stone-400">Itemized</p>
           <BreakdownPanel entry={entry} />
 
