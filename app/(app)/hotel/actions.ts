@@ -349,18 +349,50 @@ export async function recordStayPayment(
   let ar_no = String(formData.get("ar_no") ?? "").trim() || null;
   if (!ar_no) { const { data: seq } = await adminForAr.rpc("next_receipt_no", { ctx: "hotel" }); ar_no = (seq as string | null); }
 
+  // Compute itemized breakdown snapshot for this payment
+  const admin0 = createAdminClient();
+  const [{ data: stayFull }, { data: stayOrders }] = await Promise.all([
+    admin0.from("stays")
+      .select("unit_id, base_rate, extra_hour_rate, base_hours, planned_hours, extra_persons, extra_person_amount, discount_amount, discount_type, promo_discount_amount")
+      .eq("id", stayId).maybeSingle(),
+    admin0.from("stay_orders").select("name, qty, unit_price, menu_item_id").eq("stay_id", stayId),
+  ]);
+  const breakdown = stayFull ? (() => {
+    const lines: { label: string; qty?: number; unit_price?: number; amount: number }[] = [];
+    const rc = roomCharge(Number(stayFull.base_rate), Number(stayFull.extra_hour_rate), Number(stayFull.base_hours), Number(stayFull.planned_hours));
+    lines.push({ label: `Room charge (${stayFull.planned_hours}h)`, amount: rc });
+    if (Number(stayFull.extra_person_amount) > 0) {
+      lines.push({ label: `Extra persons at check-in (${stayFull.extra_persons}×)`, amount: Number(stayFull.extra_person_amount) });
+    }
+    for (const o of stayOrders ?? []) {
+      const oAmount = round2(Number(o.qty) * Number(o.unit_price));
+      lines.push({
+        label: o.menu_item_id ? String(o.name) : `Extra person added (${o.qty}×)`,
+        qty: Number(o.qty),
+        unit_price: Number(o.unit_price),
+        amount: oAmount,
+      });
+    }
+    const discount = round2((Number(stayFull.discount_amount) || 0) + (Number(stayFull.promo_discount_amount) || 0));
+    if (discount > 0) lines.push({ label: "Discount", amount: -discount });
+    const subtotal = round2(lines.filter((l) => l.amount > 0).reduce((s, l) => s + l.amount, 0));
+    const total = round2(lines.reduce((s, l) => s + l.amount, 0));
+    return { lines, subtotal, discount, total };
+  })() : null;
+
   const { error } = await supabase.from("stay_payments").insert({
     stay_id: stayId,
     method,
     amount,
     receipt_no,
     ar_no,
+    breakdown,
     created_by: user.userId,
   });
   if (error) return { ok: false, error: error.message };
 
   // Post to collections so the payment flows into the daily dashboard + transmittal.
-  const { data: stayRow } = await supabase.from("stays").select("unit_id").eq("id", stayId).maybeSingle();
+  const { data: stayRow } = stayFull ? { data: stayFull } : await supabase.from("stays").select("unit_id").eq("id", stayId).maybeSingle();
   const collectedRole =
     user.roleKeys.find((r) => ["hotel_cashier", "hotel_rental_monitoring"].includes(r)) ?? "hotel_cashier";
   const admin = createAdminClient();

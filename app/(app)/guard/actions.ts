@@ -137,11 +137,15 @@ export async function logEntry(
   const user = await requireModule("guard");
   const admin = createAdminClient();
 
-  const entryType = String(formData.get("entry_type") ?? "guest").trim();
+  const VALID_ENTRY_TYPES = ["guest", "vehicle", "visitor", "delivery", "staff", "unit_owner", "renter", "other"];
+  const entryTypeRaw = String(formData.get("entry_type") ?? "guest").trim();
+  const entryType = VALID_ENTRY_TYPES.includes(entryTypeRaw) ? entryTypeRaw : "other";
   const vehicleType = String(formData.get("vehicle_type") ?? "").trim() || null;
   const plateRaw = String(formData.get("plate_number") ?? "").trim();
   const plateNumber = plateRaw ? plateRaw.toUpperCase().replace(/\s+/g, " ") : null;
   const driverName = String(formData.get("driver_name") ?? "").trim() || null;
+  const visitorName = String(formData.get("visitor_name") ?? "").trim() || null;
+  const destinationUnit = String(formData.get("destination_unit") ?? "").trim() || null;
   const passengerCountRaw = parseInt(String(formData.get("passenger_count") ?? ""), 10);
   const passengerCount = Number.isFinite(passengerCountRaw) && passengerCountRaw > 0
     ? passengerCountRaw : null;
@@ -168,6 +172,8 @@ export async function logEntry(
     vehicle_type: vehicleType,
     plate_number: plateNumber,
     driver_name: driverName,
+    visitor_name: visitorName,
+    destination_unit: destinationUnit,
     passenger_count: passengerCount,
     notes,
     discount_coupon_no: discountCouponNo,

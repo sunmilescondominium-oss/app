@@ -5,7 +5,13 @@ import { logExit } from "@/app/(app)/guard/actions";
 import type { EntranceLogEntry } from "@/lib/guard/queries";
 
 const ENTRY_ICONS: Record<string, string> = {
-  guest: "🛎", vehicle: "🚗", visitor: "👤", delivery: "📦", staff: "🪪",
+  guest: "🛎", vehicle: "🚗", visitor: "👤", delivery: "📦",
+  staff: "🪪", unit_owner: "🏠", renter: "🔑", other: "⋯",
+};
+
+const ENTRY_LABELS: Record<string, string> = {
+  guest: "Guest", vehicle: "Vehicle", visitor: "Visitor", delivery: "Delivery",
+  staff: "Staff", unit_owner: "Owner", renter: "Renter", other: "Other",
 };
 
 function fmtTime(iso: string): string {
@@ -38,48 +44,52 @@ export function EntranceLogList({ entries }: { entries: EntranceLogEntry[] }) {
   }
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-stone-200">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-stone-200 bg-stone-50 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
-            <th className="px-3 py-2">Time In</th>
-            <th className="px-3 py-2">Type</th>
-            <th className="px-3 py-2">Plate</th>
-            <th className="px-3 py-2">Vehicle</th>
-            <th className="px-3 py-2">Pax</th>
-            <th className="px-3 py-2">Driver / Notes</th>
-            <th className="px-3 py-2">Time Out</th>
-            <th className="px-3 py-2"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {entries.map((e) => (
-            <tr key={e.id} className="border-b border-stone-100 last:border-0 hover:bg-stone-50/60">
-              <td className="whitespace-nowrap px-3 py-2 font-mono text-xs">{fmtTime(e.timeIn)}</td>
-              <td className="px-3 py-2">
-                <span title={e.entryType}>{ENTRY_ICONS[e.entryType] ?? "—"}</span>
-              </td>
-              <td className="px-3 py-2 font-mono text-xs font-semibold">{e.plateNumber ?? "—"}</td>
-              <td className="px-3 py-2 text-xs capitalize">{e.vehicleType ?? "—"}</td>
-              <td className="px-3 py-2 text-xs">{e.passengerCount ?? "—"}</td>
-              <td className="px-3 py-2 text-xs text-stone-500">
-                {e.driverName ? <span className="block">{e.driverName}</span> : null}
-                {e.notes ? <span className="block italic">{e.notes}</span> : null}
-              </td>
-              <td className="whitespace-nowrap px-3 py-2 font-mono text-xs">
-                {e.timeOut ? (
-                  <span className="text-stone-400">{fmtTime(e.timeOut)}</span>
-                ) : (
-                  <span className="font-semibold text-emerald-700">still inside</span>
+    <div className="space-y-2">
+      {entries.map((e) => (
+        <div
+          key={e.id}
+          className={`rounded-xl border bg-white p-3 ${e.timeOut ? "opacity-70" : ""}`}
+        >
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span title={ENTRY_LABELS[e.entryType] ?? e.entryType}>
+                  {ENTRY_ICONS[e.entryType] ?? "⋯"}
+                </span>
+                <span className="text-xs font-semibold text-stone-700">
+                  {ENTRY_LABELS[e.entryType] ?? e.entryType}
+                </span>
+                {e.destinationUnit && (
+                  <span className="rounded bg-stone-100 px-1.5 py-0.5 text-[10px] font-medium text-stone-600">
+                    {e.destinationUnit}
+                  </span>
                 )}
-              </td>
-              <td className="px-3 py-2">
-                {!e.timeOut && <ExitButton logId={e.id} />}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+              </div>
+              {e.visitorName && (
+                <p className="mt-0.5 text-sm font-medium text-stone-800">{e.visitorName}</p>
+              )}
+              <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0 text-xs text-stone-500">
+                {e.plateNumber && (
+                  <span className="font-mono font-semibold">{e.plateNumber}</span>
+                )}
+                {e.vehicleType && <span className="capitalize">{e.vehicleType}</span>}
+                {e.passengerCount != null && <span>{e.passengerCount} pax</span>}
+                {e.driverName && <span>Driver: {e.driverName}</span>}
+                {e.notes && <span className="italic">{e.notes}</span>}
+              </div>
+            </div>
+            <div className="flex flex-col items-end gap-1">
+              <span className="font-mono text-xs text-stone-500">{fmtTime(e.timeIn)}</span>
+              {e.timeOut ? (
+                <span className="font-mono text-xs text-stone-400">{fmtTime(e.timeOut)} out</span>
+              ) : (
+                <span className="text-[10px] font-semibold text-emerald-700">inside</span>
+              )}
+              {!e.timeOut && <ExitButton logId={e.id} />}
+            </div>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

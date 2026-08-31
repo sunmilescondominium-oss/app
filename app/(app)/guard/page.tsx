@@ -107,6 +107,9 @@ export default async function GuardPage() {
         <Link href="/help" className="text-sm font-medium text-stone-400 hover:text-stone-600 hover:underline">
           Help →
         </Link>
+        <Link href="/guard/log-report" className="text-sm font-medium text-amber-700 hover:underline">
+          Log report →
+        </Link>
         {canManage && (
           <>
             <Link href="/guard/referrals" className="text-sm font-medium text-amber-700 hover:underline">

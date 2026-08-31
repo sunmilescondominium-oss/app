@@ -26,6 +26,8 @@ export interface EntranceLogEntry {
   vehicleType: string | null;
   plateNumber: string | null;
   driverName: string | null;
+  visitorName: string | null;
+  destinationUnit: string | null;
   passengerCount: number | null;
   notes: string | null;
   timeIn: string;
@@ -87,7 +89,7 @@ export async function listTodayEntrances(postId: string): Promise<EntranceLogEnt
   manilaToday.setHours(0, 0, 0, 0);
   const { data } = await admin
     .from("guard_entrance_log")
-    .select("id, post_id, entry_type, vehicle_type, plate_number, driver_name, passenger_count, notes, time_in, time_out, linked_stay_id, created_at, guard_posts(name)")
+    .select("id, post_id, entry_type, vehicle_type, plate_number, driver_name, visitor_name, destination_unit, passenger_count, notes, time_in, time_out, linked_stay_id, created_at, guard_posts(name)")
     .eq("post_id", postId)
     .gte("time_in", manilaToday.toISOString())
     .order("time_in", { ascending: false })
@@ -100,6 +102,8 @@ export async function listTodayEntrances(postId: string): Promise<EntranceLogEnt
     vehicleType: (r.vehicle_type as string | null) ?? null,
     plateNumber: (r.plate_number as string | null) ?? null,
     driverName: (r.driver_name as string | null) ?? null,
+    visitorName: (r.visitor_name as string | null) ?? null,
+    destinationUnit: (r.destination_unit as string | null) ?? null,
     passengerCount: (r.passenger_count as number | null) ?? null,
     notes: (r.notes as string | null) ?? null,
     timeIn: r.time_in as string,
@@ -466,4 +470,61 @@ export async function getStayReferral(stayId: string): Promise<{
     referralAmount: Number(data.referral_amount),
     verified: Boolean(data.verified),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Guard log report — supervisor/admin date-range view
+// ---------------------------------------------------------------------------
+
+export interface GuardLogReportEntry extends EntranceLogEntry {
+  loggedByLabel: string;
+  shiftType: string | null;
+}
+
+export async function listEntranceLogReport(
+  date: string,
+  postId?: string | null,
+): Promise<GuardLogReportEntry[]> {
+  const admin = createAdminClient();
+  const start = `${date}T00:00:00+08:00`;
+  const end   = `${date}T23:59:59.999+08:00`;
+
+  let q = admin
+    .from("guard_entrance_log")
+    .select(`
+      id, post_id, entry_type, vehicle_type, plate_number,
+      driver_name, visitor_name, destination_unit,
+      passenger_count, notes, time_in, time_out,
+      linked_stay_id, created_at,
+      guard_posts(name),
+      logged_by_profile:profiles!guard_entrance_log_logged_by_fkey(display_label),
+      guard_shifts(shift_type)
+    `)
+    .gte("time_in", start)
+    .lte("time_in", end)
+    .order("time_in", { ascending: true });
+
+  if (postId) q = q.eq("post_id", postId);
+
+  const { data } = await q;
+
+  return (data ?? []).map((r) => ({
+    id: r.id as string,
+    postId: r.post_id as string,
+    postName: ((r.guard_posts as { name?: string } | null)?.name as string | null) ?? "",
+    entryType: r.entry_type as string,
+    vehicleType: (r.vehicle_type as string | null) ?? null,
+    plateNumber: (r.plate_number as string | null) ?? null,
+    driverName: (r.driver_name as string | null) ?? null,
+    visitorName: (r.visitor_name as string | null) ?? null,
+    destinationUnit: (r.destination_unit as string | null) ?? null,
+    passengerCount: (r.passenger_count as number | null) ?? null,
+    notes: (r.notes as string | null) ?? null,
+    timeIn: r.time_in as string,
+    timeOut: (r.time_out as string | null) ?? null,
+    linkedStayId: (r.linked_stay_id as string | null) ?? null,
+    createdAt: r.created_at as string,
+    loggedByLabel: ((r.logged_by_profile as { display_label?: string } | null)?.display_label) ?? "Guard",
+    shiftType: ((r.guard_shifts as { shift_type?: string } | null)?.shift_type as string | null) ?? null,
+  }));
 }

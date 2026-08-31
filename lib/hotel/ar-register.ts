@@ -1,6 +1,20 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+export interface BreakdownLine {
+  label: string;
+  qty?: number;
+  unit_price?: number;
+  amount: number;
+}
+
+export interface PaymentBreakdown {
+  lines: BreakdownLine[];
+  subtotal: number;
+  discount: number;
+  total: number;
+}
+
 export interface ARRegisterEntry {
   paymentId: string;
   paidAt: string;
@@ -12,6 +26,7 @@ export interface ARRegisterEntry {
   orNo: string | null;
   voidedAsTest: boolean;
   stayId: string;
+  breakdown: PaymentBreakdown | null;
   edits: { oldArNo: string | null; newArNo: string | null; oldOrNo: string | null; newOrNo: string | null; reason: string; editedAt: string }[];
 }
 
@@ -22,7 +37,7 @@ export async function listARRegister(date: string): Promise<ARRegisterEntry[]> {
 
   const { data: payments } = await admin
     .from("stay_payments")
-    .select("id, ar_no, receipt_no, amount, method, paid_at, stay_id, stays(guest_label, voided_as_test, units:unit_id(unit_number))")
+    .select("id, ar_no, receipt_no, amount, method, paid_at, stay_id, breakdown, stays(guest_label, voided_as_test, units:unit_id(unit_number))")
     .gte("paid_at", start)
     .lte("paid_at", end)
     .order("paid_at", { ascending: true });
@@ -64,6 +79,7 @@ export async function listARRegister(date: string): Promise<ARRegisterEntry[]> {
       orNo: (p.receipt_no as string | null) ?? null,
       voidedAsTest: stay?.voided_as_test ?? false,
       stayId: p.stay_id as string,
+      breakdown: (p.breakdown as PaymentBreakdown | null) ?? null,
       edits: editsByPayment.get(p.id as string) ?? [],
     };
   });
