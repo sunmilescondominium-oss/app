@@ -35,8 +35,6 @@ export function InboxClient({
   chattableStaff: StaffProfile[];
 }) {
   const [conversations, setConversations] = useState(initialConversations);
-  const [showNewChat, setShowNewChat] = useState(false);
-  const [search, setSearch] = useState("");
   const router = useRouter();
   const supabase = useRef(createClient()).current;
 
@@ -72,69 +70,36 @@ export function InboxClient({
     return () => { void supabase.removeChannel(channel); };
   }, [myUserId, supabase, router]);
 
-  const filteredStaff = chattableStaff.filter(
-    (s) =>
-      s.displayName.toLowerCase().includes(search.toLowerCase()) ||
-      (s.roleLabel ?? "").toLowerCase().includes(search.toLowerCase()),
-  );
-
   const totalUnread = conversations.reduce((n, c) => n + c.unreadCount, 0);
 
   return (
     <div className="mx-auto max-w-xl space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
+      <div>
+        <div className="mb-2 flex items-center justify-between">
           <h1 className="text-lg font-bold text-stone-800">Messages</h1>
           {totalUnread > 0 && (
-            <p className="text-xs text-stone-500">{totalUnread} unread</p>
+            <span className="rounded-full bg-amber-600 px-2 py-0.5 text-xs font-bold text-white">
+              {totalUnread} unread
+            </span>
           )}
         </div>
-        <button
-          type="button"
-          onClick={() => setShowNewChat((v) => !v)}
-          className="rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700"
+        {/* Person picker dropdown */}
+        <select
+          value=""
+          onChange={(e) => {
+            if (e.target.value) router.push(`/chat/${e.target.value}`);
+          }}
+          className="w-full rounded-xl border border-stone-300 px-3 py-2 text-sm text-stone-700 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
         >
-          + New
-        </button>
+          <option value="">💬 Start or open a conversation…</option>
+          {chattableStaff.map((s) => (
+            <option key={s.userId} value={s.userId}>
+              {s.displayName}{s.roleLabel ? ` — ${s.roleLabel}` : ""}
+            </option>
+          ))}
+        </select>
       </div>
-
-      {/* New chat picker */}
-      {showNewChat && (
-        <div className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
-          <p className="mb-2 text-sm font-semibold text-stone-700">Start a conversation</p>
-          <input
-            type="text"
-            placeholder="Search by name or role…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="mb-3 w-full rounded-lg border border-stone-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-amber-200"
-          />
-          {filteredStaff.length === 0 ? (
-            <p className="text-center text-sm text-stone-400">No staff found.</p>
-          ) : (
-            <div className="max-h-56 space-y-1 overflow-y-auto">
-              {filteredStaff.map((s) => (
-                <button
-                  key={s.userId}
-                  type="button"
-                  onClick={() => {
-                    setShowNewChat(false);
-                    router.push(`/chat/${s.userId}`);
-                  }}
-                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left hover:bg-amber-50"
-                >
-                  <Avatar name={s.displayName} size={8} />
-                  <div>
-                    <p className="text-sm font-semibold text-stone-800">{s.displayName}</p>
-                    {s.roleLabel && <p className="text-xs text-stone-400">{s.roleLabel}</p>}
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Conversation list */}
       {conversations.length === 0 ? (

@@ -88,12 +88,19 @@ export function AppShell({
       )}
       {modules.map((m) => {
         const active = pathname === m.path || pathname.startsWith(m.path + "/");
+        const isChat = m.key === "chat";
         return (
           <Link key={m.key} href={m.path} onClick={() => setOpen(false)} className={linkCls(active)}>
             {active && <span className="absolute inset-y-2 left-0 w-1 rounded-full bg-amber-500" />}
             <span className="flex items-center justify-between">
               <span className="font-semibold">{m.label}</span>
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-stone-300">{m.milestone}</span>
+              {isChat && unreadChat > 0 ? (
+                <span className="rounded-full bg-amber-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                  {unreadChat > 99 ? "99+" : unreadChat}
+                </span>
+              ) : (
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-stone-300">{m.milestone}</span>
+              )}
             </span>
             <span className="mt-0.5 block text-xs text-stone-400">{m.blurb}</span>
           </Link>
@@ -104,20 +111,6 @@ export function AppShell({
           {helpActive && <span className="absolute inset-y-2 left-0 w-1 rounded-full bg-amber-500" />}
           <span className="font-semibold">📖 Help & Docs</span>
           <span className="mt-0.5 block text-xs text-stone-400">Guides and release notes</span>
-        </Link>
-      </div>
-      <div className="mt-0.5">
-        <Link href="/chat" onClick={() => setOpen(false)} className={linkCls(pathname === "/chat" || pathname.startsWith("/chat/"))}>
-          {(pathname === "/chat" || pathname.startsWith("/chat/")) && <span className="absolute inset-y-2 left-0 w-1 rounded-full bg-amber-500" />}
-          <span className="flex items-center justify-between">
-            <span className="font-semibold">💬 Messages</span>
-            {unreadChat > 0 && (
-              <span className="rounded-full bg-amber-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
-                {unreadChat > 99 ? "99+" : unreadChat}
-              </span>
-            )}
-          </span>
-          <span className="mt-0.5 block text-xs text-stone-400">Staff messaging</span>
         </Link>
       </div>
     </nav>
