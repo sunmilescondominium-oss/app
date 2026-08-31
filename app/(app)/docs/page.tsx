@@ -3,8 +3,8 @@ import { PageHeader } from "@/components/ui";
 
 export const metadata = { title: "Documentation" };
 
-const VERSION = "v1.27";
-const BUILD = 27;
+const VERSION = "v1.28";
+const BUILD = 28;
 
 const MODULES = [
   { name: "Hotel Operations", path: "/hotel", roles: "Hotel cashier, monitoring, room attendant, management", desc: "Room board with live timers, check-in / check-out, folio, orders, extensions, cashier shifts, AR register, discrepancy tracking, and day-end report." },
@@ -46,6 +46,21 @@ const ROLES = [
 ];
 
 const CHANGELOG = [
+  {
+    version: "v1.28",
+    label: "Staff Help System, AirBnB Staff Panel & Navigation Audit",
+    items: [
+      "New /help page — role-filtered help guide accessible to all authenticated staff; each user sees only the sections for their role(s)",
+      "Super roles (admin, managing_officer, consultant) see all help sections; dual-role users see help for all their roles combined",
+      "Help sections: My Portal & Kiosk (all), Guard Post (guard), Hotel Cashier (hotel_cashier), Monitoring (hotel_rental_monitoring), Collections & Finance (accounting, errand_liaison), Housekeeping (room_attendant), Repairs (electrician, utility, operations_manager), Inventory & Timekeeping (warehouse_timekeeper), Admin config + System nav (super)",
+      "Help → link added to sidebar footer (desktop and mobile) — visible to every logged-in user",
+      "Guard Post help guide at /guard/help — detailed printable step-by-step guide for admin, consultant, and management covering guard setup, NDA, shift operations, and monitoring",
+      "AirBnB staff panel: staff can now mark guest orders as fulfilled or cancelled, and update guest service requests (pending → scheduled → done / cancelled) directly from the unit detail page",
+      "Navigation audit: every page in the system is now reachable via a button or link — no URL typing required",
+      "Rentals & Airbnb: added Settings button on the rentals index page (previously /rentals/settings had no clickable entry point)",
+      "System navigation reference added to help docs — full table of all pages and how to reach each one",
+    ],
+  },
   {
     version: "v1.27",
     label: "System Hardening — Security, Performance & Multi-Tenancy Prep",
