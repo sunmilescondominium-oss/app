@@ -16,7 +16,7 @@ export interface ReportPayment {
   paidAt: string;
   arNo: string | null;
   orNo: string | null;
-  voidedAsTest: boolean;
+  collectorName: string | null;
 }
 
 export interface StayReportEntry {
@@ -42,6 +42,7 @@ export interface StayReportEntry {
 
 type RawStay = {
   id: string;
+  unit_id: string;
   guest_label: string;
   status: string;
   checked_in_at: string;
@@ -54,14 +55,6 @@ type RawStay = {
   extra_person_amount: number | null;
   discount_amount: number | null;
   units: { unit_number: string } | null;
-  stay_payments: {
-    amount: number;
-    method: string;
-    paid_at: string;
-    ar_no: string | null;
-    receipt_no: string | null;
-    voided_as_test: boolean;
-  }[];
   stay_orders: {
     name: string;
     qty: number;
@@ -70,42 +63,110 @@ type RawStay = {
   }[];
 };
 
+type RawCollection = {
+  unit_id: string | null;
+  amount: number;
+  payment_type: string;
+  ar_no: string | null;
+  or_number: string | null;
+  collector_name: string | null;
+  created_at: string;
+};
+
 const SELECT = `
-  id, guest_label, status, checked_in_at, checked_out_at,
+  id, unit_id, guest_label, status, checked_in_at, checked_out_at,
   planned_hours, base_hours, base_rate, extra_hour_rate,
   extra_persons, extra_person_amount, discount_amount,
   units:unit_id(unit_number),
-  stay_payments(amount, method, paid_at, ar_no, receipt_no, voided_as_test),
   stay_orders(name, qty, unit_price, menu_item_id)
 `.trim();
 
 export async function listHotelCollectionReport(date: string): Promise<StayReportEntry[]> {
   const admin = createAdminClient();
-  const start = `${date}T00:00:00+08:00`;
-  const end   = `${date}T23:59:59.999+08:00`;
 
-  // Step 1: find all stay_ids that have a payment on this date
-  // (mirrors the AR register approach — payment date drives "day's business")
-  const { data: payments } = await admin
-    .from("stay_payments")
-    .select("stay_id")
-    .gte("paid_at", start)
-    .lte("paid_at", end);
+  // Manila → UTC range (avoids '+' in query strings which can misfire as space)
+  const startZ = new Date(date + "T00:00:00.000+08:00").toISOString();
+  const endZ   = new Date(date + "T23:59:59.999+08:00").toISOString();
 
-  if (!payments?.length) return [];
+  // Step 1: hotel collections for this date → which units had activity
+  const { data: cols } = await admin
+    .from("collections")
+    .select("unit_id, amount, payment_type, ar_no, or_number, collector_name, created_at")
+    .eq("collected_on", date)
+    .eq("business_line", "hotel")
+    .is("deleted_at", null)
+    .order("created_at", { ascending: true });
 
-  const stayIds = [...new Set((payments as { stay_id: string }[]).map((p) => p.stay_id))];
+  if (!cols?.length) return [];
 
-  // Step 2: fetch those stays with full detail (orders, all payments)
-  const { data: rawRows } = await admin
+  const collectionRows = cols as unknown as RawCollection[];
+  const unitIds = [...new Set(collectionRows.filter((c) => c.unit_id).map((c) => c.unit_id as string))];
+
+  // Step 2: stays that were active on this date for those units
+  // Use UTC timestamps so the '+' offset char doesn't cause query-string issues
+  const { data: stayData } = await admin
     .from("stays")
     .select(SELECT)
-    .in("id", stayIds)
-    .order("checked_in_at", { ascending: true });
+    .in("unit_id", unitIds)
+    .lte("checked_in_at", endZ)
+    .or(`checked_out_at.is.null,checked_out_at.gte.${startZ}`)
+    .order("checked_in_at", { ascending: false }); // most-recent per unit wins
 
-  const rows = (rawRows as unknown as RawStay[]) ?? [];
+  // Deduplicate: take the latest check-in per unit_id
+  const stayByUnit = new Map<string, RawStay>();
+  for (const s of (stayData as unknown as RawStay[]) ?? []) {
+    if (!stayByUnit.has(s.unit_id)) stayByUnit.set(s.unit_id, s);
+  }
 
-  return rows.map((s) => {
+  // Group collections by unit_id
+  const colsByUnit = new Map<string, RawCollection[]>();
+  for (const c of collectionRows) {
+    if (!c.unit_id) continue;
+    const list = colsByUnit.get(c.unit_id) ?? [];
+    list.push(c);
+    colsByUnit.set(c.unit_id, list);
+  }
+
+  const results: StayReportEntry[] = [];
+
+  for (const unitId of unitIds) {
+    const s = stayByUnit.get(unitId);
+    const unitCols = colsByUnit.get(unitId) ?? [];
+
+    // If no stay found for this unit on this date, still show a minimal
+    // entry so the collection is not lost from the report.
+    if (!s) {
+      const totalPaid = round2(unitCols.reduce((sum, c) => sum + Number(c.amount), 0));
+      results.push({
+        stayId: unitId, // fallback key
+        unitNumber: unitId,
+        guestLabel: "—",
+        status: "unknown",
+        checkedInAt: date + "T00:00:00+08:00",
+        checkedOutAt: null,
+        plannedHours: 0,
+        actualHours: null,
+        roomChargeAmount: 0,
+        extraPersonsQty: 0,
+        extraPersonTotal: 0,
+        orders: [],
+        discountAmount: 0,
+        subtotal: totalPaid,
+        totalCharge: totalPaid,
+        totalPaid,
+        balance: 0,
+        payments: unitCols.map((c) => ({
+          amount: round2(Number(c.amount)),
+          method: c.payment_type,
+          paidAt: c.created_at,
+          arNo: c.ar_no ?? null,
+          orNo: c.or_number ?? null,
+          collectorName: c.collector_name ?? null,
+        })),
+      });
+      continue;
+    }
+
     const rc = roomCharge(
       Number(s.base_rate),
       Number(s.extra_hour_rate),
@@ -120,25 +181,23 @@ export async function listHotelCollectionReport(date: string): Promise<StayRepor
       qty: Number(o.qty),
       unitPrice: round2(Number(o.unit_price)),
       amount: round2(Number(o.qty) * Number(o.unit_price)),
-      isExtraPerson: o.menu_item_id === null, // extra persons added mid-stay have no menu_item_id
+      isExtraPerson: o.menu_item_id === null,
     }));
 
     const ordersTotal = orders.reduce((sum, o) => sum + o.amount, 0);
     const subtotal = round2(rc + extraPersonTotal + ordersTotal);
     const totalCharge = round2(Math.max(0, subtotal - discountAmt));
 
-    const payments: ReportPayment[] = (s.stay_payments ?? []).map((p) => ({
-      amount: round2(Number(p.amount)),
-      method: p.method,
-      paidAt: p.paid_at,
-      arNo: p.ar_no ?? null,
-      orNo: p.receipt_no ?? null,
-      voidedAsTest: p.voided_as_test,
+    const payments: ReportPayment[] = unitCols.map((c) => ({
+      amount: round2(Number(c.amount)),
+      method: c.payment_type,
+      paidAt: c.created_at,
+      arNo: c.ar_no ?? null,
+      orNo: c.or_number ?? null,
+      collectorName: c.collector_name ?? null,
     }));
 
-    const totalPaid = round2(
-      payments.filter((p) => !p.voidedAsTest).reduce((sum, p) => sum + p.amount, 0),
-    );
+    const totalPaid = round2(payments.reduce((sum, p) => sum + p.amount, 0));
 
     const actualHours =
       s.checked_out_at
@@ -148,9 +207,9 @@ export async function listHotelCollectionReport(date: string): Promise<StayRepor
           )
         : null;
 
-    return {
+    results.push({
       stayId: s.id,
-      unitNumber: s.units?.unit_number ?? "—",
+      unitNumber: s.units?.unit_number ?? unitId,
       guestLabel: s.guest_label,
       status: s.status,
       checkedInAt: s.checked_in_at,
@@ -167,6 +226,9 @@ export async function listHotelCollectionReport(date: string): Promise<StayRepor
       totalPaid,
       balance: round2(totalCharge - totalPaid),
       payments,
-    };
-  });
+    });
+  }
+
+  // Sort by unit number
+  return results.sort((a, b) => a.unitNumber.localeCompare(b.unitNumber, undefined, { numeric: true }));
 }

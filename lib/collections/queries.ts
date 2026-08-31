@@ -86,8 +86,9 @@ async function fetchStayBillingByUnitDate(
   if (!unitIds.length) return new Map();
   const admin = createAdminClient();
 
-  const dayStart = `${date}T00:00:00+08:00`;
-  const dayEnd   = `${date}T23:59:59.999+08:00`;
+  // Use UTC timestamps so the '+' in '+08:00' doesn't misfire as space in query strings
+  const startZ = new Date(date + "T00:00:00.000+08:00").toISOString();
+  const endZ   = new Date(date + "T23:59:59.999+08:00").toISOString();
 
   // Stays whose check-in was on or before end-of-day AND are either still
   // active OR checked out on or after start-of-day (covers same-day stays
@@ -102,8 +103,8 @@ async function fetchStayBillingByUnitDate(
       stay_orders(qty, unit_price, menu_item_id)
     `)
     .in("unit_id", unitIds)
-    .lte("checked_in_at", dayEnd)
-    .or(`checked_out_at.is.null,checked_out_at.gte.${dayStart}`)
+    .lte("checked_in_at", endZ)
+    .or(`checked_out_at.is.null,checked_out_at.gte.${startZ}`)
     .order("checked_in_at", { ascending: false }); // latest check-in wins per unit
 
   type RawRow = {

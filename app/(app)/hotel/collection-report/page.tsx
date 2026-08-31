@@ -216,18 +216,16 @@ export default async function HotelCollectionReportPage({
                   ) : (
                     <div className="space-y-1.5">
                       {e.payments.map((p, i) => (
-                        <div key={i} className={`text-sm ${p.voidedAsTest ? "opacity-40 line-through" : ""}`}>
+                        <div key={i} className="text-sm">
                           <div className="flex items-baseline justify-between gap-2">
-                            <span className="text-stone-600">
-                              {METHOD[p.method] ?? p.method}
-                              {p.voidedAsTest && " (test)"}
-                            </span>
+                            <span className="text-stone-600">{METHOD[p.method] ?? p.method}</span>
                             <span className="tabular-nums font-semibold text-stone-800">{peso(p.amount)}</span>
                           </div>
                           <div className="flex items-center gap-2 text-[10px] text-stone-400">
                             <span>{fmtTime(p.paidAt)}</span>
                             {p.arNo && <span className="font-mono">{p.arNo}</span>}
                             {p.orNo && <span className="font-mono">{p.orNo}</span>}
+                            {p.collectorName && <span>{p.collectorName}</span>}
                           </div>
                         </div>
                       ))}
