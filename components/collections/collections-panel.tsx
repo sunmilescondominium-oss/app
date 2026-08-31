@@ -53,6 +53,7 @@ export function CollectionsPanel({
   date: string;
 }) {
   const router = useRouter();
+  const [sortBy, setSortBy] = useState<"time" | "unit" | "category">("time");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Collection | null>(null);
   const [clearing, setClearing] = useState<Collection | null>(null);
@@ -95,6 +96,18 @@ export function CollectionsPanel({
     router.refresh();
   };
 
+  const sorted = [...collections].sort((a, b) => {
+    if (sortBy === "unit") {
+      const ua = a.unit?.unit_number ?? "";
+      const ub = b.unit?.unit_number ?? "";
+      return ua.localeCompare(ub, undefined, { numeric: true }) || new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+    }
+    if (sortBy === "category") {
+      return (a.business_line ?? "").localeCompare(b.business_line ?? "") || new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+    }
+    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+  });
+
   async function remove(c: Collection) {
     if (!window.confirm(`Delete this ${peso(c.amount)} entry?`)) return;
     setPendingId(c.id);
@@ -136,6 +149,21 @@ export function CollectionsPanel({
         </div>
       )}
 
+      {/* Sort controls */}
+      <div className="no-print mb-2 flex items-center gap-2 text-xs text-stone-500">
+        <span className="font-medium">Sort:</span>
+        {(["time", "unit", "category"] as const).map((opt) => (
+          <button
+            key={opt}
+            type="button"
+            onClick={() => setSortBy(opt)}
+            className={`rounded-full px-2.5 py-0.5 font-medium transition ${sortBy === opt ? "bg-amber-600 text-white" : "bg-stone-100 text-stone-600 hover:bg-stone-200"}`}
+          >
+            {opt === "time" ? "Time" : opt === "unit" ? "Unit" : "Category"}
+          </button>
+        ))}
+      </div>
+
       <div className="table-wrap">
         <table className="w-full min-w-[900px] text-left text-sm">
           <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
@@ -161,7 +189,7 @@ export function CollectionsPanel({
                 </td>
               </tr>
             )}
-            {collections.map((c) => {
+            {sorted.map((c) => {
               const sb = c.stayBilling;
               return (
               <tr key={c.id} className="border-b border-stone-100 last:border-0">
@@ -226,7 +254,9 @@ export function CollectionsPanel({
                       <div className="flex flex-col items-end gap-0 text-[10px] text-stone-400">
                         <span>Room {peso(sb.roomCharge)}</span>
                         {sb.extraPersonTotal > 0 && <span>+Pax {peso(sb.extraPersonTotal)}</span>}
-                        {sb.incidentalsTotal > 0 && <span>+Inc {peso(sb.incidentalsTotal)}</span>}
+                        {(sb.orderLines ?? []).filter((o) => !o.isExtraPerson).map((o, i) => (
+                          <span key={i}>{o.name} {o.qty > 1 ? `${o.qty}× ` : ""}{peso(o.amount)}</span>
+                        ))}
                         {sb.discountAmount > 0 && <span className="text-rose-500">−Disc {peso(sb.discountAmount)}</span>}
                       </div>
                     </div>

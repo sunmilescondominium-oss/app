@@ -100,7 +100,7 @@ async function fetchStayBillingByUnitDate(
       check_in_at, check_out_at,
       planned_hours, base_hours, base_rate, extra_hour_rate,
       extra_persons, extra_person_amount, discount_amount,
-      stay_orders(qty, unit_price, menu_item_id)
+      stay_orders(name, qty, unit_price, menu_item_id)
     `)
     .in("unit_id", unitIds)
     .lte("check_in_at", endZ)
@@ -113,7 +113,7 @@ async function fetchStayBillingByUnitDate(
     planned_hours: number; base_hours: number; base_rate: number;
     extra_hour_rate: number; extra_persons: number | null;
     extra_person_amount: number | null; discount_amount: number | null;
-    stay_orders: { qty: number; unit_price: number; menu_item_id: string | null }[];
+    stay_orders: { name: string; qty: number; unit_price: number; menu_item_id: string | null }[];
   };
 
   const map = new Map<string, StayBilling>();
@@ -121,9 +121,14 @@ async function fetchStayBillingByUnitDate(
     if (map.has(s.unit_id)) continue; // already got the most-recent stay for this unit
     const rc = roomCharge(Number(s.base_rate), Number(s.extra_hour_rate), Number(s.base_hours), Number(s.planned_hours));
     const extraPersonTotal = round2(Number(s.extra_person_amount ?? 0));
-    const incidentalsTotal = round2(
-      (s.stay_orders ?? []).reduce((sum, o) => sum + Number(o.qty) * Number(o.unit_price), 0),
-    );
+    const orderLines = (s.stay_orders ?? []).map((o) => ({
+      name: o.name,
+      qty: Number(o.qty),
+      unitPrice: round2(Number(o.unit_price)),
+      amount: round2(Number(o.qty) * Number(o.unit_price)),
+      isExtraPerson: o.menu_item_id === null,
+    }));
+    const incidentalsTotal = round2(orderLines.reduce((sum, o) => sum + o.amount, 0));
     const discountAmount = round2(Math.min(rc, Number(s.discount_amount ?? 0)));
     const totalCharge = round2(Math.max(0, rc + extraPersonTotal + incidentalsTotal - discountAmount));
     map.set(s.unit_id, {
@@ -137,6 +142,7 @@ async function fetchStayBillingByUnitDate(
       plannedHours: Number(s.planned_hours),
       checkedInAt: s.check_in_at,
       checkedOutAt: s.check_out_at,
+      orderLines,
     });
   }
   return map;

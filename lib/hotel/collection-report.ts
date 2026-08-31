@@ -81,6 +81,113 @@ const SELECT = `
   stay_orders(name, qty, unit_price, menu_item_id)
 `.trim();
 
+/** 30-minute grace: a payment entered just after checkout still belongs to that stay. */
+const GRACE_MS = 30 * 60 * 1000;
+
+function matchColsToStays(
+  unitCols: RawCollection[],
+  unitStays: RawStay[], // sorted ascending by check_in_at
+): Map<string, RawCollection[]> {
+  const stayColMap = new Map<string, RawCollection[]>(
+    unitStays.map((s) => [s.id, []]),
+  );
+
+  for (const col of unitCols) {
+    const colMs = new Date(col.created_at).getTime();
+    let matched = false;
+
+    for (const stay of unitStays) {
+      const inMs  = new Date(stay.check_in_at).getTime();
+      const outMs = stay.check_out_at
+        ? new Date(stay.check_out_at).getTime() + GRACE_MS
+        : Infinity;
+      if (colMs >= inMs && colMs <= outMs) {
+        stayColMap.get(stay.id)!.push(col);
+        matched = true;
+        break;
+      }
+    }
+
+    if (!matched) {
+      // Assign to the last stay whose check-in is before the collection time
+      let best: RawStay | null = null;
+      for (const stay of unitStays) {
+        if (new Date(stay.check_in_at).getTime() <= colMs) best = stay;
+      }
+      if (!best) best = unitStays[0];
+      stayColMap.get(best.id)!.push(col);
+    }
+  }
+
+  return stayColMap;
+}
+
+function buildEntry(
+  s: RawStay,
+  stayCols: RawCollection[],
+  fallbackUnitId: string,
+): StayReportEntry {
+  const rc = roomCharge(
+    Number(s.base_rate),
+    Number(s.extra_hour_rate),
+    Number(s.base_hours),
+    Number(s.planned_hours),
+  );
+  const extraPersonTotal = round2(Number(s.extra_person_amount ?? 0));
+  const discountAmt = round2(Math.min(rc, Number(s.discount_amount ?? 0)));
+
+  const orders: ReportOrderLine[] = (s.stay_orders ?? []).map((o) => ({
+    name: o.name,
+    qty: Number(o.qty),
+    unitPrice: round2(Number(o.unit_price)),
+    amount: round2(Number(o.qty) * Number(o.unit_price)),
+    isExtraPerson: o.menu_item_id === null,
+  }));
+
+  const ordersTotal = orders.reduce((sum, o) => sum + o.amount, 0);
+  const subtotal = round2(rc + extraPersonTotal + ordersTotal);
+  const totalCharge = round2(Math.max(0, subtotal - discountAmt));
+
+  const payments: ReportPayment[] = stayCols.map((c) => ({
+    amount: round2(Number(c.amount)),
+    method: c.payment_type,
+    paidAt: c.created_at,
+    arNo: c.ar_no ?? null,
+    orNo: c.or_number ?? null,
+    collectorName: c.collector_name ?? null,
+  }));
+
+  const totalPaid = round2(payments.reduce((sum, p) => sum + p.amount, 0));
+
+  const actualHours = s.check_out_at
+    ? round2(
+        (new Date(s.check_out_at).getTime() - new Date(s.check_in_at).getTime()) /
+          3_600_000,
+      )
+    : null;
+
+  return {
+    stayId: s.id,
+    unitNumber: s.units?.unit_number ?? fallbackUnitId,
+    guestLabel: s.guest_label,
+    status: s.status,
+    checkedInAt: s.check_in_at,
+    checkedOutAt: s.check_out_at,
+    plannedHours: Number(s.planned_hours),
+    actualHours,
+    roomChargeAmount: rc,
+    extraPersonsQty: Number(s.extra_persons ?? 0),
+    extraPersonTotal,
+    orders,
+    discountAmount: discountAmt,
+    subtotal,
+    totalCharge,
+    totalPaid,
+    balance: round2(totalCharge - totalPaid),
+    payments,
+  };
+}
+
 export async function listHotelCollectionReport(date: string): Promise<StayReportEntry[]> {
   const admin = createAdminClient();
 
@@ -100,22 +207,27 @@ export async function listHotelCollectionReport(date: string): Promise<StayRepor
   if (!cols?.length) return [];
 
   const collectionRows = cols as unknown as RawCollection[];
-  const unitIds = [...new Set(collectionRows.filter((c) => c.unit_id).map((c) => c.unit_id as string))];
+  const unitIds = [
+    ...new Set(
+      collectionRows.filter((c) => c.unit_id).map((c) => c.unit_id as string),
+    ),
+  ];
 
-  // Step 2: stays that were active on this date for those units
-  // Use UTC timestamps so the '+' offset char doesn't cause query-string issues
+  // Step 2: ALL stays active on this date for those units (ascending so matching works)
   const { data: stayData } = await admin
     .from("stays")
     .select(SELECT)
     .in("unit_id", unitIds)
     .lte("check_in_at", endZ)
     .or(`check_out_at.is.null,check_out_at.gte.${startZ}`)
-    .order("check_in_at", { ascending: false }); // most-recent per unit wins
+    .order("check_in_at", { ascending: true });
 
-  // Deduplicate: take the latest check-in per unit_id
-  const stayByUnit = new Map<string, RawStay>();
+  // Group stays by unit_id (all stays, ascending)
+  const staysByUnit = new Map<string, RawStay[]>();
   for (const s of (stayData as unknown as RawStay[]) ?? []) {
-    if (!stayByUnit.has(s.unit_id)) stayByUnit.set(s.unit_id, s);
+    const list = staysByUnit.get(s.unit_id) ?? [];
+    list.push(s);
+    staysByUnit.set(s.unit_id, list);
   }
 
   // Group collections by unit_id
@@ -130,15 +242,14 @@ export async function listHotelCollectionReport(date: string): Promise<StayRepor
   const results: StayReportEntry[] = [];
 
   for (const unitId of unitIds) {
-    const s = stayByUnit.get(unitId);
     const unitCols = colsByUnit.get(unitId) ?? [];
+    const unitStays = staysByUnit.get(unitId) ?? [];
 
-    // If no stay found for this unit on this date, still show a minimal
-    // entry so the collection is not lost from the report.
-    if (!s) {
+    if (unitStays.length === 0) {
+      // No stay found — show a minimal entry so the collection isn't lost
       const totalPaid = round2(unitCols.reduce((sum, c) => sum + Number(c.amount), 0));
       results.push({
-        stayId: unitId, // fallback key
+        stayId: unitId,
         unitNumber: unitId,
         guestLabel: "—",
         status: "unknown",
@@ -167,68 +278,22 @@ export async function listHotelCollectionReport(date: string): Promise<StayRepor
       continue;
     }
 
-    const rc = roomCharge(
-      Number(s.base_rate),
-      Number(s.extra_hour_rate),
-      Number(s.base_hours),
-      Number(s.planned_hours),
-    );
-    const extraPersonTotal = round2(Number(s.extra_person_amount ?? 0));
-    const discountAmt = round2(Math.min(rc, Number(s.discount_amount ?? 0)));
+    // Match each collection to the correct stay by timestamp
+    const stayColMap = matchColsToStays(unitCols, unitStays);
 
-    const orders: ReportOrderLine[] = (s.stay_orders ?? []).map((o) => ({
-      name: o.name,
-      qty: Number(o.qty),
-      unitPrice: round2(Number(o.unit_price)),
-      amount: round2(Number(o.qty) * Number(o.unit_price)),
-      isExtraPerson: o.menu_item_id === null,
-    }));
-
-    const ordersTotal = orders.reduce((sum, o) => sum + o.amount, 0);
-    const subtotal = round2(rc + extraPersonTotal + ordersTotal);
-    const totalCharge = round2(Math.max(0, subtotal - discountAmt));
-
-    const payments: ReportPayment[] = unitCols.map((c) => ({
-      amount: round2(Number(c.amount)),
-      method: c.payment_type,
-      paidAt: c.created_at,
-      arNo: c.ar_no ?? null,
-      orNo: c.or_number ?? null,
-      collectorName: c.collector_name ?? null,
-    }));
-
-    const totalPaid = round2(payments.reduce((sum, p) => sum + p.amount, 0));
-
-    const actualHours =
-      s.check_out_at
-        ? round2(
-            (new Date(s.check_out_at).getTime() - new Date(s.check_in_at).getTime()) /
-              3_600_000,
-          )
-        : null;
-
-    results.push({
-      stayId: s.id,
-      unitNumber: s.units?.unit_number ?? unitId,
-      guestLabel: s.guest_label,
-      status: s.status,
-      checkedInAt: s.check_in_at,
-      checkedOutAt: s.check_out_at,
-      plannedHours: Number(s.planned_hours),
-      actualHours,
-      roomChargeAmount: rc,
-      extraPersonsQty: Number(s.extra_persons ?? 0),
-      extraPersonTotal,
-      orders,
-      discountAmount: discountAmt,
-      subtotal,
-      totalCharge,
-      totalPaid,
-      balance: round2(totalCharge - totalPaid),
-      payments,
-    });
+    for (const stay of unitStays) {
+      const stayCols = stayColMap.get(stay.id) ?? [];
+      // Skip stays with no payments AND no charges (avoid empty entries when a room
+      // had an active stay but all payments were on other stays that day)
+      if (stayCols.length === 0 && unitStays.length > 1) continue;
+      results.push(buildEntry(stay, stayCols, unitId));
+    }
   }
 
-  // Sort by unit number
-  return results.sort((a, b) => a.unitNumber.localeCompare(b.unitNumber, undefined, { numeric: true }));
+  // Sort by unit number then check-in time
+  return results.sort((a, b) => {
+    const u = a.unitNumber.localeCompare(b.unitNumber, undefined, { numeric: true });
+    if (u !== 0) return u;
+    return new Date(a.checkedInAt).getTime() - new Date(b.checkedInAt).getTime();
+  });
 }

@@ -1,3 +1,11 @@
+export interface StayBillingOrder {
+  name: string;
+  qty: number;
+  unitPrice: number;
+  amount: number;
+  isExtraPerson: boolean;
+}
+
 export interface StayBilling {
   stayId: string;
   roomCharge: number;
@@ -9,6 +17,7 @@ export interface StayBilling {
   plannedHours: number;
   checkedInAt: string;
   checkedOutAt: string | null;
+  orderLines: StayBillingOrder[];
 }
 
 export interface Collection {
