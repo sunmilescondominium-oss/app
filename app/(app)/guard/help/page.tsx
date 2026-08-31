@@ -56,6 +56,7 @@ export default async function GuardHelpPage() {
               "Ending a shift with handover",
               "Management monitoring",
               "Status reference",
+              "System navigation — all pages and entry points",
             ].map((t, i) => (
               <li key={i}><a href={`#s${i + 1}`} className="text-amber-700 hover:underline">{t}</a></li>
             ))}
@@ -227,6 +228,103 @@ export default async function GuardHelpPage() {
               </div>
             ))}
           </div>
+        </Section>
+
+        {/* ── Section 8 ── */}
+        <Section id="s8" num="8" title="System navigation — all pages and entry points" who="Admin / Management">
+          <p className="mb-3 text-sm text-stone-500">Every page in the system is reachable by clicking — no URL typing required. This table shows where to find each one.</p>
+          <Table heads={["Page / path", "How to reach it"]}>
+            <tr className="bg-stone-50"><td colSpan={2} className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-stone-400">Guard Post</td></tr>
+            <tr><Td><Code>/guard</Code></Td><Td>Sidebar nav → Guard Post</Td></tr>
+            <tr><Td><Code>/guard/help</Code></Td><Td>Guard Post → <strong>Help →</strong> link (top-right, visible to all guards)</Td></tr>
+            <tr><Td><Code>/guard/accounts</Code></Td><Td>Guard Post → <strong>Guard accounts →</strong> (admin / management only)</Td></tr>
+            <tr><Td><Code>/guard/referrals</Code></Td><Td>Guard Post → <strong>Referral drivers →</strong> (admin / management only)</Td></tr>
+            <tr><Td><Code>/guard/letter/[id]</Code></Td><Td>Guard Accounts → <strong>Print letter</strong> button next to any guard</Td></tr>
+
+            <tr className="bg-stone-50"><td colSpan={2} className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-stone-400">Admin</td></tr>
+            <tr><Td><Code>/admin</Code></Td><Td>Sidebar nav → Admin</Td></tr>
+            <tr><Td><Code>/admin/collection-items</Code></Td><Td>Admin → <strong>Collection Item Types</strong> card</Td></tr>
+            <tr><Td><Code>/admin/bank-config</Code></Td><Td>Admin → <strong>Bank Deposit Config</strong> card</Td></tr>
+            <tr><Td><Code>/admin/role-permissions</Code></Td><Td>Admin → <strong>Role Permissions</strong> card</Td></tr>
+            <tr><Td><Code>/admin/rate-cards</Code></Td><Td>Admin → <strong>Unit Rate Cards</strong> card</Td></tr>
+            <tr><Td><Code>/admin/settings</Code></Td><Td>Admin → <strong>App Settings</strong> card</Td></tr>
+            <tr><Td><Code>/admin/flags</Code></Td><Td>Admin → <strong>Feature Flags</strong> card</Td></tr>
+            <tr><Td><Code>/admin/health</Code></Td><Td>Admin → <strong>System Health</strong> card</Td></tr>
+
+            <tr className="bg-stone-50"><td colSpan={2} className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-stone-400">Hotel</td></tr>
+            <tr><Td><Code>/hotel</Code></Td><Td>Sidebar nav → Hotel</Td></tr>
+            <tr><Td><Code>/hotel/[stayId]</Code></Td><Td>Hotel → click any room card</Td></tr>
+            <tr><Td><Code>/hotel/day</Code></Td><Td>Hotel → <strong>Day close →</strong> link</Td></tr>
+            <tr><Td><Code>/hotel/shifts</Code></Td><Td>Hotel → <strong>Cashier shifts →</strong> link</Td></tr>
+            <tr><Td><Code>/hotel/shifts/[id]/report</Code></Td><Td>Hotel Shifts → click any closed session</Td></tr>
+            <tr><Td><Code>/hotel/ar-register</Code></Td><Td>Hotel → <strong>AR register →</strong> link</Td></tr>
+            <tr><Td><Code>/hotel/gift-cards</Code></Td><Td>Hotel → <strong>Gift cards →</strong> link</Td></tr>
+            <tr><Td><Code>/hotel/gift-cards/[id]</Code></Td><Td>Gift Cards → click any card row</Td></tr>
+            <tr><Td><Code>/hotel/transfers</Code></Td><Td>Hotel → <strong>Transfers →</strong> link</Td></tr>
+            <tr><Td><Code>/hotel/discrepancies</Code></Td><Td>Hotel → <strong>Discrepancies →</strong> link</Td></tr>
+
+            <tr className="bg-stone-50"><td colSpan={2} className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-stone-400">Rentals &amp; Airbnb</td></tr>
+            <tr><Td><Code>/rentals</Code></Td><Td>Sidebar nav → Rentals &amp; Airbnb</Td></tr>
+            <tr><Td><Code>/rentals/[unitId]</Code></Td><Td>Rentals → click any unit card</Td></tr>
+            <tr><Td><Code>/rentals/[unitId]/bill</Code></Td><Td>Unit detail → <strong>Monthly bill →</strong> button</Td></tr>
+            <tr><Td><Code>/rentals/[unitId]/letter</Code></Td><Td>Unit detail → <strong>Reminder letter</strong> button</Td></tr>
+            <tr><Td><Code>/rentals/utilities</Code></Td><Td>Rentals → <strong>Utilities</strong> button</Td></tr>
+            <tr><Td><Code>/rentals/tenants</Code></Td><Td>Rentals → <strong>Tenants</strong> button</Td></tr>
+            <tr><Td><Code>/rentals/settings</Code></Td><Td>Rentals → <strong>Settings</strong> button</Td></tr>
+
+            <tr className="bg-stone-50"><td colSpan={2} className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-stone-400">HR &amp; Employees</td></tr>
+            <tr><Td><Code>/hr</Code></Td><Td>Sidebar nav → HR</Td></tr>
+            <tr><Td><Code>/hr/[userId]</Code></Td><Td>HR → click any employee row</Td></tr>
+            <tr><Td><Code>/hr/performance</Code></Td><Td>HR → <strong>Performance →</strong> button</Td></tr>
+            <tr><Td><Code>/hr/reports</Code></Td><Td>HR → <strong>Reports →</strong> button</Td></tr>
+            <tr><Td><Code>/employees</Code></Td><Td>Sidebar nav → Employees</Td></tr>
+            <tr><Td><Code>/employees/[id]</Code></Td><Td>Employees → click any employee row</Td></tr>
+            <tr><Td><Code>/me</Code></Td><Td>Sidebar nav → My Portal</Td></tr>
+            <tr><Td><Code>/me/payslip</Code></Td><Td>My Portal → <strong>View payslip →</strong> button</Td></tr>
+            <tr><Td><Code>/schedule</Code></Td><Td>Sidebar nav → Schedule</Td></tr>
+
+            <tr className="bg-stone-50"><td colSpan={2} className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-stone-400">Finance &amp; Collections</td></tr>
+            <tr><Td><Code>/collections</Code></Td><Td>Sidebar nav → Collections</Td></tr>
+            <tr><Td><Code>/transmittals</Code></Td><Td>Sidebar nav → Transmittals</Td></tr>
+            <tr><Td><Code>/transmittals/[id]</Code></Td><Td>Transmittals → click any transmittal row</Td></tr>
+            <tr><Td><Code>/banking</Code></Td><Td>Sidebar nav → Banking</Td></tr>
+            <tr><Td><Code>/banking/[accountId]</Code></Td><Td>Banking → click any account</Td></tr>
+            <tr><Td><Code>/finance</Code></Td><Td>Sidebar nav → Finance</Td></tr>
+            <tr><Td><Code>/payables</Code></Td><Td>Sidebar nav → Payables</Td></tr>
+            <tr><Td><Code>/payables/[id]</Code></Td><Td>Payables → click any payable row</Td></tr>
+            <tr><Td><Code>/advances</Code></Td><Td>Sidebar nav → Advances</Td></tr>
+            <tr><Td><Code>/advances/[id]</Code></Td><Td>Advances → click any advance row</Td></tr>
+
+            <tr className="bg-stone-50"><td colSpan={2} className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-stone-400">Buyers &amp; Condo</td></tr>
+            <tr><Td><Code>/buyers</Code></Td><Td>Sidebar nav → Buyers</Td></tr>
+            <tr><Td><Code>/buyers/[id]</Code></Td><Td>Buyers → click any buyer row</Td></tr>
+            <tr><Td><Code>/documents</Code></Td><Td>Sidebar nav → Documents</Td></tr>
+            <tr><Td><Code>/documents/[buyerId]</Code></Td><Td>Documents → click any buyer folder</Td></tr>
+            <tr><Td><Code>/condo</Code></Td><Td>Sidebar nav → Condo</Td></tr>
+            <tr><Td><Code>/condo/[unitId]</Code></Td><Td>Condo → click any unit card</Td></tr>
+            <tr><Td><Code>/condo/[unitId]/bill</Code></Td><Td>Condo unit → <strong>Monthly bill →</strong> button</Td></tr>
+            <tr><Td><Code>/disputes</Code></Td><Td>Sidebar nav → Disputes</Td></tr>
+            <tr><Td><Code>/repairs</Code></Td><Td>Sidebar nav → Repairs</Td></tr>
+
+            <tr className="bg-stone-50"><td colSpan={2} className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-stone-400">Operations &amp; Inventory</td></tr>
+            <tr><Td><Code>/housekeeping</Code></Td><Td>Sidebar nav → Housekeeping</Td></tr>
+            <tr><Td><Code>/housekeeping/[id]</Code></Td><Td>Housekeeping → click any task card</Td></tr>
+            <tr><Td><Code>/inventory</Code></Td><Td>Sidebar nav → Inventory</Td></tr>
+            <tr><Td><Code>/incidents</Code></Td><Td>Sidebar nav → Incidents</Td></tr>
+            <tr><Td><Code>/requisitions</Code></Td><Td>Sidebar nav → Requisitions</Td></tr>
+            <tr><Td><Code>/requisitions/[id]</Code></Td><Td>Requisitions → click any row</Td></tr>
+            <tr><Td><Code>/forms</Code></Td><Td>Sidebar nav → Forms</Td></tr>
+            <tr><Td><Code>/forms/[id]</Code></Td><Td>Forms → click any form row</Td></tr>
+
+            <tr className="bg-stone-50"><td colSpan={2} className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-stone-400">System</td></tr>
+            <tr><Td><Code>/users</Code></Td><Td>Sidebar nav → Users</Td></tr>
+            <tr><Td><Code>/users/access</Code></Td><Td>Users → <strong>Access log</strong> button</Td></tr>
+            <tr><Td><Code>/kiosk-access</Code></Td><Td>Sidebar nav → Kiosk Access</Td></tr>
+            <tr><Td><Code>/notifications</Code></Td><Td>Bell icon in the top-right header (shows unread count)</Td></tr>
+            <tr><Td><Code>/dashboard</Code></Td><Td>Sidebar nav → Dashboard</Td></tr>
+            <tr><Td><Code>/owner</Code></Td><Td>Sidebar nav → Owner (if enabled)</Td></tr>
+            <tr><Td><Code>/docs</Code></Td><Td>Sidebar nav → Docs / Changelog</Td></tr>
+          </Table>
         </Section>
 
         {/* Footer */}
