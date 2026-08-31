@@ -25,11 +25,46 @@ const ROLE_LABELS: Record<string, string> = {
   owner:                    "Owner",
 };
 
+// Roles that can be toggled (non-management staff pairs)
+const STAFF_ROLES = [
+  "operations_manager",
+  "accounting",
+  "hotel_rental_monitoring",
+  "hotel_cashier",
+  "room_attendant",
+  "guard",
+  "electrician",
+  "utility",
+  "warehouse_timekeeper",
+  "errand_liaison",
+  "owner",
+];
+
+/** Build the canonical full pair list merged with DB-stored values. */
+function buildFullPairList(
+  dbPairs: Array<{ role_a: string; role_b: string; enabled: boolean }>,
+) {
+  const dbMap = new Map(dbPairs.map((p) => [`${p.role_a}:${p.role_b}`, p.enabled]));
+
+  const all: Array<{ role_a: string; role_b: string; enabled: boolean }> = [];
+  for (let i = 0; i < STAFF_ROLES.length; i++) {
+    for (let j = i + 1; j < STAFF_ROLES.length; j++) {
+      const [a, b] = STAFF_ROLES[i] < STAFF_ROLES[j]
+        ? [STAFF_ROLES[i], STAFF_ROLES[j]]
+        : [STAFF_ROLES[j], STAFF_ROLES[i]];
+      const key = `${a}:${b}`;
+      all.push({ role_a: a, role_b: b, enabled: dbMap.get(key) ?? false });
+    }
+  }
+  return all;
+}
+
 export default async function ChatPermissionsPage() {
   const user = await requireAuth();
   if (!user.roleKeys.some((r) => SUPER.includes(r as string))) redirect("/dashboard");
 
-  const pairs = await getAllPairs();
+  const dbPairs = await getAllPairs();
+  const pairs = buildFullPairList(dbPairs);
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -43,7 +78,7 @@ export default async function ChatPermissionsPage() {
         <div className="border-b border-stone-100 px-5 py-3">
           <p className="text-xs text-stone-500">
             Each row is a bidirectional pair — enabling it lets both roles message each other.
-            Management roles (admin, managing_officer, consultant) communicate with all roles by default.
+            Management roles (admin, managing_officer, consultant) can message everyone by default.
           </p>
         </div>
         <div className="divide-y divide-stone-100">

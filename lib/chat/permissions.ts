@@ -21,15 +21,36 @@ export async function getEnabledPairs(): Promise<Array<{ role_a: string; role_b:
   return data ?? [];
 }
 
+const MANAGEMENT_ROLES = new Set(["admin", "managing_officer", "consultant"]);
+
+const ALL_ROLES = [
+  "admin", "managing_officer", "consultant",
+  "operations_manager", "accounting", "hotel_rental_monitoring",
+  "hotel_cashier", "room_attendant", "guard", "electrician", "utility",
+  "warehouse_timekeeper", "errand_liaison", "owner",
+];
+
 /** Given the caller's roles, return the set of role keys they are allowed to chat with. */
 export async function getAllowedChatRoles(myRoles: string[]): Promise<Set<string>> {
+  const isManagement = myRoles.some((r) => MANAGEMENT_ROLES.has(r));
+
+  // Management can chat with everyone
+  if (isManagement) {
+    const allowed = new Set(ALL_ROLES);
+    for (const r of myRoles) allowed.delete(r);
+    return allowed;
+  }
+
   const pairs = await getEnabledPairs();
   const allowed = new Set<string>();
+  // Non-management staff: also always allowed to chat management
+  for (const r of MANAGEMENT_ROLES) allowed.add(r);
+  // Plus any explicitly enabled staff-to-staff pairs
   for (const { role_a, role_b } of pairs) {
     if (myRoles.includes(role_a)) allowed.add(role_b);
     if (myRoles.includes(role_b)) allowed.add(role_a);
   }
-  // Remove own roles from the allowed set (can't chat yourself)
+  // Remove own roles
   for (const r of myRoles) allowed.delete(r);
   return allowed;
 }
