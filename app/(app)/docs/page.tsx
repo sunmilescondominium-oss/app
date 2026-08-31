@@ -1,5 +1,7 @@
 import { requireModule } from "@/lib/auth/dal";
 import { PageHeader } from "@/components/ui";
+import { NotifyButton } from "./notify-button";
+import { releaseNotificationSent } from "./actions";
 
 export const metadata = { title: "Documentation" };
 
@@ -45,10 +47,29 @@ const ROLES = [
   { role: "Owner", access: "Owner dashboard, employees (read), guard post (read)", notes: "External — no day-to-day operations access" },
 ];
 
-const CHANGELOG = [
+// Staff roles that receive release notifications
+const ALL_STAFF = [
+  "guard", "hotel_cashier", "room_attendant", "electrician", "utility",
+  "warehouse_timekeeper", "errand_liaison", "operations_manager",
+  "hotel_rental_monitoring", "accounting", "admin", "managing_officer", "consultant", "owner",
+];
+const SUPER_ONLY = ["admin", "managing_officer", "consultant"];
+const FINANCE_ROLES = ["accounting", "errand_liaison", "admin", "managing_officer", "consultant"];
+
+type ChangelogEntry = {
+  version: string;
+  date: string | null;
+  label: string;
+  items: string[];
+  notifyRoles: string[];
+};
+
+const CHANGELOG: ChangelogEntry[] = [
   {
     version: "v1.28",
+    date: "2026-08-31",
     label: "Staff Help System, AirBnB Staff Panel & Navigation Audit",
+    notifyRoles: ALL_STAFF,
     items: [
       "New /help page — role-filtered help guide accessible to all authenticated staff; each user sees only the sections for their role(s)",
       "Super roles (admin, managing_officer, consultant) see all help sections; dual-role users see help for all their roles combined",
@@ -59,11 +80,14 @@ const CHANGELOG = [
       "Navigation audit: every page in the system is now reachable via a button or link — no URL typing required",
       "Rentals & Airbnb: added Settings button on the rentals index page (previously /rentals/settings had no clickable entry point)",
       "System navigation reference added to help docs — full table of all pages and how to reach each one",
+      "Changelog now includes release date and a Notify staff button — admin can push a bell notification to all affected roles",
     ],
   },
   {
     version: "v1.27",
+    date: "2026-08-30",
     label: "System Hardening — Security, Performance & Multi-Tenancy Prep",
+    notifyRoles: SUPER_ONLY,
     items: [
       "Notifications table: RLS policies added — role-scoped reads; no client writes",
       "Cron auth guard fixed — open-auth bypass when CRON_SECRET unset is now blocked",
@@ -76,7 +100,9 @@ const CHANGELOG = [
   },
   {
     version: "v1.26",
+    date: "2026-08-28",
     label: "Soft-Delete & Audit Trail for Financial Records",
+    notifyRoles: FINANCE_ROLES,
     items: [
       "Collections and transmittals now soft-delete instead of hard-delete — deleted rows stay in the database for audit",
       "Deleted records visible in a collapsed audit panel at the bottom of /collections and /transmittals",
@@ -88,7 +114,9 @@ const CHANGELOG = [
   },
   {
     version: "v1.25",
+    date: "2026-08-25",
     label: "Security & Audit Hardening",
+    notifyRoles: SUPER_ONLY,
     items: [
       "Feature flags audit log — every toggle records who changed it, from/to state, and timestamp",
       "Feature flags page shows change history per flag (last 5 entries)",
@@ -99,7 +127,9 @@ const CHANGELOG = [
   },
   {
     version: "v1.24",
+    date: "2026-08-22",
     label: "App Settings — Audit Log, Confirmation & Restore",
+    notifyRoles: SUPER_ONLY,
     items: [
       "Save feedback: green/red toast appears immediately after every setting change",
       "Confirmation modal for sensitive settings (referral fee, referral window, timezone) — must click Confirm before the change takes effect",
@@ -112,7 +142,9 @@ const CHANGELOG = [
   },
   {
     version: "v1.23",
+    date: "2026-08-18",
     label: "Guard Portal — Agency Rules & Operation Types",
+    notifyRoles: ["guard", ...SUPER_ONLY],
     items: [
       "Two guard types: Hotel Ops and Condo Ops (badge shown on accounts list)",
       "Guards see duty hours only in My Portal — payslip, leave, OB, and OT sections hidden",
@@ -123,7 +155,9 @@ const CHANGELOG = [
   },
   {
     version: "v1.22",
+    date: null,
     label: "Security Hardening & BIR CSV Export",
+    notifyRoles: [],
     items: [
       "Session timeout (configurable via SESSION_TIMEOUT_MINUTES env var)",
       "Suspicious login alerts to admin email (ALERT_EMAIL_TO)",
@@ -133,7 +167,9 @@ const CHANGELOG = [
   },
   {
     version: "v1.21",
+    date: null,
     label: "Cashier Shifts & Collection Audit",
+    notifyRoles: [],
     items: [
       "Hotel cashier sessions — check-in/out/payment gated on active session",
       "Collection entry edit with full audit trail (collection_edits table)",
@@ -142,7 +178,9 @@ const CHANGELOG = [
   },
   {
     version: "v1.20",
+    date: null,
     label: "Shift-Change Housekeeping & SLA",
+    notifyRoles: [],
     items: [
       "Occupancy board with live countdown timers per room type",
       "Endorsement workflow for shift handover",
@@ -152,7 +190,20 @@ const CHANGELOG = [
 ];
 
 export default async function DocsPage() {
-  await requireModule("docs");
+  const user = await requireModule("docs");
+  const isSuper = (user.roleKeys as string[]).some((r) =>
+    ["admin", "managing_officer", "consultant"].includes(r),
+  );
+
+  // Pre-check notify status for entries that have notifyRoles, so the button can start in the right state
+  const notifiedMap = new Map<string, boolean>();
+  if (isSuper) {
+    for (const entry of CHANGELOG) {
+      if (entry.notifyRoles.length > 0) {
+        notifiedMap.set(entry.version, await releaseNotificationSent(entry.version));
+      }
+    }
+  }
 
   return (
     <div className="mx-auto max-w-4xl space-y-10 pb-16">
@@ -248,9 +299,22 @@ export default async function DocsPage() {
         <div className="space-y-4">
           {CHANGELOG.map((entry) => (
             <div key={entry.version} className="rounded-xl border border-stone-200 bg-white p-5">
-              <div className="flex items-center gap-3 mb-3">
+              <div className="flex flex-wrap items-center gap-2 mb-3">
                 <span className="rounded-full bg-stone-800 px-2.5 py-0.5 text-xs font-semibold text-white">{entry.version}</span>
-                <p className="font-medium text-stone-800">{entry.label}</p>
+                {entry.date && (
+                  <span className="rounded-full bg-stone-100 px-2.5 py-0.5 text-[11px] font-medium text-stone-500">
+                    {new Date(entry.date).toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric" })}
+                  </span>
+                )}
+                <p className="font-medium text-stone-800 flex-1">{entry.label}</p>
+                {isSuper && entry.notifyRoles.length > 0 && (
+                  <NotifyButton
+                    version={entry.version}
+                    label={entry.label}
+                    roles={entry.notifyRoles}
+                    alreadySent={notifiedMap.get(entry.version) ?? false}
+                  />
+                )}
               </div>
               <ul className="space-y-1">
                 {entry.items.map((item, i) => (

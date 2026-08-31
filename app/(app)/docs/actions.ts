@@ -1,11 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireAuth } from "@/lib/auth/dal";
+import { requireAuth, requireModule } from "@/lib/auth/dal";
 import { canWriteModule } from "@/lib/rbac/modules";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit";
 import { DOC_PHOTO_BUCKET, ENTITY_MODULE, type DocEntity } from "@/lib/docs/photos";
+import { createNotification } from "@/lib/notifications/queries";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -31,7 +32,6 @@ export async function uploadDocPhoto(
   const note = String(formData.get("note") ?? "").trim() || null;
 
   const admin = createAdminClient();
-  // Ensure the private bucket exists (idempotent).
   await admin.storage.createBucket(DOC_PHOTO_BUCKET, { public: false }).catch(() => {});
 
   const ext = isVideo ? "webm" : "jpg";
@@ -59,3 +59,60 @@ const MODULE_PATH: Partial<Record<string, string>> = {
   rentals: "/rentals",
   incidents: "/incidents",
 };
+
+// ── Release notifications ──────────────────────────────────────────────────
+
+const SUPER = ["admin", "managing_officer", "consultant"];
+
+export async function sendReleaseNotification(
+  version: string,
+  label: string,
+  roles: string[],
+): Promise<{ ok: boolean; sent: number; error?: string }> {
+  const user = await requireAuth();
+  if (!user.roleKeys.some((r) => SUPER.includes(r))) {
+    return { ok: false, sent: 0, error: "Unauthorized." };
+  }
+
+  const admin = createAdminClient();
+
+  const { data: existing } = await admin
+    .from("notifications")
+    .select("id")
+    .eq("kind", "release")
+    .eq("entity_id", version)
+    .limit(1);
+
+  if (existing && existing.length > 0) {
+    return { ok: false, sent: 0, error: "Notifications for this version were already sent." };
+  }
+
+  let sent = 0;
+  for (const role of roles) {
+    await createNotification({
+      kind: "release",
+      title: `New update — ${version}`,
+      body: label,
+      link: "/docs",
+      entityType: "release",
+      entityId: version,
+      recipientRole: role,
+      createdBy: user.userId,
+    });
+    sent++;
+  }
+
+  return { ok: true, sent };
+}
+
+/** Check if release notifications for a version were already sent. */
+export async function releaseNotificationSent(version: string): Promise<boolean> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("notifications")
+    .select("id")
+    .eq("kind", "release")
+    .eq("entity_id", version)
+    .limit(1);
+  return (data?.length ?? 0) > 0;
+}
