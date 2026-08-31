@@ -5,6 +5,46 @@ import { createClient } from "@/lib/supabase/client";
 import { sendMessage, markRead } from "@/lib/chat/actions";
 import type { ChatMessage } from "@/lib/chat/queries";
 
+/** Two duck quacks — universally funny chat sound. */
+function playMessageSound() {
+  try {
+    const ctx = new AudioContext();
+    const now = ctx.currentTime;
+    const master = ctx.createGain();
+    master.gain.value = 0.35;
+    master.connect(ctx.destination);
+
+    [0, 0.24].forEach((offset) => {
+      const osc    = ctx.createOscillator();
+      const lfo    = ctx.createOscillator();
+      const lfoDep = ctx.createGain();
+      const env    = ctx.createGain();
+
+      osc.type          = "sawtooth";
+      osc.frequency.value = 430;
+      lfo.type          = "sine";
+      lfo.frequency.value = 28;
+      lfoDep.gain.value = 60;
+
+      lfo.connect(lfoDep);
+      lfoDep.connect(osc.frequency);
+      osc.connect(env);
+      env.connect(master);
+
+      const t = now + offset;
+      env.gain.setValueAtTime(0, t);
+      env.gain.linearRampToValueAtTime(1, t + 0.015);
+      env.gain.setValueAtTime(1, t + 0.1);
+      env.gain.exponentialRampToValueAtTime(0.001, t + 0.19);
+
+      lfo.start(t); osc.start(t);
+      lfo.stop(t + 0.2); osc.stop(t + 0.2);
+    });
+
+    setTimeout(() => ctx.close(), 800);
+  } catch { /* browser blocked audio */ }
+}
+
 function fmtTime(iso: string) {
   return new Date(iso).toLocaleTimeString("en-PH", {
     hour: "2-digit",
@@ -73,6 +113,7 @@ export function ThreadClient({
                 createdAt: msg.created_at,
               },
             ]);
+            playMessageSound();
             void markRead(partnerId);
           }
         },
