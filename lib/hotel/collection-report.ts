@@ -45,8 +45,8 @@ type RawStay = {
   unit_id: string;
   guest_label: string;
   status: string;
-  checked_in_at: string;
-  checked_out_at: string | null;
+  check_in_at: string;
+  check_out_at: string | null;
   planned_hours: number;
   base_hours: number;
   base_rate: number;
@@ -74,7 +74,7 @@ type RawCollection = {
 };
 
 const SELECT = `
-  id, unit_id, guest_label, status, checked_in_at, checked_out_at,
+  id, unit_id, guest_label, status, check_in_at, check_out_at,
   planned_hours, base_hours, base_rate, extra_hour_rate,
   extra_persons, extra_person_amount, discount_amount,
   units:unit_id(unit_number),
@@ -108,9 +108,9 @@ export async function listHotelCollectionReport(date: string): Promise<StayRepor
     .from("stays")
     .select(SELECT)
     .in("unit_id", unitIds)
-    .lte("checked_in_at", endZ)
-    .or(`checked_out_at.is.null,checked_out_at.gte.${startZ}`)
-    .order("checked_in_at", { ascending: false }); // most-recent per unit wins
+    .lte("check_in_at", endZ)
+    .or(`check_out_at.is.null,check_out_at.gte.${startZ}`)
+    .order("check_in_at", { ascending: false }); // most-recent per unit wins
 
   // Deduplicate: take the latest check-in per unit_id
   const stayByUnit = new Map<string, RawStay>();
@@ -200,9 +200,9 @@ export async function listHotelCollectionReport(date: string): Promise<StayRepor
     const totalPaid = round2(payments.reduce((sum, p) => sum + p.amount, 0));
 
     const actualHours =
-      s.checked_out_at
+      s.check_out_at
         ? round2(
-            (new Date(s.checked_out_at).getTime() - new Date(s.checked_in_at).getTime()) /
+            (new Date(s.check_out_at).getTime() - new Date(s.check_in_at).getTime()) /
               3_600_000,
           )
         : null;
@@ -212,8 +212,8 @@ export async function listHotelCollectionReport(date: string): Promise<StayRepor
       unitNumber: s.units?.unit_number ?? unitId,
       guestLabel: s.guest_label,
       status: s.status,
-      checkedInAt: s.checked_in_at,
-      checkedOutAt: s.checked_out_at,
+      checkedInAt: s.check_in_at,
+      checkedOutAt: s.check_out_at,
       plannedHours: Number(s.planned_hours),
       actualHours,
       roomChargeAmount: rc,

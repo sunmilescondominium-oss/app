@@ -97,19 +97,19 @@ async function fetchStayBillingByUnitDate(
     .from("stays")
     .select(`
       id, unit_id, guest_label, status,
-      checked_in_at, checked_out_at,
+      check_in_at, check_out_at,
       planned_hours, base_hours, base_rate, extra_hour_rate,
       extra_persons, extra_person_amount, discount_amount,
       stay_orders(qty, unit_price, menu_item_id)
     `)
     .in("unit_id", unitIds)
-    .lte("checked_in_at", endZ)
-    .or(`checked_out_at.is.null,checked_out_at.gte.${startZ}`)
-    .order("checked_in_at", { ascending: false }); // latest check-in wins per unit
+    .lte("check_in_at", endZ)
+    .or(`check_out_at.is.null,check_out_at.gte.${startZ}`)
+    .order("check_in_at", { ascending: false }); // latest check-in wins per unit
 
   type RawRow = {
     id: string; unit_id: string; guest_label: string; status: string;
-    checked_in_at: string; checked_out_at: string | null;
+    check_in_at: string; check_out_at: string | null;
     planned_hours: number; base_hours: number; base_rate: number;
     extra_hour_rate: number; extra_persons: number | null;
     extra_person_amount: number | null; discount_amount: number | null;
@@ -135,8 +135,8 @@ async function fetchStayBillingByUnitDate(
       discountAmount,
       totalCharge,
       plannedHours: Number(s.planned_hours),
-      checkedInAt: s.checked_in_at,
-      checkedOutAt: s.checked_out_at,
+      checkedInAt: s.check_in_at,
+      checkedOutAt: s.check_out_at,
     });
   }
   return map;
