@@ -3,6 +3,7 @@
 import { requireModule } from "@/lib/auth/dal";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -100,8 +101,7 @@ export async function acknowledgeNda(): Promise<ActionResult> {
     .update({ guard_nda_acknowledged_at: new Date().toISOString() })
     .eq("id", user.userId);
   if (error) return { ok: false, error: error.message };
-  revalidatePath("/guard");
-  return { ok: true };
+  redirect("/guard");
 }
 
 export async function updateGuardProfile(

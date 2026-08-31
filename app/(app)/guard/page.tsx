@@ -64,15 +64,22 @@ export default async function GuardPage() {
   const hotelViewEnabled = flagRow.data?.enabled === true;
   const isHotelGate = activeShift?.postCode === "hotel_gate";
 
-  const [entries, hotelRooms, lastHandover] = await Promise.all([
-    activeShift ? listTodayEntrances(activeShift.postId) : Promise.resolve([]),
-    hotelViewEnabled && isHotelGate && activeShift
-      ? listOccupiedRoomsForGuard(activeShift.startedAt)
-      : Promise.resolve([]),
-    !activeShift && posts.length > 0
-      ? getLastHandoverForPost(posts[0].id)
-      : Promise.resolve(null),
-  ]);
+  let entries: Awaited<ReturnType<typeof listTodayEntrances>> = [];
+  let hotelRooms: Awaited<ReturnType<typeof listOccupiedRoomsForGuard>> = [];
+  let lastHandover: Awaited<ReturnType<typeof getLastHandoverForPost>> = null;
+  try {
+    [entries, hotelRooms, lastHandover] = await Promise.all([
+      activeShift ? listTodayEntrances(activeShift.postId) : Promise.resolve([]),
+      hotelViewEnabled && isHotelGate && activeShift
+        ? listOccupiedRoomsForGuard(activeShift.startedAt)
+        : Promise.resolve([]),
+      !activeShift && posts.length > 0
+        ? getLastHandoverForPost(posts[0].id)
+        : Promise.resolve(null),
+    ]);
+  } catch (err) {
+    console.error("[GuardPage] data fetch error:", err);
+  }
 
   const stillInside = entries.filter((e) => !e.timeOut).length;
 
