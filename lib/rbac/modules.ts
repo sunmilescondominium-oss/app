@@ -30,6 +30,14 @@ export const STAFF_ROLE_KEYS: RoleKey[] = ALL_ROLE_KEYS.filter(
   (r) => !(EXTERNAL_ROLE_KEYS as readonly string[]).includes(r),
 );
 
+/**
+ * Staff roles that are direct employees of the property — excludes guard
+ * (third-party security agency; no payroll, DTR, leave, or OB in this system).
+ */
+export const EMPLOYEE_ROLE_KEYS: RoleKey[] = STAFF_ROLE_KEYS.filter(
+  (r) => r !== "guard",
+);
+
 export type ModuleKey =
   | "inventory"
   | "collections"
@@ -165,7 +173,7 @@ export const MODULES: Record<ModuleKey, ModuleDef> = {
     milestone: "M2",
     // Governance: the owner is intentionally EXCLUDED here — the owner sees the
     // simplified Owner Dashboard only; their daily total is surfaced there.
-    read: ["managing_officer", "consultant", "accounting", "hotel_rental_monitoring"],
+    read: ["admin", "managing_officer", "consultant", "accounting", "hotel_rental_monitoring"],
     write: ["hotel_rental_monitoring", "accounting"],
   },
   transmittals: {
@@ -322,8 +330,9 @@ export const MODULES: Record<ModuleKey, ModuleDef> = {
     label: "Kiosk fallback access",
     blurb: "When the kiosk is down: mobile clock-in with approval.",
     milestone: "Ops",
-    read: ["owner", "consultant", "admin", "managing_officer", "operations_manager", "guard"],
-    write: ["owner", "consultant", "admin", "managing_officer", "operations_manager", "guard"],
+    // guard excluded — third-party agency staff, not on this payroll/DTR system.
+    read: ["owner", "consultant", "admin", "managing_officer", "operations_manager"],
+    write: ["owner", "consultant", "admin", "managing_officer", "operations_manager"],
   },
   media: {
     key: "media",
@@ -361,8 +370,9 @@ export const MODULES: Record<ModuleKey, ModuleDef> = {
     label: "My Portal",
     blurb: "My attendance, payslip & leave.",
     milestone: "M8",
-    read: STAFF_ROLE_KEYS,
-    write: STAFF_ROLE_KEYS,
+    // guard excluded — third-party agency staff; no payroll, DTR, leave, or OB here.
+    read: EMPLOYEE_ROLE_KEYS,
+    write: EMPLOYEE_ROLE_KEYS,
   },
   employees: {
     key: "employees",
