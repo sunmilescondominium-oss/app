@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireModule } from "@/lib/auth/dal";
-import { listTransmittals, getReceiptSeries, listDeletedTransmittals } from "@/lib/collections/queries";
+import { listTransmittals, getReceiptSeries, listDeletedTransmittals, listPendingCheckCollections } from "@/lib/collections/queries";
 import { listAccountOptions } from "@/lib/banking/queries";
 import { peso, todayManila } from "@/lib/collections/summary";
 import { PageHeader, Badge } from "@/components/ui";
@@ -35,11 +35,16 @@ export default async function TransmittalsPage() {
   );
   const isConsultant = user.allRoleKeys.includes("consultant");
 
-  const [transmittals, series, bankAccounts, deletedTransmittals] = await Promise.all([
+  const canSeeChecks = user.allRoleKeys.some((r) =>
+    ["accounting", "managing_officer", "consultant", "hotel_rental_monitoring"].includes(r),
+  );
+
+  const [transmittals, series, bankAccounts, deletedTransmittals, pendingChecks] = await Promise.all([
     listTransmittals(),
     canSeries ? getReceiptSeries() : Promise.resolve([]),
     canBuild ? listAccountOptions() : Promise.resolve([]),
     canRestore ? listDeletedTransmittals() : Promise.resolve([]),
+    canSeeChecks ? listPendingCheckCollections() : Promise.resolve([]),
   ]);
 
   // Daily reconciliation tally (accounting) — collected vs deposited per day.
@@ -81,6 +86,95 @@ export default async function TransmittalsPage() {
           ⬇ Export to Sheets
         </a>
       </div>
+
+      {/* Checks-in-custody panel — visible to accounting, monitoring, management */}
+      {canSeeChecks && pendingChecks.length > 0 && (() => {
+        const today = todayManila();
+        const ready = pendingChecks.filter((c) => c.check_date && c.check_date <= today);
+        const postdated = pendingChecks.filter((c) => !c.check_date || c.check_date > today);
+        const readyTotal = ready.reduce((s, c) => s + c.amount, 0);
+        const postdatedTotal = postdated.reduce((s, c) => s + c.amount, 0);
+        return (
+          <div className="no-print mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-5">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-sm font-semibold text-amber-900">Checks in custody — not yet transmitted</p>
+                <p className="text-xs text-amber-700">
+                  These physical checks are held by hotel/rental monitoring pending transmittal to the bank.
+                </p>
+              </div>
+              <div className="flex gap-4 text-xs">
+                {ready.length > 0 && (
+                  <span className="rounded-full bg-emerald-100 px-2.5 py-1 font-semibold text-emerald-800">
+                    {ready.length} ready — {peso(readyTotal)}
+                  </span>
+                )}
+                {postdated.length > 0 && (
+                  <span className="rounded-full bg-amber-200 px-2.5 py-1 font-semibold text-amber-900">
+                    {postdated.length} post-dated — {peso(postdatedTotal)}
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[640px] text-left text-sm">
+                <thead className="border-b border-amber-200 text-xs uppercase tracking-wide text-amber-700">
+                  <tr>
+                    <th className="py-2 pr-4">OR #</th>
+                    <th className="py-2 pr-4">Check #</th>
+                    <th className="py-2 pr-4">Bank</th>
+                    <th className="py-2 pr-4">Collected</th>
+                    <th className="py-2 pr-4">Check date</th>
+                    <th className="py-2 pr-4">Source</th>
+                    <th className="py-2 text-right">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pendingChecks.map((c) => {
+                    const isReady = c.check_date && c.check_date <= today;
+                    const isPostdated = c.check_date && c.check_date > today;
+                    return (
+                      <tr key={c.id} className="border-b border-amber-100 last:border-0">
+                        <td className="py-2 pr-4 tabular-nums">{c.or_number ?? "—"}</td>
+                        <td className="py-2 pr-4 tabular-nums">{c.check_number ?? "—"}</td>
+                        <td className="py-2 pr-4">{c.check_bank ?? "—"}</td>
+                        <td className="py-2 pr-4">{c.collected_on}</td>
+                        <td className="py-2 pr-4">
+                          <span className="flex items-center gap-1.5">
+                            {c.check_date ?? "—"}
+                            {isReady && (
+                              <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-800">Ready</span>
+                            )}
+                            {isPostdated && (
+                              <span className="rounded-full bg-amber-200 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900">Post-dated</span>
+                            )}
+                          </span>
+                        </td>
+                        <td className="py-2 pr-4 capitalize">
+                          {c.business_line.replace(/_/g, " ")}
+                          {c.unit_number ? <span className="ml-1 text-stone-500">· {c.unit_number}</span> : null}
+                        </td>
+                        <td className="py-2 text-right tabular-nums font-medium">{peso(c.amount)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr className="font-semibold text-amber-900">
+                    <td colSpan={6} className="pt-2.5">Total in custody</td>
+                    <td className="pt-2.5 text-right tabular-nums">{peso(pendingChecks.reduce((s, c) => s + c.amount, 0))}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+            {ready.length > 0 && (
+              <p className="mt-2 text-xs text-emerald-800">
+                ⚠ {ready.length} check{ready.length > 1 ? "s are" : " is"} due for deposit today or earlier. Bundle them into a transmittal now.
+              </p>
+            )}
+          </div>
+        );
+      })()}
 
       {canBuild && <BuildTransmittalForm defaultDate={todayManila()} bankAccounts={bankAccounts} />}
       {canSeries && series.length > 0 && <ReceiptSeriesPanel series={series} />}

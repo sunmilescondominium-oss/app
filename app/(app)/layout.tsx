@@ -5,7 +5,7 @@ import { getFeatureFlags, MODULE_FLAG } from "@/lib/settings/flags";
 import { AppShell, type NavModule, type RoleOption } from "@/components/app-shell";
 import { getLang } from "@/lib/i18n-server";
 import { navLabel, navBlurb } from "@/lib/i18n";
-import { countUnreadNotifications, notifyPostdatedChecksDue } from "@/lib/notifications/queries";
+import { countUnreadNotifications, notifyPostdatedChecksDue, notifyStaleTransmittals } from "@/lib/notifications/queries";
 import { countUnreadChat } from "@/lib/chat/queries";
 import { demoableRoles } from "@/lib/auth/demo-hierarchy";
 
@@ -68,6 +68,7 @@ export default async function AppLayout({
 
   const commitSha = process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? null;
   void notifyPostdatedChecksDue(); // fire-and-forget — never blocks render
+  void notifyStaleTransmittals();  // fire-and-forget — check transmittals pending deposit
   const [unreadNotifications, unreadChat] = await Promise.all([
     countUnreadNotifications(user.userId, user.roleKeys),
     countUnreadChat(user.userId),

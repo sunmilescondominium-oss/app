@@ -238,6 +238,48 @@ export async function listDeletedTransmittals(): Promise<DeletedTransmittal[]> {
   }));
 }
 
+export interface PendingCheck {
+  id: string;
+  or_number: string | null;
+  check_number: string | null;
+  check_date: string | null;
+  check_bank: string | null;
+  amount: number;
+  collected_on: string;
+  business_line: string;
+  collected_by_role: string | null;
+  unit_number: string | null;
+}
+
+/**
+ * All check collections that have NOT yet been bundled into a transmittal.
+ * Used by accounting to see which checks are currently in custody at hotel/
+ * rental monitoring before physical handover. Service role — gated at the
+ * page by requireModule.
+ */
+export async function listPendingCheckCollections(): Promise<PendingCheck[]> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("collections")
+    .select("id, or_number, check_number, check_date, check_bank, amount, collected_on, business_line, collected_by_role, units(unit_number)")
+    .eq("payment_type", "check")
+    .is("transmittal_id", null)
+    .is("deleted_at", null)
+    .order("check_date", { ascending: true, nullsFirst: false });
+  return (data ?? []).map((r: Record<string, unknown>) => ({
+    id: r.id as string,
+    or_number: (r.or_number as string | null) ?? null,
+    check_number: (r.check_number as string | null) ?? null,
+    check_date: (r.check_date as string | null) ?? null,
+    check_bank: (r.check_bank as string | null) ?? null,
+    amount: Number(r.amount),
+    collected_on: r.collected_on as string,
+    business_line: r.business_line as string,
+    collected_by_role: (r.collected_by_role as string | null) ?? null,
+    unit_number: ((r.units as { unit_number?: string } | null)?.unit_number as string | null) ?? null,
+  }));
+}
+
 export async function listUnitOptions(): Promise<UnitOption[]> {
   const supabase = await createClient();
   const { data, error } = await supabase

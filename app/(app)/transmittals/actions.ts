@@ -253,17 +253,41 @@ export async function buildTransmittalForDate(
     diff: { date, total, count: cols.length, payment_mode, transmittal_source },
   });
 
+  // Count how many of the bundled collections are checks.
+  const { data: checkRows } = await supabase
+    .from("collections")
+    .select("id")
+    .in("id", cols.map((c) => c.id))
+    .eq("payment_type", "check");
+  const checkCount = checkRows?.length ?? 0;
+  const checkNote = checkCount > 0 ? ` Includes ${checkCount} check(s) for physical bank deposit.` : "";
+
   // Notify accounting that a transmittal is ready for review.
   void createNotification({
     kind: "transmittal_built",
     title: `Transmittal built — ₱${total.toLocaleString("en-PH", { minimumFractionDigits: 2 })}`,
-    body: `${cols.length} collection(s) for ${date}, ${payment_mode.replace("_", " ")}.`,
+    body: `${cols.length} collection(s) for ${date}, ${payment_mode.replace("_", " ")}.${checkNote}`,
     link: `/transmittals/${t.id as string}`,
     entityType: "transmittal",
     entityId: t.id as string,
     recipientRole: "accounting",
     createdBy: user.userId,
   });
+
+  // If checks are included, also notify hotel/rental monitoring so they know
+  // to keep the physical checks safe and pass them to the liaison for deposit.
+  if (checkCount > 0) {
+    void createNotification({
+      kind: "transmittal_built_checks",
+      title: `Transmittal with ${checkCount} check(s) — safekeep until deposit`,
+      body: `Transmittal ref ${(t.id as string).slice(0, 8).toUpperCase()} for ${date} includes ${checkCount} physical check(s) totalling ₱${total.toLocaleString("en-PH", { minimumFractionDigits: 2 })}. Hold securely until the liaison collects for bank deposit.`,
+      link: `/transmittals/${t.id as string}`,
+      entityType: "transmittal",
+      entityId: t.id as string,
+      recipientRole: "hotel_rental_monitoring",
+      createdBy: user.userId,
+    });
+  }
 
   revalidatePath("/transmittals");
   return { ok: true };

@@ -172,6 +172,71 @@ export async function notifyPostdatedChecksDue(): Promise<void> {
   } catch { /* never block the layout render */ }
 }
 
+/**
+ * Find transmittals that have been in a non-terminal state for more than 1 day
+ * and contain check collections. Notifies accounting + hotel_rental_monitoring
+ * to move the transmittal forward. Idempotent — skips if already notified today.
+ */
+export async function notifyStaleTransmittals(): Promise<void> {
+  try {
+    const admin = createAdminClient();
+    const today = todayManila();
+    // "stale" = created more than 24h ago and not yet deposited/reconciled
+    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+    const { data: stale } = await admin
+      .from("transmittals")
+      .select("id, transmittal_date, status, total_amount")
+      .in("status", ["draft", "submitted"])
+      .lt("created_at", cutoff)
+      .is("deleted_at", null)
+      .limit(20);
+
+    if (!stale || stale.length === 0) return;
+
+    // Determine which of these have at least one check collection.
+    const staleIds = stale.map((t) => t.id as string);
+    const { data: checkCols } = await admin
+      .from("collections")
+      .select("transmittal_id")
+      .in("transmittal_id", staleIds)
+      .eq("payment_type", "check")
+      .is("deleted_at", null);
+
+    const checkTransmittalIds = new Set((checkCols ?? []).map((c) => c.transmittal_id as string));
+    const staleWithChecks = stale.filter((t) => checkTransmittalIds.has(t.id as string));
+    if (staleWithChecks.length === 0) return;
+
+    // Idempotent: skip transmittals already notified today.
+    const todayCutoff = `${today}T00:00:00.000Z`;
+    const { data: already } = await admin
+      .from("notifications")
+      .select("entity_id")
+      .eq("kind", "stale_transmittal_checks")
+      .gte("created_at", todayCutoff)
+      .in("entity_id", staleWithChecks.map((t) => t.id as string));
+    const notifiedToday = new Set((already ?? []).map((r) => r.entity_id as string));
+
+    for (const t of staleWithChecks) {
+      if (notifiedToday.has(t.id as string)) continue;
+      const amt = (Number(t.total_amount) || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 });
+      const detail = `Transmittal ref ${(t.id as string).slice(0, 8).toUpperCase()} (${t.transmittal_date as string}) — ₱${amt} — status: ${t.status as string}. Physical checks need to reach the bank.`;
+
+      for (const role of ["accounting", "hotel_rental_monitoring"] as const) {
+        await createNotification({
+          kind: "stale_transmittal_checks",
+          title: "Check transmittal pending deposit — action needed",
+          body: detail,
+          link: `/transmittals/${t.id as string}`,
+          entityType: "transmittal",
+          entityId: t.id as string,
+          recipientRole: role,
+        });
+      }
+    }
+  } catch { /* never block layout render */ }
+}
+
 /** Mark ALL notifications for this user/role as read. */
 export async function markAllNotificationsReadForUser(
   userId: string,
