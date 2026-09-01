@@ -44,7 +44,7 @@ ALTER TABLE public.transmittal_bag_audit ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "transmittal_bag_audit_select" ON public.transmittal_bag_audit
   FOR SELECT USING (
     EXISTS (
-      SELECT 1 FROM public.role_assignments ra
+      SELECT 1 FROM public.user_roles ra
       WHERE ra.user_id = auth.uid()
         AND ra.role_key IN ('hotel_rental_monitoring','admin','managing_officer','consultant','accounting')
     )
@@ -53,7 +53,7 @@ CREATE POLICY "transmittal_bag_audit_select" ON public.transmittal_bag_audit
 CREATE POLICY "transmittal_bag_audit_insert" ON public.transmittal_bag_audit
   FOR INSERT WITH CHECK (
     EXISTS (
-      SELECT 1 FROM public.role_assignments ra
+      SELECT 1 FROM public.user_roles ra
       WHERE ra.user_id = auth.uid()
         AND ra.role_key IN ('hotel_rental_monitoring','admin','managing_officer','consultant','accounting')
     )
