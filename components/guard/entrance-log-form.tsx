@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { logEntry } from "@/app/(app)/guard/actions";
 
 const inputCls = "w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
@@ -29,6 +30,7 @@ const PERSON_TYPES = ["guest", "unit_owner", "renter", "visitor", "delivery", "s
 const VEHICLE_ONLY = ["vehicle"];
 
 export function EntranceLogForm({ hasActiveShift }: { hasActiveShift: boolean }) {
+  const router = useRouter();
   const [state, action, pending] = useActionState(logEntry, undefined);
   const formRef = useRef<HTMLFormElement>(null);
   const [entryType, setEntryType] = useState("guest");
@@ -37,8 +39,9 @@ export function EntranceLogForm({ hasActiveShift }: { hasActiveShift: boolean })
     if (state?.ok) {
       formRef.current?.reset();
       setEntryType("guest");
+      router.refresh();
     }
-  }, [state]);
+  }, [state, router]);
 
   if (!hasActiveShift) {
     return (

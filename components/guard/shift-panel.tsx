@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useTransition, useState } from "react";
+import { useTransition, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   startShift,
   endShiftWithHandover,
@@ -25,6 +26,7 @@ function LastHandoverCard({
   report: HandoverReport;
   onAcknowledge: () => void;
 }) {
+  const router = useRouter();
   const [busy, start] = useTransition();
 
   if (report.acknowledgedAt) {
@@ -62,6 +64,7 @@ function LastHandoverCard({
         onClick={() => start(async () => {
           await acknowledgeHandover(report.id);
           onAcknowledge();
+          router.refresh();
         })}
         className="rounded-lg bg-amber-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-60"
       >
@@ -78,6 +81,7 @@ function HandoverForm({
   shift: GuardShift;
   onDone: () => void;
 }) {
+  const router = useRouter();
   const [incidents, setIncidents] = useState("");
   const [pending, setPending] = useState("");
   const [busy, start] = useTransition();
@@ -94,7 +98,7 @@ function HandoverForm({
         pending,
       );
       if (!result.ok) setError(result.error);
-      else onDone();
+      else { onDone(); router.refresh(); }
     });
   }
 
@@ -156,9 +160,22 @@ export function ShiftPanel({
   activeShift: GuardShift | null;
   lastHandover?: HandoverReport | null;
 }) {
-  const [state, action, pending] = useActionState(startShift, undefined);
+  const router = useRouter();
+  const [startBusy, startTransition] = useTransition();
+  const [startError, setStartError] = useState<string | null>(null);
   const [showHandover, setShowHandover] = useState(false);
   const [handoverAcked, setHandoverAcked] = useState(false);
+
+  function handleStartShift(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setStartError(null);
+    const formData = new FormData(e.currentTarget);
+    startTransition(async () => {
+      const result = await startShift(undefined, formData);
+      if (!result.ok) setStartError(result.error);
+      else router.refresh();
+    });
+  }
 
   if (activeShift) {
     const started = new Date(activeShift.startedAt).toLocaleTimeString("en-PH", {
@@ -209,7 +226,7 @@ export function ShiftPanel({
       )}
       <div className={`rounded-xl border bg-amber-50 p-4 ${pendingHandover ? "border-amber-100 opacity-60 pointer-events-none" : "border-amber-200"}`}>
         <p className="mb-3 text-sm font-semibold text-amber-900">Start your guard shift</p>
-        <form action={action} className="flex flex-wrap items-end gap-3">
+        <form onSubmit={handleStartShift} className="flex flex-wrap items-end gap-3">
           <div className="min-w-[160px] flex-1">
             <label className="mb-1 block text-xs font-medium text-stone-600">Post</label>
             <select name="post_id" className={inputCls}>
@@ -227,14 +244,14 @@ export function ShiftPanel({
           </div>
           <button
             type="submit"
-            disabled={pending}
+            disabled={startBusy}
             className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-60"
           >
-            {pending ? "Starting…" : "Start Shift"}
+            {startBusy ? "Starting…" : "Start Shift"}
           </button>
         </form>
-        {state && !state.ok && (
-          <p className="mt-2 text-xs text-red-600">{state.error}</p>
+        {startError && (
+          <p className="mt-2 text-xs text-red-600">{startError}</p>
         )}
       </div>
     </div>

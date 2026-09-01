@@ -31,7 +31,6 @@ export async function startShift(
     shift_type: shiftType,
   });
   if (error) return { ok: false, error: error.message };
-  revalidatePath("/guard");
   return { ok: true };
 }
 
@@ -44,7 +43,6 @@ export async function endShift(shiftId: string): Promise<ActionResult> {
     .eq("id", shiftId)
     .eq("guard_id", user.userId);
   if (error) return { ok: false, error: error.message };
-  revalidatePath("/guard");
   return { ok: true };
 }
 
@@ -75,7 +73,6 @@ export async function endShiftWithHandover(
     pending_items: pendingItems.trim() || null,
   });
 
-  revalidatePath("/guard");
   return { ok: true };
 }
 
@@ -88,7 +85,6 @@ export async function acknowledgeHandover(handoverId: string): Promise<ActionRes
     .eq("id", handoverId)
     .is("acknowledged_at", null);
   if (error) return { ok: false, error: error.message };
-  revalidatePath("/guard");
   return { ok: true };
 }
 
@@ -181,7 +177,6 @@ export async function logEntry(
     discount_coupon_no: discountCouponNo,
   });
   if (error) return { ok: false, error: error.message };
-  revalidatePath("/guard");
   return { ok: true };
 }
 
@@ -194,6 +189,5 @@ export async function logExit(logId: string): Promise<ActionResult> {
     .eq("id", logId)
     .is("time_out", null);
   if (error) return { ok: false, error: error.message };
-  revalidatePath("/guard");
   return { ok: true };
 }

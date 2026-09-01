@@ -1,6 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { logExit } from "@/app/(app)/guard/actions";
 import type { EntranceLogEntry } from "@/lib/guard/queries";
 
@@ -21,12 +22,13 @@ function fmtTime(iso: string): string {
 }
 
 function ExitButton({ logId }: { logId: string }) {
+  const router = useRouter();
   const [pending, start] = useTransition();
   return (
     <button
       type="button"
       disabled={pending}
-      onClick={() => start(async () => { await logExit(logId); })}
+      onClick={() => start(async () => { await logExit(logId); router.refresh(); })}
       className="rounded-md border border-stone-300 px-2 py-0.5 text-xs text-stone-600 hover:bg-stone-100 disabled:opacity-50"
     >
       {pending ? "…" : "Out"}
