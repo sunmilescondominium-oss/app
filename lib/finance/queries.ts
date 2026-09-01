@@ -6,8 +6,11 @@ import type {
   SalesReport,
   PLReport,
   PLRow,
+  PLRowWithComparison,
+  PLReportFull,
   MonthPoint,
   Expense,
+  ExpenseByCategory,
   FinanceSettings,
 } from "./types";
 
@@ -97,6 +100,111 @@ export async function monthlyCompare(months = 6): Promise<MonthPoint[]> {
     out.push({ month: m, income, expense, net: r2(income - expense) });
   }
   return out;
+}
+
+export async function plReportFull(
+  from: string,
+  to: string,
+  priorFrom?: string,
+  priorTo?: string,
+): Promise<PLReportFull> {
+  const admin = createAdminClient();
+  const hasPrior = !!(priorFrom && priorTo);
+
+  type Row = { business_line: string; amount: number };
+  const [colsRes, expsRes, pColsRes, pExpsRes] = await Promise.all([
+    admin.from("collections").select("business_line, amount").gte("collected_on", from).lte("collected_on", to),
+    admin.from("expenses").select("business_line, amount").gte("expense_date", from).lte("expense_date", to),
+    hasPrior
+      ? admin.from("collections").select("business_line, amount").gte("collected_on", priorFrom!).lte("collected_on", priorTo!)
+      : Promise.resolve({ data: [] }),
+    hasPrior
+      ? admin.from("expenses").select("business_line, amount").gte("expense_date", priorFrom!).lte("expense_date", priorTo!)
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  function buildMaps(cols: Row[], exps: Row[]) {
+    const inc = new Map<string, number>();
+    const exp = new Map<string, number>();
+    for (const c of cols) inc.set(c.business_line, (inc.get(c.business_line) ?? 0) + Number(c.amount));
+    for (const e of exps) exp.set(e.business_line, (exp.get(e.business_line) ?? 0) + Number(e.amount));
+    return { inc, exp };
+  }
+
+  const { inc, exp } = buildMaps((colsRes.data ?? []) as Row[], (expsRes.data ?? []) as Row[]);
+  const { inc: pInc, exp: pExp } = buildMaps((pColsRes.data ?? []) as Row[], (pExpsRes.data ?? []) as Row[]);
+
+  const rows: PLRowWithComparison[] = COLLECTION_CATEGORIES.map((c) => {
+    const income = r2(inc.get(c.key) ?? 0);
+    const expense = r2(exp.get(c.key) ?? 0);
+    const net = r2(income - expense);
+    const priorIncome = r2(pInc.get(c.key) ?? 0);
+    const priorExpense = r2(pExp.get(c.key) ?? 0);
+    const priorNet = r2(priorIncome - priorExpense);
+    const deltaNet = r2(net - priorNet);
+    return {
+      line: c.key,
+      label: c.label,
+      income,
+      expense,
+      net,
+      margin: income > 0 ? r2((net / income) * 100) : 0,
+      priorIncome,
+      priorExpense,
+      priorNet,
+      deltaNet,
+      deltaNetPct: priorNet !== 0 ? r2((deltaNet / Math.abs(priorNet)) * 100) : null,
+    };
+  }).filter((r) => r.income !== 0 || r.expense !== 0 || r.priorIncome !== 0 || r.priorExpense !== 0);
+
+  const incomeTotal = r2(rows.reduce((s, r) => s + r.income, 0));
+  const expenseTotal = r2(rows.reduce((s, r) => s + r.expense, 0));
+  const netTotal = r2(incomeTotal - expenseTotal);
+  const priorIncomeTotal = r2(rows.reduce((s, r) => s + r.priorIncome, 0));
+  const priorExpenseTotal = r2(rows.reduce((s, r) => s + r.priorExpense, 0));
+  const priorNetTotal = r2(priorIncomeTotal - priorExpenseTotal);
+  const deltaNet = r2(netTotal - priorNetTotal);
+
+  return {
+    rows,
+    incomeTotal,
+    expenseTotal,
+    netTotal,
+    margin: incomeTotal > 0 ? r2((netTotal / incomeTotal) * 100) : 0,
+    priorIncomeTotal,
+    priorExpenseTotal,
+    priorNetTotal,
+    deltaNet,
+    deltaNetPct: priorNetTotal !== 0 ? r2((deltaNet / Math.abs(priorNetTotal)) * 100) : null,
+    hasPrior,
+  };
+}
+
+export async function expenseByCategory(from: string, to: string): Promise<ExpenseByCategory[]> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("expenses")
+    .select("category, amount")
+    .gte("expense_date", from)
+    .lte("expense_date", to);
+
+  const map = new Map<string, { total: number; count: number }>();
+  let grandTotal = 0;
+  for (const e of (data ?? []) as { category: string; amount: number }[]) {
+    const cur = map.get(e.category) ?? { total: 0, count: 0 };
+    cur.total += Number(e.amount);
+    cur.count += 1;
+    map.set(e.category, cur);
+    grandTotal += Number(e.amount);
+  }
+  return [...map.entries()]
+    .map(([category, { total, count }]) => ({
+      category,
+      total: r2(total),
+      count,
+      pct: grandTotal > 0 ? r2((total / grandTotal) * 100) : 0,
+    }))
+    .sort((a, b) => b.total - a.total);
 }
 
 export async function listExpenses(from: string, to: string): Promise<Expense[]> {
