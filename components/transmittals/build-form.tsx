@@ -17,6 +17,9 @@ const PAY_LABEL = Object.fromEntries(PAYMENT_TYPES.map((p) => [p.key, p.label]))
 const inputCls =
   "rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
 
+function isCheck(c: CollectionOption) { return c.payment_type === "check"; }
+function isCash(c: CollectionOption) { return c.payment_type === "cash"; }
+
 export function BuildTransmittalForm({
   defaultDate,
   bankAccounts,
@@ -72,7 +75,13 @@ export function BuildTransmittalForm({
     const allChecked = ids.every((id) => selectedIds.has(id));
     setSelectedIds((s) => { const n = new Set(s); if (allChecked) ids.forEach((id) => n.delete(id)); else ids.forEach((id) => n.add(id)); return n; });
   };
-  const selectedTotal = cols.filter((c) => selectedIds.has(c.id)).reduce((s, c) => s + c.amount, 0);
+
+  const selectedCols = cols.filter((c) => selectedIds.has(c.id));
+  const selectedTotal = selectedCols.reduce((s, c) => s + c.amount, 0);
+  const cashTotal = selectedCols.filter(isCash).reduce((s, c) => s + c.amount, 0);
+  const checkTotal = selectedCols.filter(isCheck).reduce((s, c) => s + c.amount, 0);
+  const checkCount = selectedCols.filter(isCheck).length;
+  const hasMixed = checkTotal > 0 && cashTotal > 0;
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -102,9 +111,11 @@ export function BuildTransmittalForm({
 
   // --- Confirm panel ---
   if (confirming) {
-    const isCash = paymentMode === "cash";
-    const variance = isCash ? Math.round((denomTotal - selectedTotal) * 100) / 100 : 0;
-    const hasDiscrepancy = isCash && variance !== 0;
+    const isCashMode = paymentMode === "cash";
+    // Cash variance only applies to the cash portion, not checks
+    const cashCounted = isCashMode ? denomTotal : 0;
+    const cashVariance = isCashMode ? Math.round((cashCounted - cashTotal) * 100) / 100 : 0;
+    const hasDiscrepancy = isCashMode && cashTotal > 0 && cashVariance !== 0;
 
     return (
       <div className="no-print mb-6 space-y-4 rounded-2xl border border-stone-300 bg-white p-5">
@@ -115,35 +126,58 @@ export function BuildTransmittalForm({
             <span className="text-stone-500">Collections bundled</span>
             <span className="font-medium">{selectedIds.size} item(s)</span>
           </div>
-          <div className="flex justify-between">
-            <span className="text-stone-500">System total (selected)</span>
-            <span className="tabular-nums font-medium">{peso(selectedTotal)}</span>
+          {cashTotal > 0 && (
+            <div className="flex justify-between">
+              <span className="text-stone-500">Cash portion</span>
+              <span className="tabular-nums font-medium">{peso(cashTotal)}</span>
+            </div>
+          )}
+          {checkCount > 0 && (
+            <div className="flex justify-between">
+              <span className="text-stone-500">Checks ({checkCount})</span>
+              <span className="tabular-nums font-medium">{peso(checkTotal)}</span>
+            </div>
+          )}
+          <div className="flex justify-between border-t border-stone-200 pt-1.5 font-semibold text-stone-800">
+            <span>System total</span>
+            <span className="tabular-nums">{peso(selectedTotal)}</span>
           </div>
-          {isCash && (
+          {isCashMode && cashTotal > 0 && (
             <>
-              <div className="flex justify-between">
-                <span className="text-stone-500">Denomination count</span>
-                <span className="tabular-nums font-medium">{peso(denomTotal)}</span>
+              <div className="flex justify-between mt-1">
+                <span className="text-stone-500">Cash denomination count</span>
+                <span className="tabular-nums font-medium">{peso(cashCounted)}</span>
               </div>
-              <div className={`flex justify-between border-t pt-1.5 font-semibold ${hasDiscrepancy ? (variance < 0 ? "text-rose-700" : "text-amber-700") : "text-emerald-700"}`}>
-                <span>{hasDiscrepancy ? (variance < 0 ? "⚠ Shortage" : "⚠ Overage") : "✓ Exact match"}</span>
-                <span className="tabular-nums">{hasDiscrepancy ? peso(Math.abs(variance)) : peso(0)}</span>
+              <div className={`flex justify-between border-t pt-1.5 font-semibold ${hasDiscrepancy ? (cashVariance < 0 ? "text-rose-700" : "text-amber-700") : "text-emerald-700"}`}>
+                <span>{hasDiscrepancy ? (cashVariance < 0 ? "⚠ Cash shortage" : "⚠ Cash overage") : "✓ Cash matches"}</span>
+                <span className="tabular-nums">{hasDiscrepancy ? peso(Math.abs(cashVariance)) : peso(0)}</span>
               </div>
             </>
           )}
-          {!isCash && (
+          {!isCashMode && (
             <div className="flex justify-between text-stone-500">
-              <span>Payment mode</span>
+              <span>Mode</span>
               <span>Bank transfer</span>
             </div>
           )}
         </div>
 
+        {checkCount > 0 && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 space-y-0.5">
+            <p className="font-semibold">Checks included — bring these to the bank:</p>
+            {selectedCols.filter(isCheck).map((c) => (
+              <p key={c.id} className="tabular-nums">
+                {c.check_number ? `Check #${c.check_number}` : "Check"}{c.check_bank ? ` · ${c.check_bank}` : ""}{c.check_date ? ` · due ${c.check_date}` : ""} — {peso(c.amount)}
+              </p>
+            ))}
+          </div>
+        )}
+
         {hasDiscrepancy && (
-          <div className={`rounded-lg border px-3 py-2 text-xs ${variance < 0 ? "border-rose-200 bg-rose-50 text-rose-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
-            {variance < 0
-              ? `Your denomination count is ${peso(Math.abs(variance))} less than the system total. Please recount the cash or edit the collections before submitting. The discrepancy will be recorded on this transmittal.`
-              : `Your denomination count is ${peso(variance)} more than the system total. Please verify before proceeding.`}
+          <div className={`rounded-lg border px-3 py-2 text-xs ${cashVariance < 0 ? "border-rose-200 bg-rose-50 text-rose-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
+            {cashVariance < 0
+              ? `Cash count is ${peso(Math.abs(cashVariance))} less than the cash collections total. Recount or edit before submitting.`
+              : `Cash count is ${peso(cashVariance)} more than the cash collections total. Verify before proceeding.`}
           </div>
         )}
 
@@ -194,7 +228,7 @@ export function BuildTransmittalForm({
             {(["cash", "bank_transfer"] as const).map((m) => (
               <label key={m} className="flex cursor-pointer items-center gap-1.5 text-sm">
                 <input type="radio" name="payment_mode" value={m} checked={paymentMode === m} onChange={() => setPaymentMode(m)} className="accent-amber-600" />
-                {m === "cash" ? "Cash" : "Bank transfer"}
+                {m === "cash" ? "Cash / Checks" : "Bank transfer"}
               </label>
             ))}
           </div>
@@ -242,13 +276,28 @@ export function BuildTransmittalForm({
                     <span className="ml-auto text-xs text-stone-400">{dateCols.length} entries · {peso(dateTotal)}</span>
                   </div>
                   {dateCols.map((c) => (
-                    <div key={c.id} className="flex items-center gap-3 border-t border-stone-100 px-4 py-2.5 pl-10">
-                      <input type="checkbox" checked={selectedIds.has(c.id)} onChange={() => toggleId(c.id)}
-                        className="h-4 w-4 flex-shrink-0 accent-amber-600" aria-label={c.or_number ?? c.id} />
-                      <span className="w-28 truncate text-sm font-medium text-stone-900">{c.or_number ?? "—"}</span>
-                      <span className="flex-1 text-xs text-stone-500">{CAT_LABEL[c.business_line] ?? c.business_line}</span>
-                      <span className="text-xs text-stone-400">{PAY_LABEL[c.payment_type] ?? c.payment_type}</span>
-                      <span className="w-24 text-right text-sm tabular-nums text-stone-700">{peso(c.amount)}</span>
+                    <div key={c.id} className="border-t border-stone-100 px-4 py-2.5 pl-10">
+                      <div className="flex items-center gap-3">
+                        <input type="checkbox" checked={selectedIds.has(c.id)} onChange={() => toggleId(c.id)}
+                          className="h-4 w-4 flex-shrink-0 accent-amber-600" aria-label={c.or_number ?? c.id} />
+                        <span className="w-28 truncate text-sm font-medium text-stone-900">{c.or_number ?? "—"}</span>
+                        <span className="flex-1 text-xs text-stone-500">{CAT_LABEL[c.business_line] ?? c.business_line}</span>
+                        {isCheck(c) ? (
+                          <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">CHECK</span>
+                        ) : (
+                          <span className="text-xs text-stone-400">{PAY_LABEL[c.payment_type] ?? c.payment_type}</span>
+                        )}
+                        <span className="w-24 text-right text-sm tabular-nums text-stone-700">{peso(c.amount)}</span>
+                      </div>
+                      {isCheck(c) && (c.check_number || c.check_bank || c.check_date) && (
+                        <p className="mt-0.5 pl-7 text-[11px] text-amber-700">
+                          {[
+                            c.check_number ? `#${c.check_number}` : null,
+                            c.check_bank,
+                            c.check_date ? `due ${c.check_date}` : null,
+                          ].filter(Boolean).join(" · ")}
+                        </p>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -256,10 +305,32 @@ export function BuildTransmittalForm({
             })}
           </div>
         )}
+
+        {/* Selected summary with cash/check breakdown when mixed */}
+        {hasMixed && selectedIds.size > 0 && (
+          <div className="mt-2 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 text-xs text-stone-600 space-y-0.5">
+            <div className="flex justify-between"><span>Cash collections</span><span className="tabular-nums font-medium">{peso(cashTotal)}</span></div>
+            <div className="flex justify-between"><span>Check collections ({checkCount})</span><span className="tabular-nums font-medium">{peso(checkTotal)}</span></div>
+          </div>
+        )}
       </div>
 
-      {/* Cash: denomination counter */}
-      {paymentMode === "cash" && <DenominationCounter onTotalChange={setDenomTotal} />}
+      {/* Cash: denomination counter — only for the cash portion */}
+      {paymentMode === "cash" && cashTotal > 0 && (
+        <div>
+          {checkTotal > 0 && (
+            <p className="mb-2 text-xs text-stone-500">
+              Count only the <strong>cash portion</strong> ({peso(cashTotal)}). Checks ({peso(checkTotal)}) are deposited separately.
+            </p>
+          )}
+          <DenominationCounter onTotalChange={setDenomTotal} />
+        </div>
+      )}
+      {paymentMode === "cash" && cashTotal === 0 && checkTotal > 0 && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+          All selected collections are checks — no cash denomination count needed. The transmittal will list the checks for bank deposit.
+        </div>
+      )}
 
       {/* Bank transfer */}
       {paymentMode === "bank_transfer" && (
@@ -277,7 +348,7 @@ export function BuildTransmittalForm({
             <label className="mb-1 block text-xs font-medium text-stone-600">Proof of payment (screenshot / PDF)</label>
             <input type="file" name="transfer_proof" accept="image/*,.pdf"
               className="text-sm text-stone-600 file:mr-3 file:rounded-lg file:border-0 file:bg-amber-100 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-amber-800 hover:file:bg-amber-200" />
-            <p className="mt-1 text-[11px] text-stone-400">Max 8 MB. Optional but recommended.</p>
+            <p className="mt-1 text-[11px] text-stone-400">Max 8 MB. Attach the bank confirmation / screenshot.</p>
           </div>
         </div>
       )}
@@ -295,7 +366,8 @@ export function BuildTransmittalForm({
         {!pending && loadState === "done" && selectedIds.size > 0 && (
           <span className="text-xs text-stone-500">
             {selectedIds.size} collection(s) · {peso(selectedTotal)}
-            {paymentMode === "cash" && denomTotal > 0 && ` · counted ${peso(denomTotal)}`}
+            {paymentMode === "cash" && cashTotal > 0 && denomTotal > 0 && ` · cash counted ${peso(denomTotal)}`}
+            {checkCount > 0 && ` · ${checkCount} check(s)`}
           </span>
         )}
       </div>

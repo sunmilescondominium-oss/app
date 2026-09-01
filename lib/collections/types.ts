@@ -78,6 +78,9 @@ export interface Transmittal {
   notes: string | null;
   printed_at: string | null;
   created_at: string;
+  payment_mode: string;
+  transfer_proof_path: string | null;
+  transfer_bank_account_id: string | null;
 }
 
 export interface TransmittalDetail extends Transmittal {

@@ -201,6 +201,74 @@ export default async function TransmittalDetailPage({
           </div>
         )}
 
+        {/* Checks for deposit */}
+        {(() => {
+          const checks = t.collections.filter((c) => c.payment_type === "check");
+          if (checks.length === 0) return null;
+          const checksTotal = checks.reduce((s, c) => s + c.amount, 0);
+          return (
+            <div className="mt-5">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">
+                Checks for deposit ({checks.length})
+              </p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="border-b border-stone-200 text-xs uppercase tracking-wide text-stone-500">
+                    <tr>
+                      <th className="py-2 text-left">OR #</th>
+                      <th className="py-2 text-left">Check #</th>
+                      <th className="py-2 text-left">Bank</th>
+                      <th className="py-2 text-left">Due date</th>
+                      <th className="py-2 text-right">Amount</th>
+                      <th className="py-2 text-center print:hidden">Cleared</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {checks.map((c) => (
+                      <tr key={c.id} className="border-b border-stone-100">
+                        <td className="py-2 tabular-nums">{c.or_number ?? "—"}</td>
+                        <td className="py-2 tabular-nums">{c.check_number ?? "—"}</td>
+                        <td className="py-2">{c.check_bank ?? "—"}</td>
+                        <td className="py-2">{c.check_date ?? "—"}</td>
+                        <td className="py-2 text-right tabular-nums">{peso(c.amount)}</td>
+                        <td className="py-2 text-center print:hidden">
+                          {c.cleared_at ? (
+                            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">Cleared</span>
+                          ) : (
+                            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">Pending</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="font-semibold">
+                      <td colSpan={4} className="py-2">Checks subtotal</td>
+                      <td className="py-2 text-right tabular-nums">{peso(checksTotal)}</td>
+                      <td className="print:hidden" />
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Bank transfer proof */}
+        {t.payment_mode === "bank_transfer" && t.transfer_proof_path && (
+          <div className="no-print mt-4 rounded-xl border border-stone-200 p-3">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">Bank transfer proof</p>
+            <a
+              href={`/api/transmittals/${t.id}/proof`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-stone-300 px-3 py-1.5 text-sm text-amber-700 hover:bg-stone-50 hover:underline"
+            >
+              View proof →
+            </a>
+          </div>
+        )}
+
         <p className="mt-4 text-sm text-stone-700">
           Bank deposit slip ref:{" "}
           <strong>{t.deposit_slip_ref ?? "________________"}</strong>

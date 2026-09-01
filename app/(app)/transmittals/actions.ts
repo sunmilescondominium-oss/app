@@ -95,6 +95,9 @@ export type CollectionOption = {
   business_line: string;
   payment_type: string;
   collected_on: string;
+  check_number: string | null;
+  check_date: string | null;
+  check_bank: string | null;
 };
 
 export type FetchCollectionsResult =
@@ -114,7 +117,7 @@ export async function fetchUntransmittedCollections(): Promise<FetchCollectionsR
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("collections")
-    .select("id, or_number, amount, business_line, payment_type, collected_on")
+    .select("id, or_number, amount, business_line, payment_type, collected_on, check_number, check_date, check_bank")
     .is("transmittal_id", null)
     .is("deleted_at", null)
     .order("collected_on", { ascending: false })
@@ -130,6 +133,9 @@ export async function fetchUntransmittedCollections(): Promise<FetchCollectionsR
       business_line: c.business_line as string,
       payment_type: c.payment_type as string,
       collected_on: c.collected_on as string,
+      check_number: (c.check_number as string | null) ?? null,
+      check_date: (c.check_date as string | null) ?? null,
+      check_bank: (c.check_bank as string | null) ?? null,
     })),
   };
 }
