@@ -1,16 +1,20 @@
 "use client";
 
 import { useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { acknowledgeNda } from "@/app/(app)/guard/actions";
 import { APP_LEGAL_NAME } from "@/lib/config";
 
 export function NdaGate() {
   const [busy, start] = useTransition();
+  const router = useRouter();
 
   function handleAck() {
     start(async () => {
-      await acknowledgeNda();
-      // acknowledgeNda() calls redirect("/guard") on success — navigation is handled server-side
+      const result = await acknowledgeNda();
+      if (result.ok) {
+        router.push("/guard");
+      }
     });
   }
 

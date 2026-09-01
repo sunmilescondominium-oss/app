@@ -83,6 +83,7 @@ export async function markRead(senderId: string): Promise<void> {
     .eq("recipient_id", user.userId)
     .is("read_at", null);
   revalidatePath("/chat");
+  revalidatePath("/", "layout");
 }
 
 /** Toggle a role-pair chat permission (super only). */

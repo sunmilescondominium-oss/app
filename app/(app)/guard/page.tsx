@@ -25,12 +25,24 @@ export default async function GuardPage() {
   const admin = createAdminClient();
 
   const canManage = userHasAnyRole(user, ["admin", "managing_officer", "consultant"]);
-  const [posts, activeShift, flagRow, profile] = await Promise.all([
-    listGuardPosts(),
-    getActiveShift(user.userId),
-    admin.from("feature_flags").select("enabled").eq("key", "guard_hotel_view").maybeSingle(),
-    getGuardProfile(user.userId),
-  ]);
+  let posts: Awaited<ReturnType<typeof listGuardPosts>> = [];
+  let activeShift: Awaited<ReturnType<typeof getActiveShift>> = null;
+  let flagEnabled = false;
+  let profile: Awaited<ReturnType<typeof getGuardProfile>> = null;
+  try {
+    const [p, s, f, pr] = await Promise.all([
+      listGuardPosts(),
+      getActiveShift(user.userId),
+      admin.from("feature_flags").select("enabled").eq("key", "guard_hotel_view").maybeSingle(),
+      getGuardProfile(user.userId),
+    ]);
+    posts = p;
+    activeShift = s;
+    flagEnabled = f.data?.enabled === true;
+    profile = pr;
+  } catch (err) {
+    console.error("[GuardPage] initial data fetch error:", err);
+  }
 
   // NDA gate — must acknowledge before accessing the portal
   if (!profile?.guardNdaAcknowledgedAt) {
@@ -61,7 +73,7 @@ export default async function GuardPage() {
     );
   }
 
-  const hotelViewEnabled = flagRow.data?.enabled === true;
+  const hotelViewEnabled = flagEnabled;
   const isHotelGate = activeShift?.postCode === "hotel_gate";
 
   let entries: Awaited<ReturnType<typeof listTodayEntrances>> = [];
