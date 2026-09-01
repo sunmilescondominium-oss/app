@@ -72,7 +72,7 @@ export async function closeShift(
   const admin = createAdminClient();
   const { data: session } = await admin
     .from("hotel_cashier_sessions")
-    .select("id, cashier_user_id, opened_at, beginning_ar_no, closed_at, shift_type, collection_starts_at, collection_ends_at")
+    .select("id, cashier_user_id, opened_at, beginning_ar_no, closed_at, shift_type, collection_starts_at, collection_ends_at, bagged_at")
     .eq("id", sessionId)
     .maybeSingle();
 
@@ -85,6 +85,8 @@ export async function closeShift(
     return { ok: false, error: "Only the cashier on duty or a supervisor can close this shift." };
 
   const collectionEndsAt = (session.collection_ends_at as string | null) ?? null;
+  const baggedAt = (session.bagged_at as string | null) ?? null;
+  const bagSkipped = !baggedAt;
 
   const closedAt = new Date().toISOString();
 
@@ -95,6 +97,7 @@ export async function closeShift(
       closed_at: closedAt,
       closed_by: user.userId,
       notes: notes.trim() || null,
+      bag_skipped: bagSkipped,
     })
     .eq("id", sessionId);
 
@@ -494,6 +497,44 @@ export async function correctShiftPayment(
   });
 
   revalidatePath(`/hotel/shifts/${reportId}/report`);
+  revalidatePath("/hotel/shifts");
+  return { ok: true };
+}
+
+export async function bagCollection(
+  sessionId: string,
+  denominationCounts: Record<string, number>,
+): Promise<ActionResult> {
+  const user = await requireAuth();
+  if (!userHasAnyRole(user, [...CASHIER_ROLES]))
+    return { ok: false, error: "Access denied." };
+
+  const admin = createAdminClient();
+  const { data: session } = await admin
+    .from("hotel_cashier_sessions")
+    .select("id, cashier_user_id, closed_at, collection_ends_at")
+    .eq("id", sessionId)
+    .maybeSingle();
+
+  if (!session) return { ok: false, error: "Session not found." };
+  if (session.closed_at) return { ok: false, error: "Session is already closed." };
+
+  const isSupervisor = userHasAnyRole(user, [...SUPERVISOR_ROLES]);
+  const isOwnSession = (session.cashier_user_id as string) === user.userId;
+  if (!isOwnSession && !isSupervisor)
+    return { ok: false, error: "Only the on-duty cashier can save denomination counts." };
+
+  const { error } = await admin
+    .from("hotel_cashier_sessions")
+    .update({
+      bag_denominations: denominationCounts,
+      bagged_at: new Date().toISOString(),
+      bagged_by: user.userId,
+    })
+    .eq("id", sessionId);
+
+  if (error) return { ok: false, error: error.message };
+
   revalidatePath("/hotel/shifts");
   return { ok: true };
 }

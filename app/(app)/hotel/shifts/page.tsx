@@ -128,9 +128,11 @@ export default async function ShiftsPage() {
                       return ` · Bagging cutoff: ${fmt(en)}`;
                     }
                   }
-                  if (active.shiftType === "day")   return " · Collection cutoff: 5:40 PM";
-                  if (active.shiftType === "night") return " · Collection cutoff: 5:40 AM";
-                  return null;
+                  // Dynamic fallback: opened_at + 12h - 20min
+                  const cutoff = new Date(
+                    new Date(active.openedAt).getTime() + 12 * 60 * 60 * 1000 - 20 * 60 * 1000,
+                  );
+                  return ` · Collection cutoff: ${cutoff.toLocaleTimeString("en-PH", { timeZone: "Asia/Manila", hour: "2-digit", minute: "2-digit" })}`;
                 })()}
               </p>
             </div>
@@ -194,8 +196,10 @@ export default async function ShiftsPage() {
           {active && (isOnDuty || isSupervisor) && (
             <StartBaggingButton
               sessionId={active.id}
+              openedAt={active.openedAt}
               collectionStartsAt={active.collectionStartsAt}
               collectionEndsAt={active.collectionEndsAt}
+              bagDenominations={active.bagDenominations}
               isOnDuty={isOnDuty}
             />
           )}
@@ -207,7 +211,11 @@ export default async function ShiftsPage() {
               <p className="mb-3 text-xs text-stone-500">
                 Enter the last AR number you issued. A shift report will be auto-generated and sent to Hotel &amp; Rental Monitoring for acknowledgement.
               </p>
-              <CloseShiftForm sessionId={active.id} activeStayCount={activeStayCount} />
+              <CloseShiftForm
+                sessionId={active.id}
+                activeStayCount={activeStayCount}
+                bagDone={!!active.baggedAt}
+              />
               {isSupervisor && !isOnDuty && (
                 <p className="mt-2 text-[11px] font-medium text-amber-700">
                   ⚠ You are force-closing {active.cashierName}&apos;s shift as supervisor.

@@ -18,6 +18,10 @@ export interface CashierSession {
   shiftType: ShiftType | null;
   collectionStartsAt: string | null;
   collectionEndsAt: string | null;
+  bagDenominations: Record<string, number> | null;
+  baggedAt: string | null;
+  bagSkipped: boolean;
+  bagSkippedReason: string | null;
 }
 
 /**
@@ -257,6 +261,10 @@ function mapSessionRaw(data: Record<string, unknown>, names: Map<string, string>
     shiftType: (data.shift_type as ShiftType | null) ?? null,
     collectionStartsAt: (data.collection_starts_at as string | null) ?? null,
     collectionEndsAt: (data.collection_ends_at as string | null) ?? null,
+    bagDenominations: (data.bag_denominations as Record<string, number> | null) ?? null,
+    baggedAt: (data.bagged_at as string | null) ?? null,
+    bagSkipped: (data.bag_skipped as boolean | null) ?? false,
+    bagSkippedReason: (data.bag_skipped_reason as string | null) ?? null,
   };
 }
 
@@ -308,6 +316,10 @@ export interface ShiftReport {
   postCutoffTotal: number | null;
   postCutoffCount: number | null;
   postCutoffPaymentsJson: PaymentRow[];
+  // Cashier bag denominations (from hotel_cashier_sessions)
+  bagDenominations: Record<string, number> | null;
+  baggedAt: string | null;
+  bagSkipped: boolean;
 }
 
 export async function getShiftReport(sessionId: string): Promise<ShiftReport | null> {
@@ -319,13 +331,21 @@ export async function getShiftReport(sessionId: string): Promise<ShiftReport | n
     .maybeSingle();
   if (!data) return null;
 
-  const { data: corrRows } = await admin
-    .from("hotel_shift_corrections")
-    .select("id, corrector_name, corrected_at, payment_index, field, old_value, new_value, reason")
-    .eq("report_id", (data as Record<string, unknown>).id as string)
-    .order("corrected_at", { ascending: true });
+  const [corrResult, sessionResult] = await Promise.all([
+    admin
+      .from("hotel_shift_corrections")
+      .select("id, corrector_name, corrected_at, payment_index, field, old_value, new_value, reason")
+      .eq("report_id", (data as Record<string, unknown>).id as string)
+      .order("corrected_at", { ascending: true }),
+    admin
+      .from("hotel_cashier_sessions")
+      .select("bag_denominations, bagged_at, bag_skipped")
+      .eq("id", sessionId)
+      .maybeSingle(),
+  ]);
 
-  return mapReport(data, corrRows ?? []);
+  const sessionData = sessionResult.data as Record<string, unknown> | null;
+  return mapReport(data, corrResult.data ?? [], sessionData);
 }
 
 export async function listPendingShiftReports(): Promise<ShiftReport[]> {
@@ -348,7 +368,7 @@ export async function listShiftReports(limit = 20): Promise<ShiftReport[]> {
   return (data ?? []).map((r) => mapReport(r as Record<string, unknown>));
 }
 
-function mapReport(data: Record<string, unknown>, corrRows: Record<string, unknown>[] = []): ShiftReport {
+function mapReport(data: Record<string, unknown>, corrRows: Record<string, unknown>[] = [], sessionData: Record<string, unknown> | null = null): ShiftReport {
   const ackRaw = data.ack;
   const ack = (ackRaw && !Array.isArray(ackRaw)) ? ackRaw as { full_name: string } : null;
   return {
@@ -392,6 +412,9 @@ function mapReport(data: Record<string, unknown>, corrRows: Record<string, unkno
     postCutoffTotal: data.post_cutoff_total != null ? Number(data.post_cutoff_total) : null,
     postCutoffCount: data.post_cutoff_count != null ? Number(data.post_cutoff_count) : null,
     postCutoffPaymentsJson: (data.post_cutoff_payments_json as ShiftReport["postCutoffPaymentsJson"]) ?? [],
+    bagDenominations: (sessionData?.bag_denominations as Record<string, number> | null) ?? null,
+    baggedAt: (sessionData?.bagged_at as string | null) ?? null,
+    bagSkipped: (sessionData?.bag_skipped as boolean | null) ?? false,
   };
 }
 

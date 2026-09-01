@@ -394,6 +394,60 @@ export default async function ShiftReportPage({ params }: { params: Promise<{ se
           </div>
         )}
 
+        {/* Cashier bag denomination breakdown */}
+        {report.bagDenominations && Object.values(report.bagDenominations).some(v => v > 0) && (() => {
+          const PESO_DENOMS = [1000, 500, 200, 100, 50, 20, 10, 5, 1] as const;
+          const bagTotal = PESO_DENOMS.reduce(
+            (s, d) => s + d * (report.bagDenominations![String(d)] ?? 0), 0,
+          );
+          return (
+            <div className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4 print:border-stone-200 print:bg-white">
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-sm font-semibold text-emerald-900">
+                  Cashier Denomination Breakdown
+                </p>
+                {report.baggedAt && (
+                  <span className="text-[10px] text-emerald-700">
+                    Bagged {fmtTime(report.baggedAt)}
+                  </span>
+                )}
+              </div>
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+                {PESO_DENOMS.map((d) => {
+                  const qty = report.bagDenominations![String(d)] ?? 0;
+                  if (qty === 0) return null;
+                  return (
+                    <div key={d} className="rounded-lg border border-emerald-200 bg-white px-2 py-1.5 text-center">
+                      <p className="text-[10px] font-medium text-stone-500">₱{d.toLocaleString()}</p>
+                      <p className="text-sm font-bold tabular-nums text-stone-800">{qty}</p>
+                      <p className="text-[10px] text-stone-400">
+                        = ₱{(qty * d).toLocaleString("en-PH")}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="mt-2 flex justify-end">
+                <span className="text-sm font-bold text-emerald-900">
+                  Bag total: ₱{bagTotal.toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+              {Math.abs(bagTotal - report.totalCollected) > 0.01 && (
+                <p className="mt-1 text-xs text-amber-800">
+                  ⚠ Bag total differs from collected total by ₱{Math.abs(bagTotal - report.totalCollected).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                </p>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* Bag-skipped flag */}
+        {report.bagSkipped && !report.bagDenominations && (
+          <div className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 print:hidden">
+            ⚠ Cashier did not complete Count &amp; Bagging — monitoring must count manually.
+          </div>
+        )}
+
         {/* Monitoring corrections panel */}
         {canAck && (
           <div className="mt-6 border-t border-stone-100 pt-4 print:hidden">
