@@ -100,7 +100,9 @@ export async function acknowledgeNda(): Promise<ActionResult> {
     .update({ guard_nda_acknowledged_at: new Date().toISOString() })
     .eq("id", user.userId);
   if (error) return { ok: false, error: error.message };
-  revalidatePath("/guard");
+  // Do NOT call revalidatePath here — it triggers a mid-action server re-render
+  // of the guard page which crashes if guard data fetches fail. The client's
+  // router.push("/guard") handles the navigation and fresh data fetch instead.
   return { ok: true };
 }
 

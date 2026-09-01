@@ -431,31 +431,37 @@ export interface HandoverReport {
 }
 
 export async function getLastHandoverForPost(postId: string): Promise<HandoverReport | null> {
-  const admin = createAdminClient();
-  const { data } = await admin
-    .from("guard_handover_reports")
-    .select(`
-      id, shift_type, incidents_notes, pending_items, acknowledged_at, created_at,
-      outgoing_guard:profiles!guard_handover_reports_outgoing_guard_id_fkey(display_label),
-      acknowledged_by_profile:profiles!guard_handover_reports_acknowledged_by_fkey(display_label),
-      guard_posts(name)
-    `)
-    .eq("post_id", postId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (!data) return null;
-  return {
-    id: data.id as string,
-    shiftType: data.shift_type as "day" | "night",
-    outgoingGuardLabel: ((data.outgoing_guard as { display_label?: string } | null)?.display_label) ?? "Guard",
-    postName: ((data.guard_posts as { name?: string } | null)?.name) ?? "",
-    incidentsNotes: (data.incidents_notes as string | null) ?? null,
-    pendingItems: (data.pending_items as string | null) ?? null,
-    acknowledgedAt: (data.acknowledged_at as string | null) ?? null,
-    acknowledgedByLabel: ((data.acknowledged_by_profile as { display_label?: string } | null)?.display_label) ?? null,
-    createdAt: data.created_at as string,
-  };
+  try {
+    const admin = createAdminClient();
+    // Use column-name FK syntax (not constraint-name) so this works regardless
+    // of what the FK constraint was named in the live DB.
+    const { data, error } = await admin
+      .from("guard_handover_reports")
+      .select(`
+        id, shift_type, incidents_notes, pending_items, acknowledged_at, created_at,
+        outgoing_guard:profiles!outgoing_guard_id(display_label),
+        acknowledged_by_profile:profiles!acknowledged_by(display_label),
+        guard_posts(name)
+      `)
+      .eq("post_id", postId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error || !data) return null;
+    return {
+      id: data.id as string,
+      shiftType: data.shift_type as "day" | "night",
+      outgoingGuardLabel: ((data.outgoing_guard as { display_label?: string } | null)?.display_label) ?? "Guard",
+      postName: ((data.guard_posts as { name?: string } | null)?.name) ?? "",
+      incidentsNotes: (data.incidents_notes as string | null) ?? null,
+      pendingItems: (data.pending_items as string | null) ?? null,
+      acknowledgedAt: (data.acknowledged_at as string | null) ?? null,
+      acknowledgedByLabel: ((data.acknowledged_by_profile as { display_label?: string } | null)?.display_label) ?? null,
+      createdAt: data.created_at as string,
+    };
+  } catch {
+    return null;
+  }
 }
 
 /** Get referral record for a stay. */
