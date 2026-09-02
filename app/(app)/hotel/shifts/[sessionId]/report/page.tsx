@@ -53,9 +53,19 @@ export default async function ShiftReportPage({ params }: { params: Promise<{ se
           <p className="text-xs text-stone-400">Hotel / Shifts</p>
           <h1 className="text-lg font-bold text-stone-900">Cashier Shift Report</h1>
         </div>
-        <a href="javascript:window.print()" className="rounded-lg border border-stone-300 px-3 py-2 text-sm text-stone-600 hover:bg-stone-50 print:hidden">
-          Print / Save PDF
-        </a>
+        <div className="flex items-center gap-2">
+          {isSupervisor && (
+            <a
+              href={`/hotel/shifts/${report.sessionId}/discrepancy-report`}
+              className="rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-100"
+            >
+              Discrepancy Report →
+            </a>
+          )}
+          <a href="javascript:window.print()" className="rounded-lg border border-stone-300 px-3 py-2 text-sm text-stone-600 hover:bg-stone-50">
+            Print / Save PDF
+          </a>
+        </div>
       </div>
 
       {/* Discrepancy alert — prominent, shown before the report */}
