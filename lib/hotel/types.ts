@@ -50,6 +50,8 @@ export interface Stay {
   portal_token: string | null;
   checkout_requested: boolean;
   extension_requested_hours: number | null;
+  shortfall_amount: number | null;
+  shortfall_reason: string | null;
   unit?: { unit_number: string } | null;
   rate_plan_name?: string | null;
 }

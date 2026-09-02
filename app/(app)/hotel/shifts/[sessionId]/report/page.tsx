@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { requireModule } from "@/lib/auth/dal";
-import { getShiftReport } from "@/lib/hotel/session";
+import { getShiftReport, getCashierActivity } from "@/lib/hotel/session";
 import { canWriteModule } from "@/lib/rbac/modules";
 import { AcknowledgeForm } from "./acknowledge-form";
 import { DiscrepancyReasonForm } from "./discrepancy-reason-form";
@@ -30,7 +30,10 @@ function fmtTime(iso: string) {
 export default async function ShiftReportPage({ params }: { params: Promise<{ sessionId: string }> }) {
   const user = await requireModule("hotel");
   const { sessionId } = await params;
-  const report = await getShiftReport(sessionId);
+  const [report, activity] = await Promise.all([
+    getShiftReport(sessionId),
+    getCashierActivity(sessionId),
+  ]);
   if (!report) notFound();
 
   const isSupervisor = user.roleKeys.some((r) =>
@@ -460,6 +463,46 @@ export default async function ShiftReportPage({ params }: { params: Promise<{ se
               )}
             </p>
             <CorrectionsPanel report={{ id: report.id, paymentsJson: report.paymentsJson, corrections: report.corrections }} />
+          </div>
+        )}
+
+        {/* Cashier Activity Log */}
+        {activity.length > 0 && isSupervisor && (
+          <div className="mt-6 border-t border-stone-100 pt-4 print:hidden">
+            <p className="mb-3 text-sm font-semibold text-stone-700">
+              Cashier Activity Log
+              <span className="ml-2 rounded-full bg-stone-100 px-2 py-0.5 text-xs font-normal text-stone-500">
+                {activity.length} event{activity.length !== 1 ? "s" : ""}
+              </span>
+            </p>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[560px] text-left text-xs">
+                <thead className="border-b border-stone-200 bg-stone-50 text-[10px] uppercase tracking-wide text-stone-500">
+                  <tr>
+                    <th className="px-3 py-2">Time</th>
+                    <th className="px-3 py-2">Action</th>
+                    <th className="px-3 py-2">On</th>
+                    <th className="px-3 py-2">Detail</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {activity.map((e) => {
+                    const actionLabel = e.action === "insert" ? "Check-in" : e.action === "update" && e.entity === "stays" ? "Check-out / Update" : e.action === "update" && e.entity === "stay_payments" ? "Payment" : e.entity === "hotel_cashier_sessions" ? "Session" : e.action;
+                    const entityLabel = e.entity === "stays" ? "Stay" : e.entity === "stay_payments" ? "Payment" : e.entity === "hotel_cashier_sessions" ? "Shift" : e.entity;
+                    const diff = e.diff;
+                    const detail = diff ? Object.entries(diff).filter(([k]) => ["status", "amount", "method", "ar_no"].includes(k)).map(([k, v]) => `${k}: ${String(v)}`).join(" · ") : "";
+                    return (
+                      <tr key={e.id} className="border-b border-stone-100 last:border-0">
+                        <td className="px-3 py-2 tabular-nums text-stone-400">{fmtTime(e.createdAt)}</td>
+                        <td className="px-3 py-2 font-medium text-stone-700">{actionLabel}</td>
+                        <td className="px-3 py-2 text-stone-500">{entityLabel}</td>
+                        <td className="px-3 py-2 text-stone-400">{detail || "—"}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 

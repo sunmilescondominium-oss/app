@@ -53,7 +53,7 @@ export function CollectionsPanel({
   date: string;
 }) {
   const router = useRouter();
-  const [sortBy, setSortBy] = useState<"time" | "unit" | "category">("time");
+  const [sortBy, setSortBy] = useState<"time" | "unit" | "category" | "collector">("time");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Collection | null>(null);
   const [clearing, setClearing] = useState<Collection | null>(null);
@@ -105,6 +105,11 @@ export function CollectionsPanel({
     if (sortBy === "category") {
       return (a.business_line ?? "").localeCompare(b.business_line ?? "") || new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
     }
+    if (sortBy === "collector") {
+      const ca = a.collector_name ?? roleLabel(a.collected_by_role);
+      const cb = b.collector_name ?? roleLabel(b.collected_by_role);
+      return ca.localeCompare(cb) || new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+    }
     return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
   });
 
@@ -152,14 +157,14 @@ export function CollectionsPanel({
       {/* Sort controls */}
       <div className="no-print mb-2 flex items-center gap-2 text-xs text-stone-500">
         <span className="font-medium">Sort:</span>
-        {(["time", "unit", "category"] as const).map((opt) => (
+        {(["time", "unit", "category", "collector"] as const).map((opt) => (
           <button
             key={opt}
             type="button"
             onClick={() => setSortBy(opt)}
             className={`rounded-full px-2.5 py-0.5 font-medium transition ${sortBy === opt ? "bg-amber-600 text-white" : "bg-stone-100 text-stone-600 hover:bg-stone-200"}`}
           >
-            {opt === "time" ? "Time" : opt === "unit" ? "Unit" : "Category"}
+            {opt === "time" ? "Time" : opt === "unit" ? "Unit" : opt === "category" ? "Category" : "Collector"}
           </button>
         ))}
       </div>

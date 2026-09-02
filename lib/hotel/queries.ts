@@ -47,6 +47,8 @@ function mapStay(r: Record<string, unknown>): Stay {
     portal_token: (r.portal_token as string | null) ?? null,
     checkout_requested: Boolean(r.checkout_requested),
     extension_requested_hours: r.extension_requested_hours == null ? null : Number(r.extension_requested_hours),
+    shortfall_amount: r.shortfall_amount == null ? null : Number(r.shortfall_amount),
+    shortfall_reason: (r.shortfall_reason as string | null) ?? null,
     extra_persons: Number(r.extra_persons ?? 0),
     extra_person_rate: Number(r.extra_person_rate ?? 0),
     extra_person_amount: Number(r.extra_person_amount ?? 0),

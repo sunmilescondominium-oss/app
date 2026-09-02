@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { logAudit } from "@/lib/audit";
 import { roomCharge, promoDiscount, stayTotals, round2 } from "@/lib/hotel/rates";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { todayManila } from "@/lib/collections/summary";
+import { todayManila, peso } from "@/lib/collections/summary";
 import { HOTEL_PAYMENT_METHODS, ROOM_ASSET_CHECKLIST } from "@/lib/config";
 import { createCleaningTask } from "@/lib/housekeeping/create-task";
 import { createNotification } from "@/lib/notifications/queries";
@@ -15,7 +15,10 @@ import type { ImportResult } from "@/lib/imports/types";
 import { getActiveSession } from "@/lib/hotel/session";
 import { checkReferralPlate, checkCouponNo } from "@/lib/guard/queries";
 
-export type ActionResult = { ok: true } | { ok: false; error: string };
+export type ActionResult =
+  | { ok: true }
+  | { ok: false; error: string }
+  | { ok: false; error: string; shortfall: number; canForce: true };
 
 async function getDisplayLabel(userId: string): Promise<string> {
   const admin = createAdminClient();
@@ -439,6 +442,31 @@ export async function checkOut(
   const supabase = await createClient();
 
   const isTest = shortStayType === "test";
+
+  // Balance check: if guest still owes money, block checkout and let cashier force it with a reason.
+  if (!isTest) {
+    const admin = createAdminClient();
+    const [stayRes, paysRes, ordsRes] = await Promise.all([
+      admin.from("stays").select("base_rate, extra_hour_rate, base_hours, planned_hours, discount_amount, extra_person_amount, check_in_at").eq("id", stayId).maybeSingle(),
+      admin.from("stay_payments").select("amount").eq("stay_id", stayId),
+      admin.from("stay_orders").select("qty, unit_price").eq("stay_id", stayId),
+    ]);
+    if (stayRes.data) {
+      const paid = (paysRes.data ?? []).reduce((s, p) => s + Number(p.amount), 0);
+      const ordersTotal = (ordsRes.data ?? []).reduce((s, o) => s + Number(o.qty) * Number(o.unit_price), 0);
+      const elapsedH = (Date.now() - new Date(stayRes.data.check_in_at as string).getTime()) / 3_600_000;
+      const effHours = Math.max(stayRes.data.planned_hours as number, Math.ceil(elapsedH));
+      const { balance } = stayTotals(
+        { ...stayRes.data, planned_hours: effHours } as never,
+        paid,
+        ordersTotal,
+      );
+      if (balance > 0.01) {
+        return { ok: false, error: `Balance of ${peso(balance)} must be settled before check-out.`, shortfall: round2(balance), canForce: true };
+      }
+    }
+  }
+
   const extraFields: Record<string, unknown> = {};
   if (isTest) extraFields.voided_as_test = true;
   if (shortStayType === "early" && shortStayReason) extraFields.short_stay_reason = shortStayReason.trim();
@@ -482,6 +510,79 @@ export async function checkOut(
     entityId: stayId,
     diff: { status: "checked_out", shortStayType: shortStayType ?? "normal" },
   });
+  revalidatePath("/hotel");
+  revalidatePath(`/hotel/${stayId}`);
+  revalidatePath("/housekeeping");
+  return { ok: true };
+}
+
+/**
+ * Force checkout when a shortfall exists.
+ * Logs the reason, stamps the shortfall on the stay, notifies monitoring + admin.
+ */
+export async function checkOutForced(
+  stayId: string,
+  shortfallAmount: number,
+  reason: string,
+): Promise<ActionResult> {
+  const user = await requireModuleWrite("hotel");
+  const isSupervisor = userHasAnyRole(user, ["hotel_rental_monitoring", "admin", "managing_officer", "consultant", "accounting"]);
+  if (!isSupervisor) {
+    const gate = await requireCashierOnDuty(user.userId);
+    if (gate) return gate;
+  }
+  const trimReason = reason.trim();
+  if (!trimReason) return { ok: false, error: "A reason is required to force check-out with a shortfall." };
+  if (shortfallAmount <= 0) return { ok: false, error: "Invalid shortfall amount." };
+
+  const supabase = await createClient();
+  const now = new Date().toISOString();
+
+  const { error } = await supabase
+    .from("stays")
+    .update({
+      status: "checked_out",
+      check_out_at: now,
+      portal_token: null,
+      shortfall_amount: shortfallAmount,
+      shortfall_reason: trimReason,
+      shortfall_forced_at: now,
+      shortfall_forced_by: user.userId,
+    })
+    .eq("id", stayId)
+    .eq("status", "active");
+  if (error) return { ok: false, error: error.message };
+
+  // Post-checkout housekeeping task
+  const { data: outStay } = await supabase.from("stays").select("unit_id, guest_label").eq("id", stayId).maybeSingle();
+  await createCleaningTask({ unitId: outStay?.unit_id ?? null, stayId, actorUserId: user.userId, via: "checkout" });
+
+  await logAudit({
+    actorUserId: user.userId,
+    actorRoles: user.roleKeys,
+    action: "update",
+    entity: "stays",
+    entityId: stayId,
+    diff: { status: "checked_out", shortfall_amount: shortfallAmount, shortfall_reason: trimReason, forced: true },
+  });
+
+  const actorLabel = await getDisplayLabel(user.userId);
+  const guestLabel = outStay?.guest_label ?? "guest";
+  const body = `${actorLabel} forced checkout for ${guestLabel} with a shortfall of ${peso(shortfallAmount)}. Reason: ${trimReason}. Cashier may be held accountable for the shortage.`;
+
+  for (const role of ["hotel_rental_monitoring", "admin"] as const) {
+    void createNotification({
+      kind: "checkout_shortfall",
+      title: `⚠️ Checkout shortfall — ${peso(shortfallAmount)} short`,
+      body,
+      link: `/hotel/${stayId}`,
+      entityType: "stay",
+      entityId: stayId,
+      recipientRole: role,
+      createdBy: user.userId,
+    });
+  }
+
   revalidatePath("/hotel");
   revalidatePath(`/hotel/${stayId}`);
   revalidatePath("/housekeeping");

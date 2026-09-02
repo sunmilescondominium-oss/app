@@ -134,6 +134,15 @@ export default async function StayFolioPage({
         </div>
       )}
 
+      {/* Shortfall notice */}
+      {stay.shortfall_amount != null && stay.shortfall_amount > 0 && (
+        <div className="no-print mb-4 rounded-2xl border-2 border-rose-500 bg-rose-50 p-4">
+          <p className="text-sm font-bold text-rose-800">🚨 Checkout shortfall — {peso(stay.shortfall_amount)}</p>
+          {stay.shortfall_reason && <p className="mt-0.5 text-xs text-rose-700">Reason: {stay.shortfall_reason}</p>}
+          <p className="mt-1 text-xs text-rose-600">Hotel &amp; Rental Monitoring and Admin were notified. The cashier may be held accountable for this shortage.</p>
+        </div>
+      )}
+
       {/* Room transfer notice */}
       {transferRecord && (
         <div className="no-print mb-4 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">

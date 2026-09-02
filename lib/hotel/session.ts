@@ -418,6 +418,49 @@ function mapReport(data: Record<string, unknown>, corrRows: Record<string, unkno
   };
 }
 
+export interface CashierActivityEntry {
+  id: string;
+  action: string;
+  entity: string;
+  entityId: string | null;
+  actorRoles: string[];
+  createdAt: string;
+  diff: Record<string, unknown> | null;
+}
+
+/** Returns audit log entries performed by the cashier during the given session window. */
+export async function getCashierActivity(sessionId: string): Promise<CashierActivityEntry[]> {
+  const admin = createAdminClient();
+  const { data: session } = await admin
+    .from("hotel_cashier_sessions")
+    .select("cashier_user_id, opened_at, closed_at")
+    .eq("id", sessionId)
+    .maybeSingle();
+  if (!session) return [];
+
+  const from = session.opened_at as string;
+  const to = (session.closed_at as string | null) ?? new Date().toISOString();
+
+  const { data } = await admin
+    .from("audit_log")
+    .select("id, action, entity, entity_id, actor_roles, created_at, diff")
+    .eq("actor_user_id", session.cashier_user_id as string)
+    .gte("created_at", from)
+    .lte("created_at", to)
+    .in("entity", ["stays", "stay_payments", "hotel_cashier_sessions"])
+    .order("created_at", { ascending: true });
+
+  return (data ?? []).map((r) => ({
+    id: r.id as string,
+    action: r.action as string,
+    entity: r.entity as string,
+    entityId: (r.entity_id as string | null) ?? null,
+    actorRoles: (r.actor_roles as string[]) ?? [],
+    createdAt: r.created_at as string,
+    diff: (r.diff as Record<string, unknown> | null) ?? null,
+  }));
+}
+
 /** Check if the current user is the active cashier. Returns session or null. */
 export async function getMyActiveSession(): Promise<CashierSession | null> {
   const supabase = await createClient();
