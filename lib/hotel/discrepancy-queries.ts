@@ -102,7 +102,7 @@ export async function listDiscrepancies(): Promise<DiscrepancyReport> {
 
     admin
       .from("hotel_room_transfers")
-      .select("id, to_stay_id, from_unit_id, transferred_at, stays(guest_label, units(unit_number))")
+      .select("id, to_stay_id, from_unit_id, transferred_at, stays!to_stay_id(guest_label, units(unit_number))")
       .eq("guard_acknowledged", false)
       .lt("transferred_at", threshold15m),
 
