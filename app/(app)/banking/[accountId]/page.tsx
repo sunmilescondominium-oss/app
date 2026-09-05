@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { requireModule } from "@/lib/auth/dal";
-import { getAccount, listTransactions, foldBalances, listReconciliations } from "@/lib/banking/queries";
+import { getAccount, listTransactions, foldBalances, listReconciliations, listAccountOptions } from "@/lib/banking/queries";
 import { listTransmittals } from "@/lib/collections/queries";
 import { ACCOUNT_TYPE_LABEL } from "@/lib/banking/types";
 import { PageHeader, Breadcrumb } from "@/components/ui";
@@ -19,10 +19,11 @@ export default async function BankAccountPage({ params }: { params: Promise<{ ac
   const account = await getAccount(accountId);
   if (!account) notFound();
 
-  const [txns, recons, transmittals] = await Promise.all([
+  const [txns, recons, transmittals, allAccounts] = await Promise.all([
     listTransactions(accountId),
     listReconciliations(accountId),
     canWrite ? listTransmittals(40) : Promise.resolve([]),
+    canWrite ? listAccountOptions() : Promise.resolve([]),
   ]);
   const balances = foldBalances(account.opening_balance, txns);
   const txOptions = transmittals.map((t) => ({
@@ -79,7 +80,7 @@ export default async function BankAccountPage({ params }: { params: Promise<{ ac
           ⬇ Export to Sheets
         </a>
       </div>
-      <Ledger txns={txns} accountId={accountId} canWrite={canWrite} />
+      <Ledger txns={txns} accountId={accountId} canWrite={canWrite} accountOptions={allAccounts} />
 
       {recons.length > 0 && (
         <>

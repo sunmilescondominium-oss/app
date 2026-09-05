@@ -146,6 +146,79 @@ export async function setTxnStatus(txnId: string, accountId: string, status: "pe
   return { ok: true };
 }
 
+/**
+ * Correct a deposit that was recorded against the wrong bank account.
+ * Only works on pending deposits (not yet cleared). Voids the original entry
+ * and re-creates an identical deposit on the correct account, preserving all
+ * amounts, dates, references, and the transmittal link.
+ * Restricted to accounting and admin.
+ */
+export async function correctDepositBank(
+  txnId: string,
+  newAccountId: string,
+  reason: string,
+): Promise<ActionResult> {
+  const user = await requireModuleWrite("banking");
+  if (!user.roleKeys.some((r) => ["accounting", "admin"].includes(r))) {
+    return { ok: false, error: "Only accounting or admin can correct a deposit's bank account." };
+  }
+  if (!newAccountId) return { ok: false, error: "Select the correct bank account." };
+  if (!reason.trim()) return { ok: false, error: "A reason is required for audit purposes." };
+
+  const supabase = await createClient();
+
+  // Fetch the original transaction
+  const { data: orig, error: fetchErr } = await supabase
+    .from("bank_transactions")
+    .select("*")
+    .eq("id", txnId)
+    .maybeSingle();
+  if (fetchErr || !orig) return { ok: false, error: "Transaction not found." };
+  if (orig.kind !== "deposit") return { ok: false, error: "Only deposit transactions can be moved to a different account." };
+  if (orig.status !== "pending") return { ok: false, error: "Only pending (uncleared) deposits can be corrected. Contact your supervisor for cleared entries." };
+  if (orig.bank_account_id === newAccountId) return { ok: false, error: "The deposit is already on that account." };
+
+  const oldAccountId = orig.bank_account_id as string;
+
+  // Void the original entry
+  const { error: voidErr } = await supabase
+    .from("bank_transactions")
+    .update({ status: "void", memo: `${orig.memo ? orig.memo + " · " : ""}[Voided — moved to correct account: ${reason.trim()}]` })
+    .eq("id", txnId);
+  if (voidErr) return { ok: false, error: `Could not void original entry: ${voidErr.message}` };
+
+  // Re-create on the correct account
+  const { error: insErr } = await supabase.from("bank_transactions").insert({
+    bank_account_id: newAccountId,
+    txn_date: orig.txn_date,
+    direction: "in",
+    amount: orig.amount,
+    kind: "deposit",
+    reference: orig.reference,
+    counterparty: orig.counterparty,
+    memo: `${orig.memo ? orig.memo + " · " : ""}[Corrected from wrong account — ${reason.trim()}]`,
+    transmittal_id: orig.transmittal_id,
+    status: "pending",
+    created_by: user.userId,
+    actor_role: primaryRole(user.roleKeys),
+  });
+  if (insErr) return { ok: false, error: `Could not create corrected entry: ${insErr.message}` };
+
+  await logAudit({
+    actorUserId: user.userId,
+    actorRoles: user.roleKeys,
+    action: "update",
+    entity: "bank_transactions",
+    entityId: txnId,
+    diff: { correction: "wrong_bank", from_account: oldAccountId, to_account: newAccountId, reason: reason.trim(), amount: orig.amount },
+  });
+
+  revalidatePath(`/banking/${oldAccountId}`);
+  revalidatePath(`/banking/${newAccountId}`);
+  revalidatePath("/banking");
+  return { ok: true };
+}
+
 /** Snapshot a bank reconciliation for the account (statement vs book-cleared). */
 export async function saveReconciliation(_prev: ActionResult | undefined, formData: FormData): Promise<ActionResult> {
   const user = await requireModuleWrite("banking");
