@@ -72,7 +72,8 @@ export type ModuleKey =
   | "chat"
   | "expenses"
   | "petty_cash"
-  | "pmt_requests";
+  | "pmt_requests"
+  | "changelog";
 
 /**
  * Role groups for the permission matrix admin UI.
@@ -466,8 +467,17 @@ export const MODULES: Record<ModuleKey, ModuleDef> = {
   docs: {
     key: "docs",
     path: "/docs",
-    label: "Documentation",
-    blurb: "System guide, modules & roles reference.",
+    label: "Help & Docs",
+    blurb: "Module guides, workflows & system reference.",
+    milestone: "Admin",
+    read: STAFF_ROLE_KEYS,
+    write: [],
+  },
+  changelog: {
+    key: "changelog",
+    path: "/changelog",
+    label: "Changelog",
+    blurb: "Release history — new features, improvements & fixes.",
     milestone: "Admin",
     read: STAFF_ROLE_KEYS,
     write: [],
