@@ -11,7 +11,7 @@ import {
   type CsvImportRow,
 } from "@/lib/expenses/actions";
 import type { ExpenseCategory, ExpenseVendor, ExpenseSettings, CsvExpenseRow } from "@/lib/expenses/queries";
-import { CSV_TEMPLATE_FIELDS } from "@/lib/expenses/queries";
+import { CSV_TEMPLATE_FIELDS } from "@/lib/expenses/constants";
 
 type AR = { ok: true } | { ok: false; error: string } | undefined;
 

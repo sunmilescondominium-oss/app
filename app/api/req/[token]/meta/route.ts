@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-export async function GET(_req: NextRequest, { params }: { params: { token: string } }) {
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
+  const { token } = await params;
   const admin = createAdminClient();
   const { data } = await admin
     .from("pmt_requests")
     .select("id, status, expires_at, purpose, payee_name, primary_source_type, primary_source_amount, secondary_source_amount")
-    .eq("link_token", params.token)
+    .eq("link_token", token)
     .maybeSingle();
 
   if (!data) return NextResponse.json({ error: "Invalid or expired link." }, { status: 404 });
