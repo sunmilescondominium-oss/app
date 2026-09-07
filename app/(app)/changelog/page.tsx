@@ -79,7 +79,7 @@ const RELEASES: Release[] = [
   },
   {
     version: "v1.26",
-    date: "May 2026",
+    date: "Jun 2026",
     label: "Collection Audit & Edit",
     changes: [
       { kind: "new",      text: "Justified collection edits — admin/accounting/consultant can make audited edits to collection entries with reason logging", link: "/collections" },
@@ -88,7 +88,7 @@ const RELEASES: Release[] = [
   },
   {
     version: "v1.25",
-    date: "Apr 2026",
+    date: "Jun 2026",
     label: "Housekeeping SLA & Shift-Change",
     changes: [
       { kind: "new",      text: "Per-room-type SLA timers — auto-escalate overdue housekeeping tasks based on configurable time limits", link: "/housekeeping" },
@@ -98,7 +98,7 @@ const RELEASES: Release[] = [
   },
   {
     version: "v1.24",
-    date: "Mar 2026",
+    date: "May 2026",
     label: "Transmittal Chain of Custody",
     changes: [
       { kind: "new",      text: "Full transmittal chain of custody — every handoff step recorded with timestamp and signature", link: "/transmittals" },
@@ -108,7 +108,7 @@ const RELEASES: Release[] = [
   },
   {
     version: "v1.23",
-    date: "Feb 2026",
+    date: "May 2026",
     label: "Condo Dues, Renter & Guest Portals",
     changes: [
       { kind: "new",      text: "Condo dues module — per-sqm association dues billing", link: "/condo" },
@@ -119,7 +119,7 @@ const RELEASES: Release[] = [
   },
   {
     version: "v1.22",
-    date: "Jan 2026",
+    date: "Apr 2026",
     label: "HR, Payroll & Scheduling",
     changes: [
       { kind: "new",      text: "HR module — DTR, payroll, employee photos, leave management, and 201 personnel file", link: "/hr" },
@@ -131,7 +131,7 @@ const RELEASES: Release[] = [
   },
   {
     version: "v1.21",
-    date: "Dec 2025",
+    date: "Mar–Apr 2026",
     label: "Hotel Phase B & Housekeeping",
     changes: [
       { kind: "new",      text: "Hotel day-end reporting, POS receipt printing, and tax configuration", link: "/hotel" },
@@ -142,7 +142,7 @@ const RELEASES: Release[] = [
   },
   {
     version: "v1.20",
-    date: "Nov 2025",
+    date: "Mar 2026",
     label: "Hotel Operations & Rentals",
     changes: [
       { kind: "new",      text: "Hotel Ops module — room board, guest stays, folios, and receipts", link: "/hotel" },
@@ -153,7 +153,7 @@ const RELEASES: Release[] = [
   },
   {
     version: "v1.10",
-    date: "Oct 2025",
+    date: "Feb 2026",
     label: "Finance, Banking & Access Control",
     changes: [
       { kind: "new",      text: "P&L / Reports module — sales report, expense summary, and monthly profit view", link: "/finance" },
@@ -165,7 +165,7 @@ const RELEASES: Release[] = [
   },
   {
     version: "v1.00",
-    date: "Sep 2025",
+    date: "Jan 2026",
     label: "MVP Launch",
     changes: [
       { kind: "new",      text: "Inventory module — property/unit registry with custom fields and CSV import", link: "/inventory" },
