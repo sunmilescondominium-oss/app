@@ -32,7 +32,7 @@ export default async function PettyCashPage() {
     const { data: ur } = await adminSupa
       .from("user_roles")
       .select("user_id, profiles(full_name)")
-      .in("role", ["accounting", "accounting_staff", "admin"]);
+      .in("role_key", ["accounting", "accounting_staff", "admin"]);
     staffOptions = (ur ?? [])
       .map((r: Record<string, unknown>) => ({
         id: r.user_id as string,
