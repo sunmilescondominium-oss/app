@@ -71,7 +71,8 @@ export type ModuleKey =
   | "docs"
   | "chat"
   | "expenses"
-  | "petty_cash";
+  | "petty_cash"
+  | "pmt_requests";
 
 /**
  * Role groups for the permission matrix admin UI.
@@ -449,6 +450,15 @@ export const MODULES: Record<ModuleKey, ModuleDef> = {
     path: "/petty-cash",
     label: "Petty Cash",
     blurb: "Petty cash fund balance, loading from bank, disbursements & PCV vouchers.",
+    milestone: "Acct",
+    read: ["admin", "accounting", "managing_officer", "consultant", "owner"],
+    write: ["admin", "accounting"],
+  },
+  pmt_requests: {
+    key: "pmt_requests",
+    path: "/pmt-requests",
+    label: "Payment Requests",
+    blurb: "Create passcode-protected payment request forms (petty cash or check); track submission, approval, and budget release.",
     milestone: "Acct",
     read: ["admin", "accounting", "managing_officer", "consultant", "owner"],
     write: ["admin", "accounting"],
