@@ -461,7 +461,7 @@ export const MODULES: Record<ModuleKey, ModuleDef> = {
     blurb: "Create passcode-protected payment request forms (petty cash or check); track submission, approval, and budget release.",
     milestone: "Acct",
     read: ["admin", "accounting", "managing_officer", "consultant", "owner"],
-    write: ["admin", "accounting"],
+    write: ["admin", "accounting", "consultant"],
   },
   docs: {
     key: "docs",

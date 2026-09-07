@@ -1,528 +1,275 @@
+import Link from "next/link";
 import { requireModule } from "@/lib/auth/dal";
-import { PageHeader } from "@/components/ui";
-import { NotifyButton } from "./notify-button";
-import { releaseNotificationSent } from "./actions";
+import { accessibleModules, MODULES, type ModuleDef } from "@/lib/rbac/modules";
+import { Breadcrumb, PageHeader } from "@/components/ui";
 
-export const metadata = { title: "Documentation" };
+export const metadata = { title: "Help & Documentation" };
 
-const VERSION = "v1.30";
-const BUILD = 30;
-
-const SUPER = ["admin", "managing_officer", "consultant"];
-
-// Staff roles that receive release notifications
-const ALL_STAFF = [
-  "guard", "hotel_cashier", "room_attendant", "electrician", "utility",
-  "warehouse_timekeeper", "errand_liaison", "operations_manager",
-  "hotel_rental_monitoring", "accounting", "admin", "managing_officer", "consultant", "owner",
-];
-const SUPER_ONLY = ["admin", "managing_officer", "consultant"];
-const FINANCE_ROLES = ["accounting", "errand_liaison", "admin", "managing_officer", "consultant"];
-
-type Module = {
-  name: string;
-  path: string;
-  roleDesc: string;
-  desc: string;
-  visibleTo: string[]; // "*" means all authenticated staff
-};
-
-const MODULES: Module[] = [
+// Whats new — newest first. Matches milestone label so the badge is consistent.
+const WHATS_NEW: { key: string; date: string; summary: string }[] = [
   {
-    name: "Hotel Operations", path: "/hotel",
-    roleDesc: "Hotel cashier, monitoring, room attendant, management",
-    desc: "Room board with live timers, check-in / check-out, folio, orders, extensions, cashier shifts, AR register, discrepancy tracking, and day-end report.",
-    visibleTo: ["hotel_cashier", "hotel_rental_monitoring", "room_attendant", "operations_manager"],
+    key: "pmt_requests",
+    date: "Sep 2026",
+    summary:
+      "Accounting creates a secure, passcode-protected link for a requestor to fill in their payment details. Once submitted, accounting reviews and approves or rejects the request with a note. On approval, releasing the budget automatically records the expense in P&L and sends a chat notification to the requestor.",
   },
   {
-    name: "Housekeeping", path: "/housekeeping",
-    roleDesc: "Room attendant, management",
-    desc: "Task board driven by checkout events, room inspection form, supplies log, and turnover tracking.",
-    visibleTo: ["room_attendant", "hotel_rental_monitoring", "operations_manager"],
+    key: "expenses",
+    date: "Aug 2026",
+    summary:
+      "Record general/admin expenses against bank account or petty cash. Supports category and vendor management, CSV bulk import, and direct P&L integration.",
   },
   {
-    name: "Rentals & Airbnb", path: "/rentals",
-    roleDesc: "Hotel/rental monitoring, accounting, management",
-    desc: "Long-term rental and Airbnb unit management, billing, utility charges, guest portal, and cleaning photo uploads.",
-    visibleTo: ["hotel_rental_monitoring", "accounting"],
-  },
-  {
-    name: "Collections", path: "/collections",
-    roleDesc: "Hotel/rental monitoring, accounting, management",
-    desc: "Daily cash summaries and transmittals with chain-of-custody tracking and bank deposit reconciliation.",
-    visibleTo: ["hotel_rental_monitoring", "accounting", "errand_liaison"],
-  },
-  {
-    name: "Buyers", path: "/buyers",
-    roleDesc: "Accounting, management",
-    desc: "Buyer accounts, SOA computation, payment history, and public buyer portal.",
-    visibleTo: ["accounting"],
-  },
-  {
-    name: "Condo Dues", path: "/condo",
-    roleDesc: "Accounting, management",
-    desc: "Per-sqm monthly dues billing for condo units.",
-    visibleTo: ["accounting"],
-  },
-  {
-    name: "Inventory", path: "/inventory",
-    roleDesc: "Management, hotel ops, accounting",
-    desc: "Property and room registry with custom fields, CSV import, and dispensing log.",
-    visibleTo: ["hotel_cashier", "warehouse_timekeeper", "operations_manager", "accounting"],
-  },
-  {
-    name: "Documents", path: "/documents",
-    roleDesc: "Admin, accounting, management",
-    desc: "Per-buyer document checklist and file tracker.",
-    visibleTo: ["accounting"],
-  },
-  {
-    name: "Disputes", path: "/disputes",
-    roleDesc: "Accounting, management",
-    desc: "Dispute log and reference case library.",
-    visibleTo: ["accounting"],
-  },
-  {
-    name: "Repair Requests", path: "/repair",
-    roleDesc: "All staff (submit), management (triage)",
-    desc: "Public and staff repair submission, photo evidence, triage board, and status tracking.",
-    visibleTo: ["*"],
-  },
-  {
-    name: "Finance", path: "/finance",
-    roleDesc: "Accounting, management",
-    desc: "Sales report, P&L, monthly summary, expense tracker, and BIR CSV export. Now includes Admin & General row from general expenses.",
-    visibleTo: ["accounting"],
-  },
-  {
-    name: "General Expenses", path: "/expenses",
-    roleDesc: "Accounting, admin, management",
-    desc: "Record and track admin/operational expenses drawn from bank accounts or petty cash. Configurable categories, vendors/payees, approval thresholds, and CSV import for historical expenses.",
-    visibleTo: ["accounting"],
-  },
-  {
-    name: "Petty Cash", path: "/petty-cash",
-    roleDesc: "Accounting, admin",
-    desc: "Petty cash fund balance monitoring, loading from bank, disbursement with auto-numbered PCV vouchers, and low-balance alerts.",
-    visibleTo: ["accounting"],
-  },
-  {
-    name: "Banking", path: "/banking",
-    roleDesc: "Accounting, management",
-    desc: "Multi-bank reconciliation, passbook tracking, and check release balancing.",
-    visibleTo: ["accounting"],
-  },
-  {
-    name: "HR / Payroll", path: "/hr",
-    roleDesc: "Warehouse timekeeper, accounting, management",
-    desc: "DTR view, payroll computation (PH daily rate, OT, night diff, late/UT deductions).",
-    visibleTo: ["warehouse_timekeeper", "accounting"],
-  },
-  {
-    name: "My Portal", path: "/me",
-    roleDesc: "All staff",
-    desc: "Personal attendance (duty hours for guards), payslip (non-guard staff), and leave/OB/OT requests.",
-    visibleTo: ["*"],
-  },
-  {
-    name: "Employees", path: "/employees",
-    roleDesc: "Admin, management, accounting",
-    desc: "Staff roster, photo uploads, 201 file, and leave approvals.",
-    visibleTo: [],
-  },
-  {
-    name: "Cash Advance", path: "/advances",
-    roleDesc: "Most staff roles",
-    desc: "Advance requests, approval workflow, and liquidation.",
-    visibleTo: ["*"],
-  },
-  {
-    name: "Shift Schedule", path: "/schedule",
-    roleDesc: "Admin, management, warehouse timekeeper",
-    desc: "Daily shift assignment per staff member.",
-    visibleTo: ["warehouse_timekeeper", "operations_manager"],
-  },
-  {
-    name: "Guard Post", path: "/guard",
-    roleDesc: "Guard (agency), admin, management",
-    desc: "Two operation types: Hotel Ops and Condo Ops. Agency guards — duty hours monitored only; no payslip, leave, OB, or OT.",
-    visibleTo: ["guard"],
-  },
-  {
-    name: "Messages (Chat)", path: "/chat",
-    roleDesc: "All staff",
-    desc: "Person-to-person staff messaging with role-based access restrictions and real-time delivery.",
-    visibleTo: ["*"],
-  },
-  {
-    name: "Users & Roles", path: "/users",
-    roleDesc: "Admin, management",
-    desc: "Staff accounts, role assignment, email invite, password reset, and verified-email badge.",
-    visibleTo: [],
-  },
-  {
-    name: "Settings", path: "/admin",
-    roleDesc: "Admin, management, accounting",
-    desc: "Collection items, bank config, rate cards, tax settings, feature flags, and access control matrix.",
-    visibleTo: [],
+    key: "petty_cash",
+    date: "Aug 2026",
+    summary:
+      "Manage petty cash funds: load from bank, disburse with PCV vouchers, and view running balances per fund.",
   },
 ];
 
-const ROLES = [
-  { role: "Consultant", access: "Full super-admin access to everything", notes: "App programmer — bypasses all module checks" },
-  { role: "Admin", access: "All staff modules", notes: "" },
-  { role: "Managing Officer", access: "All operations modules", notes: "" },
-  { role: "Operations Manager", access: "Hotel, housekeeping, HR, guard, advances", notes: "" },
-  { role: "Accounting", access: "Collections, transmittals, buyers, finance, banking, payroll", notes: "" },
-  { role: "Hotel/Rental Monitoring", access: "Hotel, housekeeping, rentals, collections, transmittals, advances", notes: "" },
-  { role: "Hotel Cashier", access: "Hotel, inventory, advances", notes: "" },
-  { role: "Room Attendant", access: "Housekeeping, repair (submit)", notes: "" },
-  { role: "Guard", access: "Guard Post, My Portal (duty hours only)", notes: "Agency staff — no payslip, no leave/OB/OT requests" },
-  { role: "Warehouse Timekeeper", access: "HR/Payroll, shift schedule", notes: "" },
-  { role: "Errand Liaison", access: "Transmittals, advances", notes: "" },
-  { role: "All other staff", access: "My Portal (attendance + payslip + requests)", notes: "Electrician, utility, admin/accounting/marketing/HR staff" },
-  { role: "Owner", access: "Owner dashboard, employees (read), guard post (read)", notes: "External — no day-to-day operations access" },
-];
-
-type ChangelogEntry = {
-  version: string;
-  date: string | null;
-  label: string;
-  items: string[];
-  notifyRoles: string[];
-};
-
-const CHANGELOG: ChangelogEntry[] = [
+// Group modules into logical sections for the reference table
+const GROUPS: { label: string; keys: string[] }[] = [
   {
-    version: "v1.30",
-    date: "2026-09-07",
-    label: "General Expenses + Petty Cash Module",
-    notifyRoles: FINANCE_ROLES,
-    items: [
-      "New /expenses page — record general/admin expenses drawn from any bank account or petty cash; visible to accounting, admin, and management",
-      "9 default expense categories pre-seeded (Office Supplies, Utilities, Meals, Transportation, etc.) — accounting/admin can add, edit, and reorder",
-      "12 default vendors/payees pre-seeded (Meralco, PLDT, Lazada, etc.) — editable with TIN and contact fields",
-      "Configurable approval threshold — expenses at or above the set amount require approval before counting in P&L",
-      "CSV import for historical expenses — upload, preview rows, then commit; field mapping documented in the import panel",
-      "New /petty-cash page — petty cash fund balance dashboard with auto-assigned PCV voucher numbers",
-      "Load fund from bank — records which bank account was withdrawn from for full traceability",
-      "Record disbursement — auto-assigns next PCV number (e.g. PCV-001), deducts from balance, and creates a linked expense record automatically",
-      "Low-balance alert — fund card turns red when balance falls below the configurable threshold",
-      "Custodian assignment — accounting officer can be designated as custodian per fund",
-      "General expenses feed the P&L report as an 'Admin & General' row — petty cash disbursements included automatically",
-      "Bank deposit correction — accounting/admin can move a pending deposit to the correct bank account (void + re-create with audit trail)",
-      "Accounting added to Inventory module write access for correcting erroneous entries",
-      "Migration 0105 applied: expense_categories, expense_vendors, expense_settings, petty_cash_funds, petty_cash_transactions tables + RLS",
-      "Help page updated with General Expenses & Petty Cash section including clickable cross-links to /expenses and /petty-cash",
-    ],
+    label: "Finance & Accounting",
+    keys: ["finance", "expenses", "petty_cash", "pmt_requests", "banking", "advances", "accountable_forms", "payables", "collections", "transmittals"],
   },
   {
-    version: "v1.29",
-    date: "2026-08-31",
-    label: "Staff Chat — Person-to-Person Messaging",
-    notifyRoles: ALL_STAFF,
-    items: [
-      "New 💬 Messages module — staff can send real-time person-to-person messages within the app",
-      "Role-restricted access: each role can only message roles with a direct work relationship (e.g. guard ↔ hotel cashier, accounting ↔ errand liaison)",
-      "Supabase Realtime subscription — messages appear instantly without page refresh",
-      "Bell notification sent when recipient receives a new message while away",
-      "Unread badge on the Messages nav item — shows count of unread messages",
-      "Inbox view shows all conversations sorted by latest message with unread count per conversation",
-      "New chat picker — search staff by name or role to start a conversation",
-      "Chat Permissions panel under Settings — admin can toggle any role pair on/off at runtime, no deployment needed",
-      "57 default role pairs seeded covering all operational relationships",
-    ],
+    label: "Hotel & Rentals",
+    keys: ["hotel", "housekeeping", "rentals", "condo"],
   },
   {
-    version: "v1.28",
-    date: "2026-08-31",
-    label: "Staff Help System, AirBnB Staff Panel & Navigation Audit",
-    notifyRoles: ALL_STAFF,
-    items: [
-      "New /help page — role-filtered help guide accessible to all authenticated staff; each user sees only the sections for their role(s)",
-      "Super roles (admin, managing_officer, consultant) see all help sections; dual-role users see help for all their roles combined",
-      "Help sections: My Portal & Kiosk (all), Guard Post (guard), Hotel Cashier (hotel_cashier), Monitoring (hotel_rental_monitoring), Collections & Finance (accounting, errand_liaison), Housekeeping (room_attendant), Repairs (electrician, utility, operations_manager), Inventory & Timekeeping (warehouse_timekeeper), Admin config + System nav (super)",
-      "Help → link added to sidebar footer (desktop and mobile) — visible to every logged-in user",
-      "Guard Post help guide at /guard/help — detailed printable step-by-step guide for admin, consultant, and management covering guard setup, NDA, shift operations, and monitoring",
-      "AirBnB staff panel: staff can now mark guest orders as fulfilled or cancelled, and update guest service requests (pending → scheduled → done / cancelled) directly from the unit detail page",
-      "Navigation audit: every page in the system is now reachable via a button or link — no URL typing required",
-      "Rentals & Airbnb: added Settings button on the rentals index page (previously /rentals/settings had no clickable entry point)",
-      "System navigation reference added to help docs — full table of all pages and how to reach each one",
-      "Changelog now includes release date and a Notify staff button — admin can push a bell notification to all affected roles",
-    ],
+    label: "Property & Sales",
+    keys: ["buyers", "documents", "disputes", "inventory", "requisitions"],
   },
   {
-    version: "v1.27",
-    date: "2026-08-30",
-    label: "System Hardening — Security, Performance & Multi-Tenancy Prep",
-    notifyRoles: SUPER_ONLY,
-    items: [
-      "Notifications table: RLS policies added — role-scoped reads; no client writes",
-      "Cron auth guard fixed — open-auth bypass when CRON_SECRET unset is now blocked",
-      "N+1 query eliminated in postdated-check notifications — one batch query replaces per-row lookups",
-      "Audit log: failed inserts now fall back to system_errors table instead of silently dropping",
-      "Index added on collections.unit_id and time_records.work_date for faster filters",
-      "All hardcoded brand strings (Sun Miles PMS, Sun Miles Condominium, domain literals) moved to lib/config.ts constants — multi-tenancy ready",
-      "Migration 0100: notifications RLS + performance indexes",
-    ],
+    label: "People & HR",
+    keys: ["employees", "employee", "hr", "scheduling", "advances"],
   },
   {
-    version: "v1.26",
-    date: "2026-08-28",
-    label: "Soft-Delete & Audit Trail for Financial Records",
-    notifyRoles: FINANCE_ROLES,
-    items: [
-      "Collections and transmittals now soft-delete instead of hard-delete — deleted rows stay in the database for audit",
-      "Deleted records visible in a collapsed audit panel at the bottom of /collections and /transmittals",
-      "Admin / accounting / managing officer can restore any deleted record with one click",
-      "Consultant-only permanent purge with a confirmation modal before hard DELETE",
-      "Transmittal automatically soft-deleted when its last active collection is removed; restored when a collection is restored",
-      "Migration 0099: deleted_at + deleted_by columns on collections and transmittals",
-    ],
+    label: "Operations",
+    keys: ["repair", "incidents", "guard"],
   },
   {
-    version: "v1.25",
-    date: "2026-08-25",
-    label: "Security & Audit Hardening",
-    notifyRoles: SUPER_ONLY,
-    items: [
-      "Feature flags audit log — every toggle records who changed it, from/to state, and timestamp",
-      "Feature flags page shows change history per flag (last 5 entries)",
-      "Guard accounts: operation area (Hotel/Condo) is now required — can't save without selecting; unassigned guards shown as a warning banner",
-      "Consultant override checks fixed in collections (transmittal delete) and rate-cards — now use allRoleKeys so they work even when consultant is acting as another role",
-      "Migration 0098: feature_flags_history table",
-    ],
-  },
-  {
-    version: "v1.24",
-    date: "2026-08-22",
-    label: "App Settings — Audit Log, Confirmation & Restore",
-    notifyRoles: SUPER_ONLY,
-    items: [
-      "Save feedback: green/red toast appears immediately after every setting change",
-      "Confirmation modal for sensitive settings (referral fee, referral window, timezone) — must click Confirm before the change takes effect",
-      "Full audit log: every change archives the old value to app_settings_history before overwriting",
-      "History panel per setting (last 5 changes) with one-click Restore to any prior value",
-      "Migration 0097: app_settings_history table + updated write policy to include consultant role",
-      "Docs page (this page) updated — Documentation module added to nav for all staff",
-      "Feature Flags UI at /admin/flags: consultant / admin / managing_officer can toggle flags without a deploy",
-    ],
-  },
-  {
-    version: "v1.23",
-    date: "2026-08-18",
-    label: "Guard Portal — Agency Rules & Operation Types",
-    notifyRoles: ["guard", ...SUPER_ONLY],
-    items: [
-      "Two guard types: Hotel Ops and Condo Ops (badge shown on accounts list)",
-      "Guards see duty hours only in My Portal — payslip, leave, OB, and OT sections hidden",
-      "Direct navigation to /me/payslip redirects guards back to /me",
-      "Operation area selector in guard account editor; extensible post system for future posts",
-      "Migration 0096: guard_operation column on profiles",
-    ],
-  },
-  {
-    version: "v1.22",
-    date: null,
-    label: "Security Hardening & BIR CSV Export",
-    notifyRoles: [],
-    items: [
-      "Session timeout (configurable via SESSION_TIMEOUT_MINUTES env var)",
-      "Suspicious login alerts to admin email (ALERT_EMAIL_TO)",
-      "Email verification gate — users must verify before accessing the app",
-      "BIR-format CSV export on Finance page",
-    ],
-  },
-  {
-    version: "v1.21",
-    date: null,
-    label: "Cashier Shifts & Collection Audit",
-    notifyRoles: [],
-    items: [
-      "Hotel cashier sessions — check-in/out/payment gated on active session",
-      "Collection entry edit with full audit trail (collection_edits table)",
-      "Discrepancy resolution workflow for hotel shift reports",
-    ],
-  },
-  {
-    version: "v1.20",
-    date: null,
-    label: "Shift-Change Housekeeping & SLA",
-    notifyRoles: [],
-    items: [
-      "Occupancy board with live countdown timers per room type",
-      "Endorsement workflow for shift handover",
-      "SLA escalation on overdue tasks",
-    ],
+    label: "Admin & System",
+    keys: ["users", "settings", "chat"],
   },
 ];
-
-function moduleVisible(mod: Module, userRoles: string[], isSuper: boolean): boolean {
-  if (isSuper) return true;
-  if (mod.visibleTo.length === 0) return false;
-  if (mod.visibleTo.includes("*")) return true;
-  return mod.visibleTo.some((r) => userRoles.includes(r));
-}
-
-function changelogVisible(entry: ChangelogEntry, userRoles: string[], isSuper: boolean): boolean {
-  if (isSuper) return true;
-  if (entry.notifyRoles.length === 0) return false;
-  return entry.notifyRoles.some((r) => userRoles.includes(r));
-}
 
 export default async function DocsPage() {
   const user = await requireModule("docs");
-  const userRoles = user.roleKeys as string[];
-  const isSuper = userRoles.some((r) => SUPER.includes(r));
+  const myModules = accessibleModules(user.roleKeys);
+  const myKeys = new Set(myModules.map((m) => m.key));
 
-  const visibleModules = MODULES.filter((m) => moduleVisible(m, userRoles, isSuper));
-  const visibleChangelog = CHANGELOG.filter((e) => changelogVisible(e, userRoles, isSuper));
-
-  // Pre-check notify status for super users
-  const notifiedMap = new Map<string, boolean>();
-  if (isSuper) {
-    for (const entry of CHANGELOG) {
-      if (entry.notifyRoles.length > 0) {
-        notifiedMap.set(entry.version, await releaseNotificationSent(entry.version));
-      }
-    }
-  }
+  // Filter whats-new to only modules this user can see
+  const visibleNew = WHATS_NEW.filter((n) => myKeys.has(n.key as never));
 
   return (
-    <div className="mx-auto max-w-4xl space-y-10 pb-16">
-      {/* Hero */}
-      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <PageHeader title="Sun Miles PMS" subtitle="Documentation & release notes" />
-            <p className="mt-2 text-sm text-stone-600">
-              {isSuper
-                ? "Full technical documentation — modules, roles, environment, and changelog."
-                : "Documentation for your assigned role(s). Contact admin for full system access."}
-            </p>
-          </div>
-          <div className="text-right">
-            <span className="rounded-full bg-amber-700 px-3 py-1 text-xs font-semibold text-white">{VERSION}</span>
-            <p className="mt-1 text-[11px] text-stone-400">Build {BUILD}</p>
-          </div>
-        </div>
-      </div>
+    <>
+      <Breadcrumb items={[{ label: "Dashboard", href: "/dashboard" }, { label: "Help & Docs" }]} />
+      <PageHeader
+        title="Help & Documentation"
+        subtitle="Module reference, quick links, and release notes for the Sun Miles PMS."
+      />
 
-      {/* Modules */}
-      <section>
-        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-stone-500">
-          {isSuper ? "Modules" : "Your Modules"}
+      {/* ── What's New ─────────────────────────────────────────── */}
+      {visibleNew.length > 0 && (
+        <section className="mb-8">
+          <h2 className="mb-3 text-sm font-bold uppercase tracking-widest text-emerald-700">
+            What&rsquo;s New
+          </h2>
+          <div className="space-y-3">
+            {visibleNew.map((n) => {
+              const mod = MODULES[n.key as keyof typeof MODULES];
+              return (
+                <div
+                  key={n.key}
+                  className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex rounded-full bg-emerald-600 px-2.5 py-0.5 text-xs font-semibold text-white">
+                        New
+                      </span>
+                      <span className="font-semibold text-stone-800">{mod?.label}</span>
+                      <span className="text-xs text-stone-400">{n.date}</span>
+                    </div>
+                    {mod && myKeys.has(n.key as never) && (
+                      <Link
+                        href={mod.path}
+                        className="shrink-0 rounded-lg bg-emerald-600 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-700"
+                      >
+                        Open module →
+                      </Link>
+                    )}
+                  </div>
+                  <p className="mt-2 text-sm text-stone-600">{n.summary}</p>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* ── Module Quick Access ─────────────────────────────────── */}
+      <section className="mb-8">
+        <h2 className="mb-3 text-sm font-bold uppercase tracking-widest text-stone-500">
+          Your Modules
         </h2>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {visibleModules.map((m) => (
-            <div key={m.path} className="rounded-xl border border-stone-200 bg-white p-4">
-              <div className="flex items-center justify-between gap-2">
-                <p className="font-semibold text-stone-800">{m.name}</p>
-                <code className="rounded bg-stone-100 px-1.5 py-0.5 text-[11px] text-stone-500">{m.path}</code>
-              </div>
-              <p className="mt-1 text-xs text-amber-700">{m.roleDesc}</p>
-              <p className="mt-1.5 text-xs text-stone-500">{m.desc}</p>
-            </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {myModules.map((mod) => (
+            <ModuleCard key={mod.key} mod={mod} isNew={WHATS_NEW.some((n) => n.key === mod.key)} />
           ))}
         </div>
       </section>
 
-      {/* Roles & Access — super only */}
-      {isSuper && (
-        <section>
-          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-stone-500">Roles & Access</h2>
-          <div className="overflow-x-auto rounded-xl border border-stone-200 bg-white">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
-                <tr>
-                  <th className="px-4 py-3">Role</th>
-                  <th className="px-4 py-3">Access</th>
-                  <th className="px-4 py-3">Notes</th>
-                </tr>
-              </thead>
-              <tbody>
-                {ROLES.map((r) => (
-                  <tr key={r.role} className="border-b border-stone-100 last:border-0">
-                    <td className="px-4 py-2.5 font-medium text-stone-800 whitespace-nowrap">{r.role}</td>
-                    <td className="px-4 py-2.5 text-stone-600">{r.access}</td>
-                    <td className="px-4 py-2.5 text-stone-400">{r.notes}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      )}
-
-      {/* Setup & Environment — super only */}
-      {isSuper && (
-        <section>
-          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-stone-500">Setup & Environment</h2>
-          <div className="rounded-xl border border-stone-200 bg-white p-5 space-y-4">
-            <div>
-              <p className="text-sm font-medium text-stone-700 mb-1">Required environment variables</p>
-              <div className="rounded-lg bg-stone-50 p-3 font-mono text-xs text-stone-600 space-y-0.5">
-                {[
-                  "NEXT_PUBLIC_SUPABASE_URL",
-                  "NEXT_PUBLIC_SUPABASE_ANON_KEY",
-                  "SUPABASE_SERVICE_ROLE_KEY",
-                  "NEXTAUTH_SECRET",
-                  "SESSION_TIMEOUT_MINUTES",
-                  "ALERT_EMAIL_TO",
-                ].map((v) => <p key={v}>{v}</p>)}
-              </div>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-stone-700 mb-1">Latest migration</p>
-              <code className="rounded bg-stone-100 px-2 py-1 text-xs text-stone-600">0099_soft_delete_financial.sql</code>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-stone-700 mb-1">Stack</p>
-              <p className="text-sm text-stone-500">Next.js 16 · React 19 · Supabase (Postgres + RLS + Storage) · Vercel · Tailwind CSS</p>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Changelog */}
-      {visibleChangelog.length > 0 && (
-        <section>
-          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-stone-500">
-            {isSuper ? "Changelog" : "Recent Updates"}
-          </h2>
-          <div className="space-y-4">
-            {visibleChangelog.map((entry) => (
-              <div key={entry.version} className="rounded-xl border border-stone-200 bg-white p-5">
-                <div className="flex flex-wrap items-center gap-2 mb-3">
-                  <span className="rounded-full bg-stone-800 px-2.5 py-0.5 text-xs font-semibold text-white">{entry.version}</span>
-                  {entry.date && (
-                    <span className="rounded-full bg-stone-100 px-2.5 py-0.5 text-[11px] font-medium text-stone-500">
-                      {new Date(entry.date).toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric" })}
-                    </span>
-                  )}
-                  <p className="font-medium text-stone-800 flex-1">{entry.label}</p>
-                  {isSuper && entry.notifyRoles.length > 0 && (
-                    <NotifyButton
-                      version={entry.version}
-                      label={entry.label}
-                      roles={entry.notifyRoles}
-                      alreadySent={notifiedMap.get(entry.version) ?? false}
-                    />
-                  )}
+      {/* ── Full Module Reference ───────────────────────────────── */}
+      <section>
+        <h2 className="mb-3 text-sm font-bold uppercase tracking-widest text-stone-500">
+          Module Reference
+        </h2>
+        <div className="space-y-6">
+          {GROUPS.map((group) => {
+            const mods = group.keys
+              .filter((k, i, arr) => arr.indexOf(k) === i) // dedupe
+              .map((k) => MODULES[k as keyof typeof MODULES])
+              .filter(Boolean) as ModuleDef[];
+            if (mods.length === 0) return null;
+            return (
+              <div key={group.label}>
+                <h3 className="mb-2 text-xs font-semibold uppercase tracking-widest text-stone-400">
+                  {group.label}
+                </h3>
+                <div className="overflow-hidden rounded-2xl border border-stone-200 bg-white">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-stone-100 bg-stone-50 text-xs font-semibold uppercase tracking-wide text-stone-500">
+                        <th className="px-4 py-2 text-left">Module</th>
+                        <th className="px-4 py-2 text-left">Description</th>
+                        <th className="px-4 py-2 text-left">Access</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-stone-100">
+                      {mods.map((mod) => {
+                        const canAccess = myKeys.has(mod.key);
+                        return (
+                          <tr key={mod.key} className={canAccess ? "" : "opacity-40"}>
+                            <td className="whitespace-nowrap px-4 py-2.5 font-medium text-stone-800">
+                              {canAccess ? (
+                                <Link
+                                  href={mod.path}
+                                  className="text-emerald-700 underline-offset-2 hover:underline"
+                                >
+                                  {mod.label}
+                                </Link>
+                              ) : (
+                                <span>{mod.label}</span>
+                              )}
+                              {WHATS_NEW.some((n) => n.key === mod.key) && (
+                                <span className="ml-1.5 inline-flex rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">
+                                  NEW
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-4 py-2.5 text-stone-600">{mod.blurb}</td>
+                            <td className="px-4 py-2.5">
+                              {canAccess ? (
+                                <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                                  Accessible
+                                </span>
+                              ) : (
+                                <span className="inline-flex rounded-full bg-stone-100 px-2 py-0.5 text-xs font-medium text-stone-400">
+                                  No access
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
-                <ul className="space-y-1">
-                  {entry.items.map((item, i) => (
-                    <li key={i} className="flex gap-2 text-sm text-stone-600">
-                      <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" />
-                      {item}
-                    </li>
-                  ))}
-                </ul>
               </div>
-            ))}
+            );
+          })}
+        </div>
+      </section>
+
+      {/* ── Payment Requests Workflow Guide ────────────────────── */}
+      {myKeys.has("pmt_requests") && (
+        <section className="mt-8">
+          <h2 className="mb-3 text-sm font-bold uppercase tracking-widest text-stone-500">
+            Payment Requests — How It Works
+          </h2>
+          <div className="rounded-2xl border border-stone-200 bg-white p-5">
+            <ol className="space-y-4 text-sm text-stone-700">
+              {[
+                {
+                  step: "Accounting creates the form",
+                  detail:
+                    'In Payment Requests, click “+ New payment request form”. Fill in the requestor, payee name, purpose, budget source (bank account or petty cash fund), expiry date, and payment type (check or petty cash).',
+                },
+                {
+                  step: "Send the secure link",
+                  detail:
+                    "A unique link is generated. Copy it and share it verbally or via chat with the requestor. The link expires on the date you set.",
+                },
+                {
+                  step: "Requestor unlocks and submits",
+                  detail:
+                    "The requestor opens the link, enters their system passcode to verify their identity, then fills in the description, amount, and optional supporting document. They re-enter their passcode to confirm submission.",
+                },
+                {
+                  step: "Accounting reviews",
+                  detail:
+                    'The request appears under "Submitted - needs review". Approve with a note or reject with a reason. A chat notification is automatically sent to the requestor either way.',
+                },
+                {
+                  step: "Budget release",
+                  detail:
+                    'Once approved and the fund is physically ready (check cleared or cash counted), click "Release Budget". The system automatically records the expense in General Expenses (P&L) and sends the requestor a chat notification.',
+                },
+              ].map((item, i) => (
+                <li key={i} className="flex gap-3">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-bold text-emerald-700">
+                    {i + 1}
+                  </span>
+                  <div>
+                    <p className="font-semibold text-stone-800">{item.step}</p>
+                    <p className="mt-0.5 text-stone-500">{item.detail}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+            <div className="mt-5 flex justify-end">
+              <Link
+                href="/pmt-requests"
+                className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+              >
+                Go to Payment Requests →
+              </Link>
+            </div>
           </div>
         </section>
       )}
-    </div>
+    </>
+  );
+}
+
+function ModuleCard({ mod, isNew }: { mod: ModuleDef; isNew: boolean }) {
+  return (
+    <Link
+      href={mod.path}
+      className="group block rounded-2xl border border-stone-200 bg-white p-4 transition-shadow hover:shadow-md"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <p className="font-semibold text-stone-800 group-hover:text-emerald-700">{mod.label}</p>
+        {isNew && (
+          <span className="shrink-0 inline-flex rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">
+            NEW
+          </span>
+        )}
+      </div>
+      <p className="mt-1 text-xs text-stone-500">{mod.blurb}</p>
+    </Link>
   );
 }
