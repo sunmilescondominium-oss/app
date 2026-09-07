@@ -26,6 +26,7 @@ const ALL_SECTIONS: TocItem[] = [
   { id: "s-hk",        title: "Housekeeping task workflow",              roles: ["room_attendant"] },
   { id: "s-repairs",   title: "Repairs & maintenance",                   roles: ["electrician", "utility", "operations_manager"] },
   { id: "s-whse",      title: "Inventory & timekeeping",                 roles: ["warehouse_timekeeper"] },
+  { id: "s-expenses",  title: "General Expenses & Petty Cash",            roles: ["accounting", "admin"] },
   { id: "s-admin",     title: "Admin panel & system configuration",      roles: ["admin", "managing_officer", "consultant"] },
   { id: "s-nav",       title: "System navigation — all pages",           roles: ["admin", "managing_officer", "consultant"] },
 ];
@@ -213,9 +214,50 @@ export default async function HelpPage() {
                 Payables: <Code>/payables</Code> → <strong>New payable</strong>. Cash advances: <Code>/advances</Code> → <strong>New advance</strong>. Both track status (pending → paid / liquidated).
               </Step>
               <Step n={7} label="Finance reports">
-                <Code>/finance</Code> shows the P&amp;L, monthly collections summary, and expense breakdown. Use the date filters to scope to any period.
+                <Code>/finance</Code> shows the P&amp;L, monthly collections summary, and expense breakdown — including <Link href="/expenses" className="font-semibold text-amber-700 hover:underline">General Expenses →</Link>. Use the date filters to scope to any period.
+              </Step>
+              <Step n={8} label="Record a general expense">
+                Go to <Link href="/expenses" className="font-semibold text-amber-700 hover:underline">General Expenses →</Link> → expand <strong>Record new expense</strong> → choose the date, category, vendor, source (bank or petty cash), and amount → save. See also <a href="#s-expenses" className="font-semibold text-amber-700 hover:underline">General Expenses &amp; Petty Cash →</a>
+              </Step>
+              <Step n={9} label="Petty cash fund management">
+                Go to <Link href="/petty-cash" className="font-semibold text-amber-700 hover:underline">Petty Cash →</Link> to load the fund from a bank account, record disbursements (PCV auto-numbered), and monitor the current balance. See also <a href="#s-expenses" className="font-semibold text-amber-700 hover:underline">General Expenses &amp; Petty Cash →</a>
               </Step>
             </Steps>
+          </Section>
+        )}
+
+        {/* ── General Expenses & Petty Cash ── */}
+        {visible(userRoles, ["accounting", "admin"]) && (
+          <Section id="s-expenses" title="General Expenses & Petty Cash" who="Accounting / Admin">
+            <p className="mb-3 text-sm text-stone-500">
+              Use <Link href="/expenses" className="font-semibold text-amber-700 hover:underline">General Expenses →</Link> to record any admin/operational expense drawn from a bank account or petty cash. Use <Link href="/petty-cash" className="font-semibold text-amber-700 hover:underline">Petty Cash →</Link> to manage the petty cash fund — load cash from the bank, issue disbursements, and track the running balance.
+            </p>
+            <Steps>
+              <Step n={1} label="Record a bank-funded expense">
+                Go to <Link href="/expenses" className="font-semibold text-amber-700 hover:underline">General Expenses →</Link> → expand <strong>Record new expense</strong> → set <strong>Source</strong> to <em>Bank account</em> → select the correct bank → fill in category, vendor, amount, and OR number → save. If the amount is at or above the approval threshold, status is set to <em>Pending approval</em>.
+              </Step>
+              <Step n={2} label="Record a petty cash disbursement">
+                Go to <Link href="/petty-cash" className="font-semibold text-amber-700 hover:underline">Petty Cash →</Link> → expand <strong>Record disbursement (PCV)</strong> → select the fund → fill in date, description, category, and amount → save. The system auto-assigns the next PCV number (e.g. PCV-001) and deducts from the fund balance. A linked expense record is also created automatically under General Expenses.
+              </Step>
+              <Step n={3} label="Load the petty cash fund from the bank">
+                On <Link href="/petty-cash" className="font-semibold text-amber-700 hover:underline">Petty Cash →</Link> → expand <strong>Load fund from bank</strong> → select the fund and the bank account the cash was withdrawn from → enter the amount → save. The fund balance increases.
+              </Step>
+              <Step n={4} label="Manage categories and vendors">
+                On <Link href="/expenses" className="font-semibold text-amber-700 hover:underline">General Expenses →</Link> → scroll to <strong>Settings</strong> → expand <strong>Categories</strong> or <strong>Vendors / Payees</strong> → click <strong>Add category</strong> or <strong>Add vendor</strong>. You can also edit existing ones inline.
+              </Step>
+              <Step n={5} label="Set the approval threshold">
+                On <Link href="/expenses" className="font-semibold text-amber-700 hover:underline">General Expenses →</Link> → Settings → expand <strong>Approval settings</strong> → enter the peso amount → save. Expenses equal to or above this threshold will be marked <em>Pending</em> until an authorized user approves them.
+              </Step>
+              <Step n={6} label="Import historical expenses from Excel / CSV">
+                On <Link href="/expenses" className="font-semibold text-amber-700 hover:underline">General Expenses →</Link> → Settings → expand <strong>Import historical expenses (CSV)</strong>. Export your Excel sheet as CSV with the columns: <em>Date, Category, Vendor/Payee, Amount, OR Number, Source, Bank Account, Remarks</em>. Upload the CSV → preview the rows → click <strong>Import</strong>.
+              </Step>
+              <Step n={7} label="View expenses in the P&L report">
+                General expenses flow automatically into <Link href="/finance" className="font-semibold text-amber-700 hover:underline">P&amp;L / Reports →</Link> under the <em>Admin &amp; General</em> row. Petty cash disbursements are also included since each one creates an expense record.
+              </Step>
+            </Steps>
+            <Callout type="tip">
+              The petty cash fund shows a red low-balance warning on the <Link href="/petty-cash" className="font-semibold text-amber-700 hover:underline">Petty Cash →</Link> dashboard when the balance falls below the threshold you set in Fund Settings.
+            </Callout>
           </Section>
         )}
 
@@ -381,6 +423,8 @@ export default async function HelpPage() {
               <tr><Td><Code>/payables/[id]</Code></Td><Td>Payables → click any row</Td></tr>
               <tr><Td><Code>/advances</Code></Td><Td>Sidebar → Advances</Td></tr>
               <tr><Td><Code>/advances/[id]</Code></Td><Td>Advances → click any row</Td></tr>
+              <tr><Td><Code>/expenses</Code></Td><Td>Sidebar → <Link href="/expenses" className="text-amber-700 hover:underline">General Expenses</Link></Td></tr>
+              <tr><Td><Code>/petty-cash</Code></Td><Td>Sidebar → <Link href="/petty-cash" className="text-amber-700 hover:underline">Petty Cash</Link></Td></tr>
               <tr className="bg-stone-50"><td colSpan={2} className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-stone-400">Buyers & Condo</td></tr>
               <tr><Td><Code>/buyers</Code></Td><Td>Sidebar → Buyers</Td></tr>
               <tr><Td><Code>/buyers/[id]</Code></Td><Td>Buyers → click any buyer row</Td></tr>

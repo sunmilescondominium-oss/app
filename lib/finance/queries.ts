@@ -66,6 +66,10 @@ export async function plReport(from: string, to: string): Promise<PLReport> {
     return { line: c.key, label: c.label, income, expense, net: r2(income - expense) };
   }).filter((r) => r.income !== 0 || r.expense !== 0);
 
+  // General / admin expenses (no income line)
+  const generalExp = r2(exp.get("general") ?? 0);
+  if (generalExp !== 0) rows.push({ line: "general", label: "Admin & General", income: 0, expense: generalExp, net: r2(-generalExp) });
+
   const incomeTotal = r2(rows.reduce((s, r) => s + r.income, 0));
   const expenseTotal = r2(rows.reduce((s, r) => s + r.expense, 0));
   return { rows, incomeTotal, expenseTotal, netTotal: r2(incomeTotal - expenseTotal) };
@@ -156,6 +160,16 @@ export async function plReportFull(
       deltaNetPct: priorNet !== 0 ? r2((deltaNet / Math.abs(priorNet)) * 100) : null,
     };
   }).filter((r) => r.income !== 0 || r.expense !== 0 || r.priorIncome !== 0 || r.priorExpense !== 0);
+
+  // General / admin expenses (no income line)
+  const genExp = r2(exp.get("general") ?? 0);
+  const pGenExp = r2(pExp.get("general") ?? 0);
+  if (genExp !== 0 || pGenExp !== 0) {
+    const net = r2(-genExp);
+    const priorNet = r2(-pGenExp);
+    const deltaNet = r2(net - priorNet);
+    rows.push({ line: "general", label: "Admin & General", income: 0, expense: genExp, net, margin: 0, priorIncome: 0, priorExpense: pGenExp, priorNet, deltaNet, deltaNetPct: priorNet !== 0 ? r2((deltaNet / Math.abs(priorNet)) * 100) : null });
+  }
 
   const incomeTotal = r2(rows.reduce((s, r) => s + r.income, 0));
   const expenseTotal = r2(rows.reduce((s, r) => s + r.expense, 0));

@@ -1,0 +1,196 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { requireModuleWrite } from "@/lib/auth/dal";
+import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { logAudit } from "@/lib/audit";
+
+export type ActionResult = { ok: true } | { ok: false; error: string };
+
+// ---------------------------------------------------------------------------
+// Categories
+// ---------------------------------------------------------------------------
+
+export async function saveExpenseCategory(_prev: ActionResult | undefined, formData: FormData): Promise<ActionResult> {
+  const user = await requireModuleWrite("expenses");
+  const id = String(formData.get("id") ?? "").trim() || null;
+  const name = String(formData.get("name") ?? "").trim();
+  const description = String(formData.get("description") ?? "").trim() || null;
+  const sort_order = Number(formData.get("sort_order") ?? 100);
+  const is_active = formData.get("is_active") !== "false";
+  if (!name) return { ok: false, error: "Category name is required." };
+
+  const supabase = await createClient();
+  const payload = { name, description, sort_order, is_active };
+  if (id) {
+    const { error } = await supabase.from("expense_categories").update(payload).eq("id", id);
+    if (error) return { ok: false, error: error.message };
+  } else {
+    const { error } = await supabase.from("expense_categories").insert({ ...payload, created_by: user.userId });
+    if (error) return { ok: false, error: error.message };
+  }
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: id ? "update" : "create", entity: "expense_categories", entityId: id ?? name, diff: payload });
+  revalidatePath("/expenses");
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Vendors
+// ---------------------------------------------------------------------------
+
+export async function saveExpenseVendor(_prev: ActionResult | undefined, formData: FormData): Promise<ActionResult> {
+  const user = await requireModuleWrite("expenses");
+  const id = String(formData.get("id") ?? "").trim() || null;
+  const name = String(formData.get("name") ?? "").trim();
+  const address = String(formData.get("address") ?? "").trim() || null;
+  const contact = String(formData.get("contact") ?? "").trim() || null;
+  const tin = String(formData.get("tin") ?? "").trim() || null;
+  const is_active = formData.get("is_active") !== "false";
+  if (!name) return { ok: false, error: "Vendor name is required." };
+
+  const supabase = await createClient();
+  const payload = { name, address, contact, tin, is_active };
+  if (id) {
+    const { error } = await supabase.from("expense_vendors").update(payload).eq("id", id);
+    if (error) return { ok: false, error: error.message };
+  } else {
+    const { error } = await supabase.from("expense_vendors").insert({ ...payload, created_by: user.userId });
+    if (error) return { ok: false, error: error.message };
+  }
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: id ? "update" : "create", entity: "expense_vendors", entityId: id ?? name, diff: payload });
+  revalidatePath("/expenses");
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Expense settings
+// ---------------------------------------------------------------------------
+
+export async function saveExpenseSettings(_prev: ActionResult | undefined, formData: FormData): Promise<ActionResult> {
+  const user = await requireModuleWrite("expenses");
+  const approval_threshold = Number(formData.get("approval_threshold") ?? 5000);
+  if (!Number.isFinite(approval_threshold) || approval_threshold < 0) {
+    return { ok: false, error: "Approval threshold must be a non-negative number." };
+  }
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("expense_settings")
+    .update({ approval_threshold, updated_by: user.userId, updated_at: new Date().toISOString() })
+    .eq("id", 1);
+  if (error) return { ok: false, error: error.message };
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "update", entity: "expense_settings", entityId: "1", diff: { approval_threshold } });
+  revalidatePath("/expenses");
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Record a general expense
+// ---------------------------------------------------------------------------
+
+export async function recordExpense(_prev: ActionResult | undefined, formData: FormData): Promise<ActionResult> {
+  const user = await requireModuleWrite("expenses");
+  const expense_date = String(formData.get("expense_date") ?? "").trim();
+  const description = String(formData.get("description") ?? "").trim();
+  const expense_category_id = String(formData.get("expense_category_id") ?? "").trim() || null;
+  const expense_vendor_id = String(formData.get("expense_vendor_id") ?? "").trim() || null;
+  const amount = Number(formData.get("amount") ?? "");
+  const source = String(formData.get("source") ?? "bank") as "bank" | "petty_cash";
+  const bank_account_id = String(formData.get("bank_account_id") ?? "").trim() || null;
+  const or_number = String(formData.get("or_number") ?? "").trim() || null;
+  const proof_url = String(formData.get("proof_url") ?? "").trim() || null;
+  const remarks = String(formData.get("remarks") ?? "").trim() || null;
+
+  if (!expense_date) return { ok: false, error: "Date is required." };
+  if (!description) return { ok: false, error: "Description is required." };
+  if (!Number.isFinite(amount) || amount <= 0) return { ok: false, error: "Amount must be a positive number." };
+  if (source === "bank" && !bank_account_id) return { ok: false, error: "Select the bank account used." };
+
+  // Determine approval status based on threshold
+  const supabase = await createClient();
+  const adminSupa = createAdminClient();
+  const { data: settingsRow } = await adminSupa.from("expense_settings").select("approval_threshold").eq("id", 1).maybeSingle();
+  const threshold = Number((settingsRow as Record<string, unknown> | null)?.approval_threshold ?? 5000);
+  const approval_status = amount >= threshold ? "pending" : "approved";
+
+  const { error } = await supabase.from("expenses").insert({
+    expense_date,
+    business_line: "general",
+    description,
+    amount,
+    source,
+    bank_account_id,
+    expense_category_id,
+    expense_vendor_id,
+    or_number,
+    proof_url,
+    approval_status,
+    remarks,
+    created_by: user.userId,
+    actor_role: user.roleKeys[0] ?? "accounting",
+  });
+  if (error) return { ok: false, error: error.message };
+
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "create", entity: "expenses", entityId: expense_date, diff: { amount, source, description } });
+  revalidatePath("/expenses");
+  revalidatePath("/finance");
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// CSV bulk import of historical expenses
+// ---------------------------------------------------------------------------
+
+export interface CsvImportRow {
+  expense_date: string;
+  category_name: string;
+  vendor_name: string;
+  amount: number;
+  or_number: string | null;
+  source: string;
+  bank_account_label: string | null;
+  remarks: string | null;
+}
+
+export async function importExpensesFromCsv(rows: CsvImportRow[]): Promise<ActionResult & { imported?: number }> {
+  const user = await requireModuleWrite("expenses");
+  if (!rows.length) return { ok: false, error: "No rows to import." };
+
+  const adminSupa = createAdminClient();
+
+  // Resolve category names → IDs
+  const { data: cats } = await adminSupa.from("expense_categories").select("id, name");
+  const catMap = new Map((cats ?? []).map((c: Record<string, unknown>) => [(c.name as string).toLowerCase(), c.id as string]));
+
+  // Resolve vendor names → IDs
+  const { data: vends } = await adminSupa.from("expense_vendors").select("id, name");
+  const vendMap = new Map((vends ?? []).map((v: Record<string, unknown>) => [(v.name as string).toLowerCase(), v.id as string]));
+
+  // Resolve bank account labels → IDs
+  const { data: accts } = await adminSupa.from("bank_accounts").select("id, label");
+  const acctMap = new Map((accts ?? []).map((a: Record<string, unknown>) => [(a.label as string).toLowerCase(), a.id as string]));
+
+  const inserts = rows.map((r) => ({
+    expense_date: r.expense_date,
+    business_line: "general",
+    description: `${r.category_name}${r.vendor_name ? " – " + r.vendor_name : ""}`,
+    amount: r.amount,
+    source: ["bank", "petty_cash"].includes(r.source) ? r.source : "import",
+    bank_account_id: r.bank_account_label ? (acctMap.get(r.bank_account_label.toLowerCase()) ?? null) : null,
+    expense_category_id: catMap.get(r.category_name.toLowerCase()) ?? null,
+    expense_vendor_id: vendMap.get(r.vendor_name.toLowerCase()) ?? null,
+    or_number: r.or_number,
+    approval_status: "approved",
+    remarks: r.remarks,
+    created_by: user.userId,
+    actor_role: user.roleKeys[0] ?? "accounting",
+  }));
+
+  const { error } = await adminSupa.from("expenses").insert(inserts);
+  if (error) return { ok: false, error: error.message };
+
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "create", entity: "expenses_import", entityId: "bulk", diff: { count: inserts.length } });
+  revalidatePath("/expenses");
+  revalidatePath("/finance");
+  return { ok: true, imported: inserts.length };
+}

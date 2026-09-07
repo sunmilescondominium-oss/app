@@ -5,8 +5,8 @@ import { releaseNotificationSent } from "./actions";
 
 export const metadata = { title: "Documentation" };
 
-const VERSION = "v1.29";
-const BUILD = 29;
+const VERSION = "v1.30";
+const BUILD = 30;
 
 const SUPER = ["admin", "managing_officer", "consultant"];
 
@@ -91,7 +91,19 @@ const MODULES: Module[] = [
   {
     name: "Finance", path: "/finance",
     roleDesc: "Accounting, management",
-    desc: "Sales report, P&L, monthly summary, expense tracker, and BIR CSV export.",
+    desc: "Sales report, P&L, monthly summary, expense tracker, and BIR CSV export. Now includes Admin & General row from general expenses.",
+    visibleTo: ["accounting"],
+  },
+  {
+    name: "General Expenses", path: "/expenses",
+    roleDesc: "Accounting, admin, management",
+    desc: "Record and track admin/operational expenses drawn from bank accounts or petty cash. Configurable categories, vendors/payees, approval thresholds, and CSV import for historical expenses.",
+    visibleTo: ["accounting"],
+  },
+  {
+    name: "Petty Cash", path: "/petty-cash",
+    roleDesc: "Accounting, admin",
+    desc: "Petty cash fund balance monitoring, loading from bank, disbursement with auto-numbered PCV vouchers, and low-balance alerts.",
     visibleTo: ["accounting"],
   },
   {
@@ -181,6 +193,29 @@ type ChangelogEntry = {
 };
 
 const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: "v1.30",
+    date: "2026-09-07",
+    label: "General Expenses + Petty Cash Module",
+    notifyRoles: FINANCE_ROLES,
+    items: [
+      "New /expenses page — record general/admin expenses drawn from any bank account or petty cash; visible to accounting, admin, and management",
+      "9 default expense categories pre-seeded (Office Supplies, Utilities, Meals, Transportation, etc.) — accounting/admin can add, edit, and reorder",
+      "12 default vendors/payees pre-seeded (Meralco, PLDT, Lazada, etc.) — editable with TIN and contact fields",
+      "Configurable approval threshold — expenses at or above the set amount require approval before counting in P&L",
+      "CSV import for historical expenses — upload, preview rows, then commit; field mapping documented in the import panel",
+      "New /petty-cash page — petty cash fund balance dashboard with auto-assigned PCV voucher numbers",
+      "Load fund from bank — records which bank account was withdrawn from for full traceability",
+      "Record disbursement — auto-assigns next PCV number (e.g. PCV-001), deducts from balance, and creates a linked expense record automatically",
+      "Low-balance alert — fund card turns red when balance falls below the configurable threshold",
+      "Custodian assignment — accounting officer can be designated as custodian per fund",
+      "General expenses feed the P&L report as an 'Admin & General' row — petty cash disbursements included automatically",
+      "Bank deposit correction — accounting/admin can move a pending deposit to the correct bank account (void + re-create with audit trail)",
+      "Accounting added to Inventory module write access for correcting erroneous entries",
+      "Migration 0105 applied: expense_categories, expense_vendors, expense_settings, petty_cash_funds, petty_cash_transactions tables + RLS",
+      "Help page updated with General Expenses & Petty Cash section including clickable cross-links to /expenses and /petty-cash",
+    ],
+  },
   {
     version: "v1.29",
     date: "2026-08-31",

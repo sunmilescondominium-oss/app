@@ -69,7 +69,9 @@ export type ModuleKey =
   | "settings"
   | "guard"
   | "docs"
-  | "chat";
+  | "chat"
+  | "expenses"
+  | "petty_cash";
 
 /**
  * Role groups for the permission matrix admin UI.
@@ -432,6 +434,24 @@ export const MODULES: Record<ModuleKey, ModuleDef> = {
     milestone: "Security",
     read: ["guard", "admin", "managing_officer", "operations_manager", "hotel_rental_monitoring", "consultant", "owner"],
     write: ["guard", "admin", "managing_officer"],
+  },
+  expenses: {
+    key: "expenses",
+    path: "/expenses",
+    label: "General Expenses",
+    blurb: "Record and track general/admin expenses with bank or petty cash source.",
+    milestone: "Acct",
+    read: ["admin", "accounting", "managing_officer", "consultant", "owner"],
+    write: ["admin", "accounting"],
+  },
+  petty_cash: {
+    key: "petty_cash",
+    path: "/petty-cash",
+    label: "Petty Cash",
+    blurb: "Petty cash fund balance, loading from bank, disbursements & PCV vouchers.",
+    milestone: "Acct",
+    read: ["admin", "accounting", "managing_officer", "consultant", "owner"],
+    write: ["admin", "accounting"],
   },
   docs: {
     key: "docs",
