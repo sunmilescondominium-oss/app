@@ -127,7 +127,6 @@ export async function recordExpense(_prev: ActionResult | undefined, formData: F
     approval_status,
     remarks,
     created_by: user.userId,
-    actor_role: user.roleKeys[0] ?? "accounting",
   });
   if (error) return { ok: false, error: error.message };
 
@@ -183,7 +182,6 @@ export async function importExpensesFromCsv(rows: CsvImportRow[]): Promise<Actio
     approval_status: "approved",
     remarks: r.remarks,
     created_by: user.userId,
-    actor_role: user.roleKeys[0] ?? "accounting",
   }));
 
   const { error } = await adminSupa.from("expenses").insert(inserts);
