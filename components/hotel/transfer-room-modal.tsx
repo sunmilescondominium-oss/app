@@ -9,11 +9,13 @@ export function TransferRoomModal({
   checkInAt,
   availableRooms,
   currentBaseRate,
+  alreadyPaid,
 }: {
   stayId: string;
   checkInAt: string;
-  availableRooms: { id: string; unit_number: string }[];
+  availableRooms: { id: string; unit_number: string; base_rate: number }[];
   currentBaseRate: number;
+  alreadyPaid: number;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -32,6 +34,7 @@ export function TransferRoomModal({
           checkInAt={checkInAt}
           availableRooms={availableRooms}
           currentBaseRate={currentBaseRate}
+          alreadyPaid={alreadyPaid}
           onDone={() => setOpen(false)}
         />
       </Modal>

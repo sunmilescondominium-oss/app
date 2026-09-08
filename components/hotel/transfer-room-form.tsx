@@ -23,12 +23,14 @@ export function TransferRoomForm({
   checkInAt,
   availableRooms,
   currentBaseRate,
+  alreadyPaid,
   onDone,
 }: {
   stayId: string;
   checkInAt: string;
-  availableRooms: { id: string; unit_number: string }[];
+  availableRooms: { id: string; unit_number: string; base_rate: number }[];
   currentBaseRate: number;
+  alreadyPaid: number;
   onDone: () => void;
 }) {
   const router = useRouter();
@@ -46,8 +48,20 @@ export function TransferRoomForm({
   const within10 = elapsedMin <= 10;
   const needsMaintDesc = MAINTENANCE_REASONS.has(reason);
   const newRate = parseFloat(newRateStr) || currentBaseRate;
-  const shortfall = Math.max(0, Math.round((newRate - currentBaseRate) * 100) / 100);
+
+  // Shortfall = what the new room costs minus what the guest has already paid.
+  // This correctly handles partial payments and same-rate transfers.
+  const shortfall = Math.max(0, Math.round((newRate - alreadyPaid) * 100) / 100);
   const hasUpgradeFee = shortfall > 0;
+
+  function handleRoomSelect(unitId: string) {
+    setToUnitId(unitId);
+    setUpgradeMethod("");
+    if (unitId) {
+      const room = availableRooms.find((r) => r.id === unitId);
+      if (room) setNewRateStr(String(room.base_rate));
+    }
+  }
 
   function submit() {
     setErr("");
@@ -57,7 +71,7 @@ export function TransferRoomForm({
       return;
     }
     if (hasUpgradeFee && !upgradeMethod) {
-      setErr("Select a payment method for the upgrade fee.");
+      setErr(`Collect the balance of ₱${shortfall.toFixed(2)} before transferring. Select a payment method.`);
       return;
     }
     const fd = new FormData();
@@ -87,10 +101,10 @@ export function TransferRoomForm({
 
       <div>
         <label className={labelCls}>Transfer to room *</label>
-        <select value={toUnitId} onChange={(e) => setToUnitId(e.target.value)} className={inputCls}>
+        <select value={toUnitId} onChange={(e) => handleRoomSelect(e.target.value)} className={inputCls}>
           <option value="">— select room —</option>
           {availableRooms.map((r) => (
-            <option key={r.id} value={r.id}>{r.unit_number}</option>
+            <option key={r.id} value={r.id}>{r.unit_number} — ₱{r.base_rate.toFixed(2)}</option>
           ))}
         </select>
       </div>
@@ -130,9 +144,9 @@ export function TransferRoomForm({
         />
       </div>
 
-      {/* Room rate & upgrade fee */}
+      {/* Room rate & balance */}
       <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 space-y-3">
-        <p className="text-xs font-semibold text-amber-900">Room rate for new room</p>
+        <p className="text-xs font-semibold text-amber-900">Room rate &amp; balance</p>
         <div className="flex items-center gap-3">
           <div className="flex-1">
             <label className={labelCls}>Current room rate (₱)</label>
@@ -150,24 +164,34 @@ export function TransferRoomForm({
             />
           </div>
         </div>
-        {shortfall > 0 ? (
-          <div className="rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm">
-            <p className="font-semibold text-amber-900">
-              Upgrade shortfall: <span className="text-rose-700">₱{shortfall.toFixed(2)}</span>
-            </p>
-            <p className="text-xs text-stone-500 mt-0.5">
-              ₱{currentBaseRate.toFixed(2)} already collected · ₱{shortfall.toFixed(2)} to collect now
-            </p>
+
+        {/* Payment summary */}
+        <div className="rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs space-y-1">
+          <div className="flex justify-between text-stone-600">
+            <span>Already collected</span>
+            <span className="font-medium text-emerald-700">₱{alreadyPaid.toFixed(2)}</span>
           </div>
-        ) : newRate < currentBaseRate ? (
-          <p className="text-xs text-stone-500">New rate is lower — no additional collection needed.</p>
-        ) : (
-          <p className="text-xs text-stone-500">Same rate — no additional collection needed.</p>
+          <div className="flex justify-between text-stone-600">
+            <span>New room rate</span>
+            <span className="font-medium">₱{newRate.toFixed(2)}</span>
+          </div>
+          <div className={`flex justify-between font-semibold border-t border-stone-200 pt-1 ${shortfall > 0 ? "text-rose-700" : "text-emerald-700"}`}>
+            <span>{shortfall > 0 ? "Balance to collect" : "No additional payment"}</span>
+            <span>{shortfall > 0 ? `₱${shortfall.toFixed(2)}` : "—"}</span>
+          </div>
+        </div>
+
+        {shortfall > 0 && (
+          <div className="rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-sm text-rose-900">
+            <p className="font-semibold">Collect ₱{shortfall.toFixed(2)} before transferring</p>
+            <p className="text-xs mt-0.5 text-rose-700">Guest paid ₱{alreadyPaid.toFixed(2)} for the original room. The new room costs ₱{newRate.toFixed(2)}.</p>
+          </div>
         )}
+
         {hasUpgradeFee && (
           <>
             <div>
-              <label className={labelCls}>Payment method for upgrade fee *</label>
+              <label className={labelCls}>Payment method for balance *</label>
               <select value={upgradeMethod} onChange={(e) => setUpgradeMethod(e.target.value)} className={inputCls}>
                 <option value="">— select —</option>
                 {HOTEL_PAYMENT_METHODS.map((m) => (
@@ -176,12 +200,12 @@ export function TransferRoomForm({
               </select>
             </div>
             <div>
-              <label className={labelCls}>AR / OR No. (optional)</label>
+              <label className={labelCls}>AR / OR No. (leave blank to auto-assign)</label>
               <input
                 type="text"
                 value={upgradeArNo}
                 onChange={(e) => setUpgradeArNo(e.target.value)}
-                placeholder="e.g. OR-2025-0042"
+                placeholder="e.g. 204793 — auto-generated if left blank"
                 className={inputCls}
               />
             </div>

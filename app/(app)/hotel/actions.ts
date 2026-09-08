@@ -239,6 +239,11 @@ export async function checkIn(
   // Cashier enters AR/OR from physical booklet; fall back to auto-generated if blank.
   let ar_no = String(formData.get("advance_ar_no") ?? "").trim() || null;
   if (!ar_no) { const { data: seq } = await admin.rpc("next_receipt_no", { ctx: "hotel" }); ar_no = (seq as string | null); }
+  // Block duplicate AR numbers
+  if (ar_no) {
+    const { data: dupAr } = await admin.from("stay_payments").select("id").eq("ar_no", ar_no).limit(1).maybeSingle();
+    if (dupAr) return { ok: false, error: `AR no. ${ar_no} is already used in another transaction. Use a different AR number or leave blank to auto-assign.` };
+  }
   let receipt_no = String(formData.get("advance_or_no") ?? "").trim();
   if (!receipt_no) receipt_no = `OR-${Date.now().toString(36).toUpperCase()}`;
   await admin.from("stay_payments").insert({ stay_id: data.id, method: advanceMethod, amount: advanceAmount, receipt_no, ar_no, created_by: user.userId });
@@ -351,6 +356,11 @@ export async function recordStayPayment(
   const adminForAr = createAdminClient();
   let ar_no = String(formData.get("ar_no") ?? "").trim() || null;
   if (!ar_no) { const { data: seq } = await adminForAr.rpc("next_receipt_no", { ctx: "hotel" }); ar_no = (seq as string | null); }
+  // Block duplicate AR numbers
+  if (ar_no) {
+    const { data: dupAr } = await adminForAr.from("stay_payments").select("id").eq("ar_no", ar_no).limit(1).maybeSingle();
+    if (dupAr) return { ok: false, error: `AR no. ${ar_no} is already used in another transaction. Use a different AR number or leave blank to auto-assign.` };
+  }
 
   // Compute itemized breakdown snapshot for this payment
   const admin0 = createAdminClient();
@@ -1388,18 +1398,26 @@ export async function transferRoom(
   // Move existing payments to new stay
   await admin.from("stay_payments").update({ stay_id: newStay.id as string }).eq("stay_id", stayId);
 
-  // Collect upgrade fee if provided
+  // Collect upgrade/balance fee if provided
   const upgradeAmount = parseFloat(String(formData.get("upgrade_amount") ?? "0")) || 0;
   const upgradeMethod = String(formData.get("upgrade_method") ?? "").trim();
   if (upgradeAmount > 0 && METHODS.includes(upgradeMethod)) {
-    const arNo = String(formData.get("upgrade_ar_no") ?? "").trim() || null;
+    let arNo = String(formData.get("upgrade_ar_no") ?? "").trim() || null;
+    if (!arNo) { const { data: seq } = await admin.rpc("next_receipt_no", { ctx: "hotel" }); arNo = (seq as string | null); }
+    // Validate no duplicate AR before inserting
+    if (arNo) {
+      const { data: existing } = await admin.from("stay_payments").select("id").eq("ar_no", arNo).limit(1).maybeSingle();
+      if (existing) return { ok: false, error: `AR no. ${arNo} is already used in another transaction. Use a different AR number.` };
+    }
+    const receipt_no = `OR-${Date.now().toString(36).toUpperCase()}`;
     await admin.from("stay_payments").insert({
       stay_id: newStay.id as string,
       amount: round2(upgradeAmount),
       method: upgradeMethod,
       ar_no: arNo,
+      receipt_no,
       created_by: user.userId,
-      payment_note: `Upgrade fee — transferred from room ${stay.unit_id as string}`,
+      payment_note: `Balance — transferred from room ${stay.unit_id as string}`,
     });
   }
 

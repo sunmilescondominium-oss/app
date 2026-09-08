@@ -173,7 +173,7 @@ export async function getMaintenanceIssueForUnit(unitId: string): Promise<Mainte
 export async function listRoomBoard(isDemoMode = false): Promise<RoomBoardItem[]> {
   const supabase = await createClient();
   const [{ data: units }, { data: stays }, { data: hk }] = await Promise.all([
-    supabase.from("units").select("id, unit_number, unit_type, extra_person_rate").eq("business_line", "hotel").eq("is_active", true).eq("is_demo", isDemoMode).order("unit_number", { ascending: true }),
+    supabase.from("units").select("id, unit_number, unit_type, extra_person_rate, base_rate").eq("business_line", "hotel").eq("is_active", true).eq("is_demo", isDemoMode).order("unit_number", { ascending: true }),
     supabase.from("stays").select("*, units(unit_number), rate_plans(name)").eq("status", "active").eq("is_demo", isDemoMode),
     supabase.from("housekeeping_tasks").select("unit_id").in("status", ["pending", "in_progress"]),
   ]);
@@ -261,7 +261,7 @@ export async function listRoomBoard(isDemoMode = false): Promise<RoomBoardItem[]
     const t = stay ? totalsByStay.get(stay.id) : undefined;
     const lastCoAt = lastCheckoutByUnit.get(unitId);
     return {
-      unit: { id: unitId, unit_number: u.unit_number as string, unit_type: (u.unit_type as string) ?? null, extra_person_rate: Number(u.extra_person_rate ?? 0) },
+      unit: { id: unitId, unit_number: u.unit_number as string, unit_type: (u.unit_type as string) ?? null, extra_person_rate: Number(u.extra_person_rate ?? 0), base_rate: Number(u.base_rate ?? 0) },
       stay,
       needsHousekeeping: dirty.has(unitId),
       paid: t?.paid, ordersTotal: t?.ordersTotal, balance: t?.balance,
