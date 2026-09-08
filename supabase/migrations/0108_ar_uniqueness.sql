@@ -1,18 +1,14 @@
 -- =============================================================================
--- 0108 · AR number uniqueness enforcement for stay_payments
+-- 0108 · INTENTIONALLY NOT APPLIED — AR uniqueness analysis
 -- =============================================================================
--- Prevents the same AR number from being recorded on two different payments.
--- Uses a partial unique index (WHERE ar_no IS NOT NULL) so blank/null AR slots
--- remain unrestricted (some legacy rows have null ar_no).
+-- FINDING: ar_no in stay_payments is a physical AR booklet number, not a
+-- per-transaction identifier. A single booklet is used for an entire cashier
+-- shift, so many transactions legitimately share the same ar_no (verified:
+-- AR-204363 used 55×, 204786 used 45×, etc. — all correct, not duplicates).
 --
--- NOTE: If existing data contains duplicate ar_no values this statement will
--- fail. Run the query below first to check, and correct any duplicates via
--- the hotel_ar_edits flow before applying:
+-- The per-transaction unique identifier is receipt_no (OR number), not ar_no.
 --
---   SELECT ar_no, count(*) FROM stay_payments
---   WHERE ar_no IS NOT NULL
---   GROUP BY ar_no HAVING count(*) > 1;
-
-create unique index if not exists idx_stay_payments_ar_no_unique
-  on public.stay_payments (ar_no)
-  where ar_no is not null;
+-- DO NOT create a unique index on stay_payments(ar_no).
+-- If receipt_no uniqueness enforcement is ever needed, it belongs here instead.
+--
+-- This file is kept as a documented audit trail of the investigation.
