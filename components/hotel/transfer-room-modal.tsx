@@ -13,7 +13,7 @@ export function TransferRoomModal({
 }: {
   stayId: string;
   checkInAt: string;
-  availableRooms: { id: string; unit_number: string; base_rate: number }[];
+  availableRooms: { id: string; unit_number: string }[];
   currentBaseRate: number;
   alreadyPaid: number;
 }) {

@@ -8,12 +8,19 @@ import {
   saveExpenseSettings,
   recordExpense,
   importExpensesFromCsv,
+  approveExpense,
+  rejectExpense,
+  savePettyCashFund,
+  loadPettyCashFund,
   type CsvImportRow,
 } from "@/lib/expenses/actions";
-import type { ExpenseCategory, ExpenseVendor, ExpenseSettings, CsvExpenseRow } from "@/lib/expenses/queries";
+import type { ExpenseCategory, ExpenseVendor, ExpenseSettings, CsvExpenseRow, PettyCashFund } from "@/lib/expenses/queries";
 import { CSV_TEMPLATE_FIELDS } from "@/lib/expenses/constants";
 
 type AR = { ok: true } | { ok: false; error: string } | undefined;
+
+const inputCls = "w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm";
+const peso = (n: number) => `₱${n.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 // ---------------------------------------------------------------------------
 // Record Expense Form
@@ -24,33 +31,39 @@ export function RecordExpenseForm({
   vendors,
   accounts,
   settings,
+  funds,
 }: {
   categories: ExpenseCategory[];
   vendors: ExpenseVendor[];
   accounts: { id: string; label: string }[];
   settings: ExpenseSettings;
+  funds: PettyCashFund[];
 }) {
   const [state, action, pending] = useActionState<AR, FormData>(recordExpense, undefined);
   const [source, setSource] = useState<"bank" | "petty_cash">("bank");
+  const [selectedFundId, setSelectedFundId] = useState("");
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Manila" }).format(new Date());
+
+  const activeFunds = funds.filter((f) => f.is_active);
+  const selectedFund = activeFunds.find((f) => f.id === selectedFundId);
 
   return (
     <form action={action} className="grid gap-4 sm:grid-cols-2">
       <div>
         <label className="mb-1 block text-xs font-medium text-stone-600">Date *</label>
-        <input type="date" name="expense_date" defaultValue={today} required className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm" />
+        <input type="date" name="expense_date" defaultValue={today} required className={inputCls} />
       </div>
       <div>
         <label className="mb-1 block text-xs font-medium text-stone-600">Amount (₱) *</label>
-        <input type="number" name="amount" min="0.01" step="0.01" required placeholder="0.00" className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm tabular-nums" />
+        <input type="number" name="amount" min="0.01" step="0.01" required placeholder="0.00" className={`${inputCls} tabular-nums`} />
       </div>
       <div className="sm:col-span-2">
         <label className="mb-1 block text-xs font-medium text-stone-600">Description *</label>
-        <input type="text" name="description" required placeholder="What was purchased or paid for?" className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm" />
+        <input type="text" name="description" required placeholder="What was purchased or paid for?" className={inputCls} />
       </div>
       <div>
         <label className="mb-1 block text-xs font-medium text-stone-600">Category</label>
-        <select name="expense_category_id" className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm">
+        <select name="expense_category_id" className={inputCls}>
           <option value="">— choose —</option>
           {categories.filter((c) => c.is_active).map((c) => (
             <option key={c.id} value={c.id}>{c.name}</option>
@@ -59,7 +72,7 @@ export function RecordExpenseForm({
       </div>
       <div>
         <label className="mb-1 block text-xs font-medium text-stone-600">Vendor / Payee</label>
-        <select name="expense_vendor_id" className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm">
+        <select name="expense_vendor_id" className={inputCls}>
           <option value="">— choose —</option>
           {vendors.filter((v) => v.is_active).map((v) => (
             <option key={v.id} value={v.id}>{v.name}</option>
@@ -71,17 +84,18 @@ export function RecordExpenseForm({
         <select
           name="source"
           value={source}
-          onChange={(e) => setSource(e.target.value as "bank" | "petty_cash")}
-          className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm"
+          onChange={(e) => { setSource(e.target.value as "bank" | "petty_cash"); setSelectedFundId(""); }}
+          className={inputCls}
         >
           <option value="bank">Bank account</option>
           <option value="petty_cash">Petty cash</option>
         </select>
       </div>
+
       {source === "bank" && (
         <div>
           <label className="mb-1 block text-xs font-medium text-stone-600">Bank account *</label>
-          <select name="bank_account_id" required className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm">
+          <select name="bank_account_id" required className={inputCls}>
             <option value="">— select account —</option>
             {accounts.map((a) => (
               <option key={a.id} value={a.id}>{a.label}</option>
@@ -89,17 +103,44 @@ export function RecordExpenseForm({
           </select>
         </div>
       )}
+
+      {source === "petty_cash" && (
+        <div>
+          <label className="mb-1 block text-xs font-medium text-stone-600">Petty cash fund *</label>
+          <select
+            name="petty_cash_fund_id"
+            required
+            value={selectedFundId}
+            onChange={(e) => setSelectedFundId(e.target.value)}
+            className={inputCls}
+          >
+            <option value="">— select fund —</option>
+            {activeFunds.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.name} — {peso(f.balance)}
+              </option>
+            ))}
+          </select>
+          {selectedFund && (
+            <p className={`mt-1 text-xs ${selectedFund.balance <= selectedFund.low_balance_threshold ? "text-rose-600 font-medium" : "text-stone-400"}`}>
+              Available: {peso(selectedFund.balance)}
+              {selectedFund.balance <= selectedFund.low_balance_threshold && " — low balance"}
+            </p>
+          )}
+        </div>
+      )}
+
       <div>
         <label className="mb-1 block text-xs font-medium text-stone-600">OR / Receipt number</label>
-        <input type="text" name="or_number" placeholder="e.g. 1234" className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm" />
+        <input type="text" name="or_number" placeholder="e.g. 1234" className={inputCls} />
       </div>
       <div className="sm:col-span-2">
         <label className="mb-1 block text-xs font-medium text-stone-600">Remarks</label>
-        <input type="text" name="remarks" placeholder="Optional notes" className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm" />
+        <input type="text" name="remarks" placeholder="Optional notes" className={inputCls} />
       </div>
       {settings.approval_threshold > 0 && (
         <p className="sm:col-span-2 text-xs text-amber-700">
-          Expenses ₱{settings.approval_threshold.toLocaleString()} and above will require approval.
+          Expenses {peso(settings.approval_threshold)} and above will be held for approval by a supervisor.
         </p>
       )}
       {state && !state.ok && <p className="sm:col-span-2 text-sm text-rose-600">{state.error}</p>}
@@ -109,6 +150,171 @@ export function RecordExpenseForm({
           {pending ? "Saving…" : "Record expense"}
         </button>
       </div>
+    </form>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Approve / Reject buttons (inline on expense rows)
+// ---------------------------------------------------------------------------
+
+export function ExpenseApprovalButtons({ expenseId }: { expenseId: string }) {
+  const [showReject, setShowReject] = useState(false);
+  const [reason, setReason] = useState("");
+  const [err, setErr] = useState("");
+  const [done, setDone] = useState("");
+  const [approvePending, startApprove] = useTransition();
+  const [rejectPending, startReject] = useTransition();
+  const router = useRouter();
+
+  function doApprove() {
+    setErr(""); setDone("");
+    startApprove(async () => {
+      const r = await approveExpense(expenseId);
+      if (!r.ok) { setErr(r.error); return; }
+      setDone("approved");
+      router.refresh();
+    });
+  }
+
+  function doReject() {
+    if (!reason.trim()) { setErr("Enter a rejection reason."); return; }
+    setErr(""); setDone("");
+    startReject(async () => {
+      const r = await rejectExpense(expenseId, reason.trim());
+      if (!r.ok) { setErr(r.error); return; }
+      setDone("rejected");
+      router.refresh();
+    });
+  }
+
+  if (done) {
+    return <span className={`text-xs font-medium ${done === "approved" ? "text-emerald-600" : "text-rose-600"}`}>{done}</span>;
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex gap-1">
+        <button
+          onClick={doApprove}
+          disabled={approvePending || rejectPending}
+          className="rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+        >
+          {approvePending ? "…" : "Approve"}
+        </button>
+        <button
+          onClick={() => { setShowReject(!showReject); setErr(""); }}
+          disabled={approvePending || rejectPending}
+          className="rounded-lg border border-rose-300 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50"
+        >
+          Reject
+        </button>
+      </div>
+      {showReject && (
+        <div className="flex gap-1 mt-1">
+          <input
+            type="text"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="Reason for rejection"
+            className="flex-1 rounded-lg border border-stone-300 px-2 py-1 text-xs"
+            onKeyDown={(e) => { if (e.key === "Enter") doReject(); }}
+          />
+          <button
+            onClick={doReject}
+            disabled={rejectPending}
+            className="rounded-lg bg-rose-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-rose-700 disabled:opacity-50"
+          >
+            {rejectPending ? "…" : "Confirm"}
+          </button>
+        </div>
+      )}
+      {err && <p className="text-xs text-rose-600">{err}</p>}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Petty Cash Fund Form (create / edit)
+// ---------------------------------------------------------------------------
+
+export function PettyCashFundForm({ fund }: { fund?: PettyCashFund }) {
+  const [state, action, pending] = useActionState<AR, FormData>(savePettyCashFund, undefined);
+  return (
+    <form action={action} className="flex flex-wrap items-end gap-3">
+      {fund && <input type="hidden" name="id" value={fund.id} />}
+      <div className="flex-1 min-w-[160px]">
+        <label className="mb-1 block text-xs font-medium text-stone-600">Fund name *</label>
+        <input type="text" name="name" defaultValue={fund?.name} required placeholder="e.g. Admin Petty Cash" className={inputCls} />
+      </div>
+      {!fund && (
+        <div className="w-36">
+          <label className="mb-1 block text-xs font-medium text-stone-600">Opening balance (₱)</label>
+          <input type="number" name="opening_balance" defaultValue={0} min="0" step="0.01" className={`${inputCls} tabular-nums`} />
+        </div>
+      )}
+      <div className="w-36">
+        <label className="mb-1 block text-xs font-medium text-stone-600">Low balance alert (₱)</label>
+        <input type="number" name="low_balance_threshold" defaultValue={fund?.low_balance_threshold ?? 500} min="0" step="100" className={`${inputCls} tabular-nums`} />
+      </div>
+      <div className="w-24">
+        <label className="mb-1 block text-xs font-medium text-stone-600">PCV prefix</label>
+        <input type="text" name="pcv_prefix" defaultValue={fund?.pcv_prefix ?? "PCV"} className={inputCls} />
+      </div>
+      {fund && (
+        <label className="flex items-center gap-2 text-sm text-stone-700">
+          <input type="checkbox" name="is_active" value="true" defaultChecked={fund.is_active} className="accent-emerald-600" />
+          Active
+        </label>
+      )}
+      {state && !state.ok && <p className="w-full text-xs text-rose-600">{state.error}</p>}
+      {state?.ok && <p className="w-full text-xs text-emerald-600">Saved.</p>}
+      <button disabled={pending} className="rounded-xl bg-stone-800 px-4 py-2 text-sm font-semibold text-white hover:bg-stone-700 disabled:opacity-50">
+        {pending ? "Saving…" : fund ? "Update" : "Create fund"}
+      </button>
+    </form>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Load Fund Form (replenish a petty cash fund)
+// ---------------------------------------------------------------------------
+
+export function LoadFundForm({ funds, accounts }: { funds: PettyCashFund[]; accounts: { id: string; label: string }[] }) {
+  const [state, action, pending] = useActionState<AR, FormData>(loadPettyCashFund, undefined);
+  return (
+    <form action={action} className="flex flex-wrap items-end gap-3">
+      <div className="flex-1 min-w-[160px]">
+        <label className="mb-1 block text-xs font-medium text-stone-600">Fund *</label>
+        <select name="fund_id" required className={inputCls}>
+          <option value="">— select fund —</option>
+          {funds.filter((f) => f.is_active).map((f) => (
+            <option key={f.id} value={f.id}>{f.name} — {peso(f.balance)}</option>
+          ))}
+        </select>
+      </div>
+      <div className="w-36">
+        <label className="mb-1 block text-xs font-medium text-stone-600">Amount (₱) *</label>
+        <input type="number" name="amount" min="0.01" step="0.01" required placeholder="0.00" className={`${inputCls} tabular-nums`} />
+      </div>
+      <div className="flex-1 min-w-[160px]">
+        <label className="mb-1 block text-xs font-medium text-stone-600">From bank account</label>
+        <select name="bank_account_id" className={inputCls}>
+          <option value="">— none / cash on hand —</option>
+          {accounts.map((a) => (
+            <option key={a.id} value={a.id}>{a.label}</option>
+          ))}
+        </select>
+      </div>
+      <div className="flex-[2] min-w-[200px]">
+        <label className="mb-1 block text-xs font-medium text-stone-600">Description</label>
+        <input type="text" name="description" placeholder="e.g. Monthly replenishment" className={inputCls} />
+      </div>
+      {state && !state.ok && <p className="w-full text-xs text-rose-600">{state.error}</p>}
+      {state?.ok && <p className="w-full text-xs text-emerald-600">Fund loaded.</p>}
+      <button disabled={pending} className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-50">
+        {pending ? "Loading…" : "Load fund"}
+      </button>
     </form>
   );
 }
@@ -124,11 +330,11 @@ export function CategoryForm({ category }: { category?: ExpenseCategory }) {
       {category && <input type="hidden" name="id" value={category.id} />}
       <div className="flex-1 min-w-[160px]">
         <label className="mb-1 block text-xs font-medium text-stone-600">Name *</label>
-        <input type="text" name="name" defaultValue={category?.name} required className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm" />
+        <input type="text" name="name" defaultValue={category?.name} required className={inputCls} />
       </div>
       <div className="flex-[2] min-w-[200px]">
         <label className="mb-1 block text-xs font-medium text-stone-600">Description</label>
-        <input type="text" name="description" defaultValue={category?.description ?? ""} className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm" />
+        <input type="text" name="description" defaultValue={category?.description ?? ""} className={inputCls} />
       </div>
       <div>
         <label className="mb-1 block text-xs font-medium text-stone-600">Order</label>
@@ -160,15 +366,15 @@ export function VendorForm({ vendor }: { vendor?: ExpenseVendor }) {
       {vendor && <input type="hidden" name="id" value={vendor.id} />}
       <div className="flex-1 min-w-[160px]">
         <label className="mb-1 block text-xs font-medium text-stone-600">Name *</label>
-        <input type="text" name="name" defaultValue={vendor?.name} required className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm" />
+        <input type="text" name="name" defaultValue={vendor?.name} required className={inputCls} />
       </div>
       <div className="flex-1 min-w-[160px]">
         <label className="mb-1 block text-xs font-medium text-stone-600">Contact</label>
-        <input type="text" name="contact" defaultValue={vendor?.contact ?? ""} className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm" />
+        <input type="text" name="contact" defaultValue={vendor?.contact ?? ""} className={inputCls} />
       </div>
       <div className="w-36">
         <label className="mb-1 block text-xs font-medium text-stone-600">TIN</label>
-        <input type="text" name="tin" defaultValue={vendor?.tin ?? ""} className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm" />
+        <input type="text" name="tin" defaultValue={vendor?.tin ?? ""} className={inputCls} />
       </div>
       {state && !state.ok && <p className="w-full text-xs text-rose-600">{state.error}</p>}
       {state?.ok && <p className="w-full text-xs text-emerald-600">Saved.</p>}
@@ -221,9 +427,7 @@ export function CsvImportPanel({
   const router = useRouter();
 
   function parseFile(file: File) {
-    setParseErr(null);
-    setRows(null);
-    setResult(null);
+    setParseErr(null); setRows(null); setResult(null);
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
@@ -236,21 +440,10 @@ export function CsvImportPanel({
           if (cols.length < 4) continue;
           const amount = parseFloat(cols[3]);
           if (isNaN(amount)) { setParseErr(`Row ${i + 1}: Amount "${cols[3]}" is not a number.`); return; }
-          parsed.push({
-            expense_date: cols[0],
-            category_name: cols[1],
-            vendor_name: cols[2],
-            amount,
-            or_number: cols[4] || null,
-            source: cols[5] || "import",
-            bank_account_label: cols[6] || null,
-            remarks: cols[7] || null,
-          });
+          parsed.push({ expense_date: cols[0], category_name: cols[1], vendor_name: cols[2], amount, or_number: cols[4] || null, source: cols[5] || "import", bank_account_label: cols[6] || null, remarks: cols[7] || null });
         }
         setRows(parsed);
-      } catch {
-        setParseErr("Could not parse file. Check that it is a valid CSV.");
-      }
+      } catch { setParseErr("Could not parse file. Check that it is a valid CSV."); }
     };
     reader.readAsText(file);
   }
@@ -277,19 +470,11 @@ export function CsvImportPanel({
           </table>
         </div>
       </div>
-
       <div>
         <label className="mb-1 block text-xs font-medium text-stone-600">Upload CSV file</label>
-        <input
-          type="file"
-          accept=".csv"
-          onChange={(e) => { const f = e.target.files?.[0]; if (f) parseFile(f); }}
-          className="text-sm text-stone-700"
-        />
+        <input type="file" accept=".csv" onChange={(e) => { const f = e.target.files?.[0]; if (f) parseFile(f); }} className="text-sm text-stone-700" />
       </div>
-
       {parseErr && <p className="text-sm text-rose-600">{parseErr}</p>}
-
       {rows && rows.length > 0 && (
         <div>
           <p className="mb-2 text-sm text-stone-700 font-medium">{rows.length} rows ready to import</p>
@@ -297,10 +482,8 @@ export function CsvImportPanel({
             <table className="w-full text-xs text-left">
               <thead className="bg-stone-50 text-stone-500 uppercase">
                 <tr>
-                  <th className="px-3 py-2">Date</th>
-                  <th className="px-3 py-2">Category</th>
-                  <th className="px-3 py-2">Vendor</th>
-                  <th className="px-3 py-2 text-right">Amount</th>
+                  <th className="px-3 py-2">Date</th><th className="px-3 py-2">Category</th>
+                  <th className="px-3 py-2">Vendor</th><th className="px-3 py-2 text-right">Amount</th>
                   <th className="px-3 py-2">Source</th>
                 </tr>
               </thead>
@@ -310,7 +493,7 @@ export function CsvImportPanel({
                     <td className="px-3 py-1.5">{r.expense_date}</td>
                     <td className="px-3 py-1.5">{r.category_name}</td>
                     <td className="px-3 py-1.5">{r.vendor_name}</td>
-                    <td className="px-3 py-1.5 text-right tabular-nums">₱{r.amount.toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
+                    <td className="px-3 py-1.5 text-right tabular-nums">{peso(r.amount)}</td>
                     <td className="px-3 py-1.5">{r.source}</td>
                   </tr>
                 ))}
@@ -318,19 +501,12 @@ export function CsvImportPanel({
               </tbody>
             </table>
           </div>
-          <button
-            disabled={importing}
-            onClick={doImport}
-            className="mt-3 rounded-xl bg-emerald-600 px-5 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
-          >
+          <button disabled={importing} onClick={doImport} className="mt-3 rounded-xl bg-emerald-600 px-5 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
             {importing ? "Importing…" : `Import ${rows.length} rows`}
           </button>
         </div>
       )}
-
-      {result && (
-        <p className={`text-sm font-medium ${result.startsWith("Error") ? "text-rose-600" : "text-emerald-600"}`}>{result}</p>
-      )}
+      {result && <p className={`text-sm font-medium ${result.startsWith("Error") ? "text-rose-600" : "text-emerald-600"}`}>{result}</p>}
     </div>
   );
 }

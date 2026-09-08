@@ -4,6 +4,7 @@ import {
   listExpenseVendors,
   listExpenses,
   getExpenseSettings,
+  listPettyCashFunds,
 } from "@/lib/expenses/queries";
 import { listAccountOptions } from "@/lib/banking/queries";
 import { PageHeader, Breadcrumb } from "@/components/ui";
@@ -13,6 +14,9 @@ import {
   VendorForm,
   ExpenseSettingsForm,
   CsvImportPanel,
+  ExpenseApprovalButtons,
+  PettyCashFundForm,
+  LoadFundForm,
 } from "@/components/expenses/expense-forms";
 
 export const metadata = { title: "General Expenses" };
@@ -25,16 +29,20 @@ const STATUS_CLS: Record<string, string> = {
   rejected: "bg-rose-100 text-rose-700",
 };
 
+const APPROVER_ROLES = ["admin", "accounting", "managing_officer"];
+
 export default async function ExpensesPage() {
   const user = await requireModule("expenses");
   const canWrite = user.roleKeys.some((r) => ["admin", "accounting"].includes(r));
+  const canApprove = user.roleKeys.some((r) => APPROVER_ROLES.includes(r));
 
-  const [categories, vendors, expenses, settings, accounts] = await Promise.all([
+  const [categories, vendors, expenses, settings, accounts, funds] = await Promise.all([
     listExpenseCategories(),
     listExpenseVendors(),
     listExpenses(),
     getExpenseSettings(),
     canWrite ? listAccountOptions() : Promise.resolve([]),
+    listPettyCashFunds(),
   ]);
 
   const total = expenses.reduce((s, e) => s + e.amount, 0);
@@ -48,7 +56,7 @@ export default async function ExpensesPage() {
       />
 
       {/* Summary */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 mb-6">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 mb-4">
         <div className="rounded-xl border border-stone-200 bg-white p-3">
           <p className="text-xs text-stone-500">Total (all time)</p>
           <p className="text-lg font-bold tabular-nums text-stone-900">{peso(total)}</p>
@@ -71,6 +79,30 @@ export default async function ExpensesPage() {
         </div>
       </div>
 
+      {/* Petty cash fund balances */}
+      {funds.length > 0 && (
+        <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {funds.filter((f) => f.is_active).map((f) => (
+            <div
+              key={f.id}
+              className={`rounded-xl border p-3 ${
+                f.balance <= f.low_balance_threshold
+                  ? "border-rose-200 bg-rose-50"
+                  : "border-emerald-200 bg-emerald-50"
+              }`}
+            >
+              <p className="text-xs font-medium text-stone-600">{f.name}</p>
+              <p className={`text-lg font-bold tabular-nums ${f.balance <= f.low_balance_threshold ? "text-rose-700" : "text-emerald-800"}`}>
+                {peso(f.balance)}
+              </p>
+              {f.balance <= f.low_balance_threshold && (
+                <p className="text-xs text-rose-500">Low balance</p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Record new expense */}
       {canWrite && (
         <details className="mb-4 rounded-2xl border border-stone-200 bg-white p-4" open>
@@ -81,6 +113,7 @@ export default async function ExpensesPage() {
               vendors={vendors}
               accounts={accounts}
               settings={settings}
+              funds={funds}
             />
           </div>
         </details>

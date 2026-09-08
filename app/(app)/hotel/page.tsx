@@ -10,6 +10,7 @@ import {
   listRoomTax,
   listPendingGateEntries,
 } from "@/lib/hotel/queries";
+import { listSupplies } from "@/lib/housekeeping/queries";
 import { countOpenDiscrepancies } from "@/lib/hotel/discrepancy-queries";
 import { getActiveSession, getSuggestedNextArNo } from "@/lib/hotel/session";
 import { PageHeader, Badge } from "@/components/ui";
@@ -34,7 +35,7 @@ export default async function HotelPage() {
   const isDemoMode = Boolean(user.demoMode);
   const isCashier    = userHasAnyRole(user, ["hotel_cashier"]);
   const isSupervisor = userHasAnyRole(user, ["hotel_rental_monitoring", "admin", "managing_officer", "consultant", "accounting"]);
-  const [board, ratePlans, promos, menu, globalTax, roomTax, activeSession, suggestedArNo, pendingGateEntries, openDiscrepancies] = await Promise.all([
+  const [board, ratePlans, promos, menu, globalTax, roomTax, activeSession, suggestedArNo, pendingGateEntries, openDiscrepancies, supplies] = await Promise.all([
     listRoomBoard(isDemoMode),
     listRatePlans(),
     listPromos(),
@@ -45,6 +46,7 @@ export default async function HotelPage() {
     getSuggestedNextArNo(),
     listPendingGateEntries(),
     isSupervisor ? countOpenDiscrepancies() : Promise.resolve(0),
+    (isCashier || isSupervisor) ? listSupplies().catch(() => []) : Promise.resolve([]),
   ]);
   const occupied = board.filter((b) => b.stay).length;
   const isOnDuty     = activeSession?.cashierUserId === user.userId;
@@ -139,6 +141,11 @@ export default async function HotelPage() {
         <Link href="/hotel/shifts" className="text-sm font-medium text-amber-700 hover:underline">
           Cashier shifts →
         </Link>
+        {(isCashier || isSupervisor) && (
+          <Link href="/housekeeping" className="text-sm font-medium text-amber-700 hover:underline">
+            Supplies / stock →
+          </Link>
+        )}
         <Link href="/hotel/day" className="text-sm font-medium text-amber-700 hover:underline">
           Day-end / remittance report →
         </Link>
@@ -181,6 +188,46 @@ export default async function HotelPage() {
       </div>
 
       {user.demoMode && <DemoModeBar actingAs={user.actingAs} />}
+
+
+      {/* Supplies stock — visible to cashier and supervisor */}
+      {(isCashier || isSupervisor) && supplies.length > 0 && (
+        <details className="no-print mb-4 rounded-xl border border-stone-200 bg-white">
+          <summary className="cursor-pointer px-4 py-2.5 text-sm font-semibold text-stone-700 flex items-center justify-between">
+            <span>Supplies / front-desk stock</span>
+            <span className="text-xs font-normal text-stone-400">
+              {supplies.filter((s) => s.stock_qty <= (s.reorder_level)).length > 0
+                ? `⚠ ${supplies.filter((s) => s.stock_qty <= (s.reorder_level)).length} low`
+                : `${supplies.length} items`}
+            </span>
+          </summary>
+          <div className="border-t border-stone-100 px-4 pb-3 pt-2">
+            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 md:grid-cols-4">
+              {supplies.map((s) => {
+                const isLow = s.stock_qty <= (s.reorder_level);
+                return (
+                  <div
+                    key={s.id}
+                    className={`flex items-center justify-between rounded-lg px-2.5 py-1.5 text-xs ${
+                      isLow
+                        ? "bg-rose-50 border border-rose-200 text-rose-800"
+                        : "bg-stone-50 border border-stone-100 text-stone-700"
+                    }`}
+                  >
+                    <span className="truncate pr-1">{s.name}</span>
+                    <span className={`shrink-0 font-bold tabular-nums ${isLow ? "text-rose-600" : "text-stone-900"}`}>
+                      {s.stock_qty}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            <Link href="/housekeeping" className="mt-2 block text-xs text-amber-700 hover:underline">
+              Manage supplies & adjust stock →
+            </Link>
+          </div>
+        </details>
+      )}
 
       {board.length === 0 ? (
         <div className="rounded-2xl border border-stone-200 bg-white p-6 text-sm text-stone-500">

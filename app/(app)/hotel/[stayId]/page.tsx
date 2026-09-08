@@ -67,7 +67,7 @@ export default async function StayFolioPage({
   // Rooms available for transfer: not occupied, not needing housekeeping, not this room
   const availableRooms = board
     .filter((b) => !b.stay && !b.needsHousekeeping && b.unit.id !== stay.unit_id)
-    .map((b) => ({ id: b.unit.id, unit_number: b.unit.unit_number, base_rate: b.unit.base_rate }));
+    .map((b) => ({ id: b.unit.id, unit_number: b.unit.unit_number }));
   const paid = payments.reduce((s, p) => s + p.amount, 0);
   const ordersTotal = orders.reduce((s, o) => s + o.qty * o.unit_price, 0); // includes extra person charges
   const t = stayTotals(stay, paid, ordersTotal);

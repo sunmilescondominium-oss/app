@@ -28,7 +28,7 @@ export function TransferRoomForm({
 }: {
   stayId: string;
   checkInAt: string;
-  availableRooms: { id: string; unit_number: string; base_rate: number }[];
+  availableRooms: { id: string; unit_number: string }[];
   currentBaseRate: number;
   alreadyPaid: number;
   onDone: () => void;
@@ -58,8 +58,7 @@ export function TransferRoomForm({
     setToUnitId(unitId);
     setUpgradeMethod("");
     if (unitId) {
-      const room = availableRooms.find((r) => r.id === unitId);
-      if (room) setNewRateStr(String(room.base_rate));
+      // base_rate not available on units; cashier enters the new rate manually
     }
   }
 
@@ -104,7 +103,7 @@ export function TransferRoomForm({
         <select value={toUnitId} onChange={(e) => handleRoomSelect(e.target.value)} className={inputCls}>
           <option value="">— select room —</option>
           {availableRooms.map((r) => (
-            <option key={r.id} value={r.id}>{r.unit_number} — ₱{r.base_rate.toFixed(2)}</option>
+            <option key={r.id} value={r.id}>{r.unit_number}</option>
           ))}
         </select>
       </div>

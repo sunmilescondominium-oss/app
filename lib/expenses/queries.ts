@@ -24,6 +24,16 @@ export interface ExpenseSettings {
   petty_cash_draw_roles: string[];
 }
 
+export interface PettyCashFund {
+  id: string;
+  name: string;
+  opening_balance: number;
+  balance: number; // computed: opening + loads - disbursements
+  low_balance_threshold: number;
+  pcv_prefix: string;
+  is_active: boolean;
+}
+
 export interface Expense {
   id: string;
   expense_date: string;
@@ -33,6 +43,8 @@ export interface Expense {
   source: "bank" | "petty_cash" | "import";
   bank_account_id: string | null;
   bank_account_label: string | null;
+  petty_cash_fund_id: string | null;
+  fund_name: string | null;
   expense_category_id: string | null;
   category_name: string | null;
   expense_vendor_id: string | null;
@@ -40,6 +52,8 @@ export interface Expense {
   or_number: string | null;
   proof_url: string | null;
   approval_status: "pending" | "approved" | "rejected";
+  approved_by: string | null;
+  approved_at: string | null;
   remarks: string | null;
   created_at: string;
 }
@@ -72,11 +86,46 @@ export async function getExpenseSettings(): Promise<ExpenseSettings> {
   return (data ?? { approval_threshold: 5000, approver_roles: ["admin", "accounting", "managing_officer"], petty_cash_draw_roles: ["admin", "accounting"] }) as ExpenseSettings;
 }
 
+export async function listPettyCashFunds(): Promise<PettyCashFund[]> {
+  const supabase = createAdminClient();
+  const { data: funds } = await supabase
+    .from("petty_cash_funds")
+    .select("id, name, opening_balance, low_balance_threshold, pcv_prefix, is_active")
+    .order("name", { ascending: true });
+
+  if (!funds || funds.length === 0) return [];
+
+  // Compute balance per fund from transactions
+  const { data: txns } = await supabase
+    .from("petty_cash_transactions")
+    .select("fund_id, kind, amount");
+
+  const balanceMap = new Map<string, number>();
+  for (const f of funds) {
+    balanceMap.set(f.id as string, Number(f.opening_balance ?? 0));
+  }
+  for (const t of txns ?? []) {
+    const cur = balanceMap.get(t.fund_id as string) ?? 0;
+    balanceMap.set(t.fund_id as string, cur + (t.kind === "load" ? Number(t.amount) : -Number(t.amount)));
+  }
+
+  return funds.map((f) => ({
+    id: f.id as string,
+    name: f.name as string,
+    opening_balance: Number(f.opening_balance ?? 0),
+    balance: balanceMap.get(f.id as string) ?? 0,
+    low_balance_threshold: Number(f.low_balance_threshold ?? 500),
+    pcv_prefix: (f.pcv_prefix as string) ?? "PCV",
+    is_active: f.is_active as boolean,
+  }));
+}
+
 export async function listExpenses(filters?: {
   from?: string;
   to?: string;
   source?: string;
   categoryId?: string;
+  status?: string;
   limit?: number;
 }): Promise<Expense[]> {
   const supabase = createAdminClient();
@@ -85,7 +134,8 @@ export async function listExpenses(filters?: {
     .select(`
       id, expense_date, business_line, description, amount,
       source, bank_account_id, or_number, proof_url, approval_status,
-      remarks, created_at,
+      approved_by, approved_at, remarks, created_at,
+      petty_cash_fund_id, petty_cash_funds(name),
       expense_category_id, expense_categories(name),
       expense_vendor_id, expense_vendors(name),
       bank_accounts(label)
@@ -99,6 +149,7 @@ export async function listExpenses(filters?: {
   if (filters?.to) q = q.lte("expense_date", filters.to);
   if (filters?.source) q = q.eq("source", filters.source);
   if (filters?.categoryId) q = q.eq("expense_category_id", filters.categoryId);
+  if (filters?.status) q = q.eq("approval_status", filters.status);
 
   const { data } = await q;
   return (data ?? []).map((r: Record<string, unknown>) => ({
@@ -110,6 +161,8 @@ export async function listExpenses(filters?: {
     source: r.source as Expense["source"],
     bank_account_id: (r.bank_account_id as string) ?? null,
     bank_account_label: ((r.bank_accounts as Record<string, unknown> | null)?.label as string) ?? null,
+    petty_cash_fund_id: (r.petty_cash_fund_id as string) ?? null,
+    fund_name: ((r.petty_cash_funds as Record<string, unknown> | null)?.name as string) ?? null,
     expense_category_id: (r.expense_category_id as string) ?? null,
     category_name: ((r.expense_categories as Record<string, unknown> | null)?.name as string) ?? null,
     expense_vendor_id: (r.expense_vendor_id as string) ?? null,
@@ -117,6 +170,8 @@ export async function listExpenses(filters?: {
     or_number: (r.or_number as string) ?? null,
     proof_url: (r.proof_url as string) ?? null,
     approval_status: r.approval_status as Expense["approval_status"],
+    approved_by: (r.approved_by as string) ?? null,
+    approved_at: (r.approved_at as string) ?? null,
     remarks: (r.remarks as string) ?? null,
     created_at: r.created_at as string,
   }));
