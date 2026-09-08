@@ -99,6 +99,7 @@ export async function recordPettyCashDisbursement(
       description,
       amount,
       source: "petty_cash",
+      petty_cash_fund_id: fund_id,
       expense_category_id,
       expense_vendor_id,
       or_number,

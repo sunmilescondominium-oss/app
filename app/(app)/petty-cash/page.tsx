@@ -10,9 +10,10 @@ export const metadata = { title: "Petty Cash" };
 
 const peso = (n: number) => `₱${n.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-export default async function PettyCashPage() {
+export default async function PettyCashPage({ searchParams }: { searchParams: Promise<{ fund?: string }> }) {
   const user = await requireModule("petty_cash");
   const canWrite = user.roleKeys.some((r) => ["admin", "accounting"].includes(r));
+  const { fund: fundParam } = await searchParams;
 
   const [funds, categories, vendors, accounts] = await Promise.all([
     listPettyCashFunds(),
@@ -21,9 +22,9 @@ export default async function PettyCashPage() {
     canWrite ? listAccountOptions() : Promise.resolve([]),
   ]);
 
-  // Load transaction history for first active fund
-  const primaryFund = funds[0] ?? null;
-  const txns = primaryFund ? await listPettyCashTransactions(primaryFund.id) : [];
+  // Show transactions for the fund selected via ?fund= param, defaulting to first
+  const activeFund = funds.find((f) => f.id === fundParam) ?? funds[0] ?? null;
+  const txns = activeFund ? await listPettyCashTransactions(activeFund.id) : [];
 
   // Staff options for custodian picker (accounting + admin roles)
   let staffOptions: { id: string; name: string }[] = [];
@@ -100,11 +101,20 @@ export default async function PettyCashPage() {
       )}
 
       {/* Transaction history */}
-      {primaryFund && (
+      {activeFund && (
         <>
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-stone-500">
-            Transaction history — {primaryFund.name}
-          </h2>
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-stone-500">Transaction history</h2>
+            {funds.length > 1 && funds.map((f) => (
+              <a
+                key={f.id}
+                href={`?fund=${f.id}`}
+                className={`rounded-full px-3 py-0.5 text-xs font-semibold ${f.id === activeFund.id ? "bg-stone-800 text-white" : "bg-stone-100 text-stone-600 hover:bg-stone-200"}`}
+              >
+                {f.name}
+              </a>
+            ))}
+          </div>
           <div className="table-wrap">
             <table className="w-full min-w-[640px] text-left text-sm">
               <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">

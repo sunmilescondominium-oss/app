@@ -6,6 +6,7 @@ export interface PettyCashFund {
   name: string;
   custodian_user_id: string | null;
   custodian_name: string | null;
+  opening_balance: number;
   low_balance_threshold: number;
   pcv_prefix: string;
   pcv_sequence: number;
@@ -32,11 +33,15 @@ export async function listPettyCashFunds(): Promise<PettyCashFund[]> {
   const supabase = createAdminClient();
 
   const [{ data: funds }, { data: txns }] = await Promise.all([
-    supabase.from("petty_cash_funds").select("*, profiles(full_name)").eq("is_active", true).order("name"),
+    supabase.from("petty_cash_funds").select("*, profiles(full_name)").order("name"),
     supabase.from("petty_cash_transactions").select("fund_id, kind, amount"),
   ]);
 
   const balanceByFund = new Map<string, number>();
+  for (const f of funds ?? []) {
+    const row = f as Record<string, unknown>;
+    balanceByFund.set(row.id as string, Number(row.opening_balance ?? 0));
+  }
   for (const t of txns ?? []) {
     const row = t as Record<string, unknown>;
     const prev = balanceByFund.get(row.fund_id as string) ?? 0;
@@ -49,6 +54,7 @@ export async function listPettyCashFunds(): Promise<PettyCashFund[]> {
     name: f.name as string,
     custodian_user_id: (f.custodian_user_id as string) ?? null,
     custodian_name: ((f.profiles as Record<string, unknown> | null)?.full_name as string) ?? null,
+    opening_balance: Number(f.opening_balance ?? 0),
     low_balance_threshold: Number(f.low_balance_threshold),
     pcv_prefix: f.pcv_prefix as string,
     pcv_sequence: Number(f.pcv_sequence),
