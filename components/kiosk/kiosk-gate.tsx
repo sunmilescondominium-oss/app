@@ -2,15 +2,11 @@
 
 import { useActionState } from "react";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
 import { unlockKiosk } from "@/app/(public)/attendance-portal/actions";
 
 export function KioskGate() {
   const router = useRouter();
   const [state, action, pending] = useActionState(unlockKiosk, undefined);
-  useEffect(() => {
-    if (state === undefined) return;
-  }, [state]);
 
   return (
     <form

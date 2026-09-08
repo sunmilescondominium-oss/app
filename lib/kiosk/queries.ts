@@ -2,7 +2,6 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { todayManila } from "@/lib/collections/summary";
 import { EXTERNAL_ROLE_KEYS } from "@/lib/rbac/modules";
-import { APP_DEMO_DOMAIN } from "@/lib/config";
 
 export type BoardStatus = "checked_in" | "checked_out" | "on_ob" | "on_leave" | "absent" | "off";
 
@@ -46,10 +45,6 @@ export async function todayBoard(): Promise<{ date: string; items: BoardItem[] }
   // Role display order for the board (lower = shown first, e.g. owner/CEO → 1).
   const { data: roleDefs } = await admin.from("roles").select("role_key, sort_order");
   const roleOrder = new Map((roleDefs ?? []).map((r) => [r.role_key as string, Number(r.sort_order ?? 100)]));
-
-  // Demo accounts (seeded @demo.sunmiles.local) are always sorted to the bottom.
-  const { data: authList } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-  const demoIds = new Set((authList?.users ?? []).filter((u) => (u.email ?? "").endsWith(`@${APP_DEMO_DOMAIN}`)).map((u) => u.id));
 
   // Employees only — a user counts as staff if they hold at least one non-external
   // role. Tenants/buyers/guests (external roles) are excluded from the kiosk.
@@ -101,12 +96,9 @@ export async function todayBoard(): Promise<{ date: string; items: BoardItem[] }
         dtrExempt: exempt.has(id),
       };
     })
-    .sort((a, b) => {
-      const da = demoIds.has(a.id) ? 1 : 0;
-      const db = demoIds.has(b.id) ? 1 : 0;
-      if (da !== db) return da - db; // demo accounts last
-      return (rankByUser.get(a.id) ?? 999) - (rankByUser.get(b.id) ?? 999) || a.label.localeCompare(b.label);
-    });
+    .sort((a, b) =>
+      (rankByUser.get(a.id) ?? 999) - (rankByUser.get(b.id) ?? 999) || a.label.localeCompare(b.label),
+    );
 
   return { date, items };
 }
