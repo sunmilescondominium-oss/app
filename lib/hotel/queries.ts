@@ -526,3 +526,153 @@ export async function getPersonEventsForStay(stayId: string): Promise<{
     createdAt: r.created_at as string,
   }));
 }
+
+// ---------------------------------------------------------------------------
+// Room performance report
+// ---------------------------------------------------------------------------
+
+export interface RoomStat {
+  unitId: string;
+  unitNumber: string;
+  unitType: string | null;
+  floor: string | null;
+  totalStays: number;
+  totalRevenue: number;
+  occupiedHours: number;
+  avgRate: number;       // revenue / stays (ADR per stay)
+  avgStayHours: number;
+  occupancyPct: number;  // occupied hours / period hours × 100
+}
+
+export interface RoomPerformanceResult {
+  from: string;
+  to: string;
+  periodHours: number;
+  totalRooms: number;
+  totalStays: number;
+  totalRevenue: number;
+  adr: number;           // average daily rate (revenue / stays)
+  occupancyPct: number;  // fleet-wide occupancy %
+  revpar: number;        // revenue per available room-hour × 24 (daily equiv)
+  rooms: RoomStat[];
+  byType: { type: string; rooms: number; stays: number; revenue: number; occupancyPct: number }[];
+}
+
+export async function getRoomPerformance(from: string, to: string): Promise<RoomPerformanceResult> {
+  const admin = createAdminClient();
+
+  // Period boundaries in Manila time (UTC+8)
+  const fromIso = `${from}T00:00:00+08:00`;
+  const toIso   = `${to}T23:59:59+08:00`;
+  const fromMs  = new Date(fromIso).getTime();
+  const toMs    = new Date(toIso).getTime();
+  const periodHours = (toMs - fromMs) / 3_600_000;
+
+  const [{ data: units }, { data: stays }] = await Promise.all([
+    admin.from("units").select("id, unit_number, unit_type, floor").eq("business_line", "hotel").eq("is_active", true).order("unit_number"),
+    admin.from("stays")
+      .select("id, unit_id, check_in_at, check_out_at")
+      // include stays that overlapped the period (started before to AND ended after from, or still active)
+      .lt("check_in_at", toIso)
+      .or(`check_out_at.is.null,check_out_at.gte.${fromIso}`)
+      .neq("status", "cancelled"),
+  ]);
+
+  const stayIds = (stays ?? []).map((s) => (s as Record<string, unknown>).id as string);
+  const { data: payments } = stayIds.length
+    ? await admin.from("stay_payments").select("stay_id, amount").in("stay_id", stayIds)
+    : { data: [] };
+
+  // Revenue per stay
+  const revByStay = new Map<string, number>();
+  for (const p of (payments ?? []) as { stay_id: string; amount: number }[]) {
+    revByStay.set(p.stay_id, (revByStay.get(p.stay_id) ?? 0) + Number(p.amount));
+  }
+
+  // Group stays by unit, clip hours to period
+  type StayRow = { id: string; unit_id: string; check_in_at: string; check_out_at: string | null };
+  const staysByUnit = new Map<string, StayRow[]>();
+  for (const s of (stays ?? []) as StayRow[]) {
+    const arr = staysByUnit.get(s.unit_id) ?? [];
+    arr.push(s);
+    staysByUnit.set(s.unit_id, arr);
+  }
+
+  const roomStats: RoomStat[] = (units ?? []).map((u) => {
+    const row = u as { id: string; unit_number: string; unit_type: string | null; floor: string | null };
+    const unitStays = staysByUnit.get(row.id) ?? [];
+
+    let totalRevenue = 0;
+    let occupiedHours = 0;
+    let totalStayHours = 0;
+
+    // Only count stays that started within the period for "stays" count
+    const inPeriodStays = unitStays.filter((s) => new Date(s.check_in_at).getTime() >= fromMs);
+
+    for (const s of unitStays) {
+      const inMs  = Math.max(new Date(s.check_in_at).getTime(), fromMs);
+      const outMs = s.check_out_at ? Math.min(new Date(s.check_out_at).getTime(), toMs) : toMs;
+      const hrs   = Math.max(0, (outMs - inMs) / 3_600_000);
+      occupiedHours += hrs;
+      totalStayHours += hrs;
+      totalRevenue += revByStay.get(s.id) ?? 0;
+    }
+
+    const totalStays = inPeriodStays.length;
+    return {
+      unitId: row.id,
+      unitNumber: row.unit_number,
+      unitType: row.unit_type,
+      floor: row.floor,
+      totalStays,
+      totalRevenue: round2(totalRevenue),
+      occupiedHours: Math.round(occupiedHours * 10) / 10,
+      avgRate: totalStays > 0 ? round2(totalRevenue / totalStays) : 0,
+      avgStayHours: totalStays > 0 ? Math.round((totalStayHours / totalStays) * 10) / 10 : 0,
+      occupancyPct: periodHours > 0 ? Math.round((occupiedHours / periodHours) * 1000) / 10 : 0,
+    };
+  });
+
+  // Aggregate totals
+  const totalRevenue  = round2(roomStats.reduce((s, r) => s + r.totalRevenue, 0));
+  const totalStays    = roomStats.reduce((s, r) => s + r.totalStays, 0);
+  const totalOccHours = roomStats.reduce((s, r) => s + r.occupiedHours, 0);
+  const totalRooms    = roomStats.length;
+  const fleetHours    = periodHours * totalRooms;
+
+  const adr          = totalStays > 0 ? round2(totalRevenue / totalStays) : 0;
+  const occupancyPct = fleetHours > 0 ? Math.round((totalOccHours / fleetHours) * 1000) / 10 : 0;
+  // RevPAR in daily equivalent = (total revenue / total available room-days)
+  const periodDays   = periodHours / 24;
+  const revpar       = totalRooms > 0 && periodDays > 0 ? round2(totalRevenue / (totalRooms * periodDays)) : 0;
+
+  // By room type
+  const typeMap = new Map<string, { rooms: Set<string>; stays: number; revenue: number; occHours: number }>();
+  for (const r of roomStats) {
+    const t = r.unitType ?? "Unclassified";
+    const entry = typeMap.get(t) ?? { rooms: new Set(), stays: 0, revenue: 0, occHours: 0 };
+    entry.rooms.add(r.unitId);
+    entry.stays   += r.totalStays;
+    entry.revenue += r.totalRevenue;
+    entry.occHours += r.occupiedHours;
+    typeMap.set(t, entry);
+  }
+  const byType = [...typeMap.entries()]
+    .map(([type, d]) => ({
+      type,
+      rooms: d.rooms.size,
+      stays: d.stays,
+      revenue: round2(d.revenue),
+      occupancyPct: d.rooms.size > 0 && periodHours > 0
+        ? Math.round((d.occHours / (d.rooms.size * periodHours)) * 1000) / 10
+        : 0,
+    }))
+    .sort((a, b) => b.revenue - a.revenue);
+
+  return {
+    from, to, periodHours, totalRooms, totalStays,
+    totalRevenue, adr, occupancyPct, revpar,
+    rooms: roomStats.sort((a, b) => b.totalRevenue - a.totalRevenue),
+    byType,
+  };
+}

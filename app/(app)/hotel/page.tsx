@@ -164,6 +164,16 @@ export default async function HotelPage() {
           </Link>
         )}
         {isSupervisor && (
+          <Link href="/hotel/performance" className="text-sm font-medium text-amber-700 hover:underline">
+            Room performance →
+          </Link>
+        )}
+        {isSupervisor && (
+          <Link href="/hotel/manual-entry" className="text-sm font-medium text-amber-700 hover:underline">
+            Manual AR entry →
+          </Link>
+        )}
+        {isSupervisor && (
           <Link
             href="/hotel/discrepancies"
             className={`inline-flex items-center gap-1.5 text-sm font-medium hover:underline ${
