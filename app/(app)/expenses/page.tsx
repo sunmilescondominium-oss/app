@@ -133,12 +133,13 @@ export default async function ExpensesPage() {
               <th className="px-4 py-3 text-right">Amount</th>
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3">OR#</th>
+              {canApprove && <th className="px-4 py-3">Action</th>}
             </tr>
           </thead>
           <tbody>
             {expenses.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-stone-500">No expenses recorded yet.</td>
+                <td colSpan={canApprove ? 9 : 8} className="px-4 py-8 text-center text-stone-500">No expenses recorded yet.</td>
               </tr>
             )}
             {expenses.map((e) => (
@@ -160,6 +161,13 @@ export default async function ExpensesPage() {
                   </span>
                 </td>
                 <td className="px-4 py-2.5 text-stone-500">{e.or_number ?? "—"}</td>
+                {canApprove && (
+                  <td className="px-4 py-2.5">
+                    {e.approval_status === "pending" && (
+                      <ExpenseApprovalButtons expenseId={e.id} />
+                    )}
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -197,6 +205,29 @@ export default async function ExpensesPage() {
                     <VendorForm vendor={v} />
                   </div>
                 ))}
+              </div>
+            </div>
+          </details>
+
+          <details className="mb-3 rounded-2xl border border-stone-200 bg-white p-4">
+            <summary className="cursor-pointer text-sm font-semibold text-stone-700">Petty cash funds ({funds.length})</summary>
+            <div className="mt-4 space-y-4">
+              <p className="text-xs text-stone-500">Create and manage petty cash funds. Each fund tracks its own balance via load and disbursement transactions.</p>
+              <PettyCashFundForm />
+              <div className="divide-y divide-stone-100">
+                {funds.map((f) => (
+                  <div key={f.id} className="py-3">
+                    <p className="mb-2 text-xs font-medium text-stone-600">
+                      {f.name} &nbsp;·&nbsp; Balance: <span className="tabular-nums font-bold">{peso(f.balance)}</span>
+                      {!f.is_active && <span className="ml-2 text-rose-400">(inactive)</span>}
+                    </p>
+                    <PettyCashFundForm fund={f} />
+                  </div>
+                ))}
+              </div>
+              <div className="border-t border-stone-100 pt-4">
+                <p className="mb-2 text-xs font-semibold text-stone-600">Replenish / load a fund</p>
+                <LoadFundForm funds={funds} accounts={accounts} />
               </div>
             </div>
           </details>
