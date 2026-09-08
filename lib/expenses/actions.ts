@@ -165,6 +165,7 @@ export async function savePettyCashFund(_prev: ActionResult | undefined, formDat
   }
   await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: id ? "update" : "create", entity: "petty_cash_funds", entityId: id ?? name, diff: { name } });
   revalidatePath("/expenses");
+  revalidatePath("/petty-cash");
   return { ok: true };
 }
 

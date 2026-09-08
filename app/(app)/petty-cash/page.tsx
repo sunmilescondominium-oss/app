@@ -5,6 +5,7 @@ import { listAccountOptions } from "@/lib/banking/queries";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader, Breadcrumb } from "@/components/ui";
 import { LoadFundForm, DisbursementForm, FundSettingsForm } from "@/components/petty-cash/petty-cash-forms";
+import { PettyCashFundForm } from "@/components/expenses/expense-forms";
 
 export const metadata = { title: "Petty Cash" };
 
@@ -77,7 +78,7 @@ export default async function PettyCashPage({ searchParams }: { searchParams: Pr
         })}
         {funds.length === 0 && (
           <div className="rounded-2xl border border-stone-200 bg-stone-50 p-4 text-sm text-stone-500">
-            No petty cash funds set up. Apply migration 0105 to create the default fund.
+            No petty cash funds yet. Use the &ldquo;Create new fund&rdquo; section below to add one.
           </div>
         )}
       </div>
@@ -162,14 +163,32 @@ export default async function PettyCashPage({ searchParams }: { searchParams: Pr
       )}
 
       {/* Fund settings */}
-      {canWrite && funds.length > 0 && (
+      {canWrite && (
         <div className="mt-8">
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-stone-500">Fund Settings</h2>
+
+          <details className="mb-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+            <summary className="cursor-pointer text-sm font-semibold text-emerald-800">Create new fund</summary>
+            <div className="mt-4">
+              <PettyCashFundForm />
+            </div>
+          </details>
+
           {funds.map((f) => (
             <details key={f.id} className="mb-3 rounded-2xl border border-stone-200 bg-white p-4">
-              <summary className="cursor-pointer text-sm font-semibold text-stone-700">{f.name}</summary>
-              <div className="mt-4">
-                <FundSettingsForm fund={f} staffOptions={staffOptions} />
+              <summary className="cursor-pointer text-sm font-semibold text-stone-700">
+                {f.name}
+                {!f.is_active && <span className="ml-2 text-xs font-normal text-stone-400">(inactive)</span>}
+              </summary>
+              <div className="mt-4 space-y-6">
+                <div>
+                  <p className="mb-2 text-xs font-semibold text-stone-500 uppercase tracking-wide">Edit fund details</p>
+                  <PettyCashFundForm fund={f} />
+                </div>
+                <div className="border-t border-stone-100 pt-4">
+                  <p className="mb-2 text-xs font-semibold text-stone-500 uppercase tracking-wide">Custodian &amp; thresholds</p>
+                  <FundSettingsForm fund={f} staffOptions={staffOptions} />
+                </div>
               </div>
             </details>
           ))}
