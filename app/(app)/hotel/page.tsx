@@ -9,6 +9,7 @@ import {
   getGlobalTax,
   listRoomTax,
   listPendingGateEntries,
+  notifyAnomalousHotelStays,
 } from "@/lib/hotel/queries";
 import { listSupplies } from "@/lib/housekeeping/queries";
 import { countOpenDiscrepancies } from "@/lib/hotel/discrepancy-queries";
@@ -36,7 +37,10 @@ export default async function HotelPage() {
   const isCashier    = userHasAnyRole(user, ["hotel_cashier"]);
   const isSupervisor = userHasAnyRole(user, ["hotel_rental_monitoring", "admin", "managing_officer", "consultant", "accounting"]);
   const [board, ratePlans, promos, menu, globalTax, roomTax, activeSession, suggestedArNo, pendingGateEntries, openDiscrepancies, supplies] = await Promise.all([
-    listRoomBoard(isDemoMode),
+    listRoomBoard(isDemoMode).catch((err: unknown) => {
+      console.error("[Hotel] Room board query failed:", err instanceof Error ? err.message : err);
+      throw err; // Let Next.js show the error boundary — better than an empty board with no warning
+    }),
     listRatePlans(),
     listPromos(),
     listMenuItems(),
@@ -48,6 +52,10 @@ export default async function HotelPage() {
     isSupervisor ? countOpenDiscrepancies() : Promise.resolve(0),
     (isCashier || isSupervisor) ? listSupplies().catch(() => []) : Promise.resolve([]),
   ]);
+  // Fire-and-forget anomaly scan — notifies hotel_rental_monitoring + admin
+  // if any active stay has a corrupt check_in_at, impossible timer, or is a ghost stay.
+  void notifyAnomalousHotelStays();
+
   const occupied = board.filter((b) => b.stay).length;
   const isOnDuty     = activeSession?.cashierUserId === user.userId;
   const hotelOpsLocked = !activeSession && isCashier && !isSupervisor;

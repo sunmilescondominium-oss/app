@@ -82,6 +82,8 @@ export async function checkIn(
   const extra_hour_rate = Number(plan.extra_hour_rate);
   let planned_hours = parseInt(String(formData.get("planned_hours") ?? ""), 10);
   if (!Number.isFinite(planned_hours) || planned_hours < base_hours) planned_hours = base_hours;
+  // Safety cap: bookings cannot exceed 48 hours. Use the extension feature for longer stays.
+  if (planned_hours > 48) return { ok: false, error: "Bookings are capped at 48 hours. Enter up to 48 hours and use the extension feature for longer stays." };
 
   const promo_id = String(formData.get("promo_id") ?? "").trim() || null;
   const discount_type_raw = String(formData.get("discount_type") ?? "").trim();

@@ -2,6 +2,7 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { round2, stayTotals } from "./rates";
+import { createNotification } from "@/lib/notifications/queries";
 import type {
   RatePlan,
   Promo,
@@ -178,11 +179,14 @@ export async function listRoomBoard(isDemoMode = false): Promise<RoomBoardItem[]
   // regardless of is_demo — live rooms may have is_demo = true from initial seeding.
   const unitBase = supabase.from("units").select("id, unit_number, unit_type, extra_person_rate").eq("business_line", "hotel").eq("is_active", true);
   const stayBase = supabase.from("stays").select("*, units(unit_number), rate_plans(name)").eq("status", "active");
-  const [{ data: units }, { data: stays }, { data: hk }] = await Promise.all([
+  const [{ data: units, error: unitsErr }, { data: stays }, { data: hk }] = await Promise.all([
     (isDemoMode ? unitBase.eq("is_demo", true) : unitBase).order("unit_number", { ascending: true }),
     isDemoMode ? stayBase.eq("is_demo", true) : stayBase,
     supabase.from("housekeeping_tasks").select("unit_id").in("status", ["pending", "in_progress"]),
   ]);
+  // Propagate Supabase connectivity errors — a null units list due to a failed query
+  // would otherwise silently empty the board, making all rooms appear to disappear.
+  if (unitsErr) throw new Error(`Hotel room board unavailable: ${unitsErr.message}`);
   const stayByUnit = new Map<string, Stay>();
   const mappedStays = (stays ?? []).map(mapStay);
   for (const s of mappedStays) if (s.unit_id) stayByUnit.set(s.unit_id, s);
@@ -675,4 +679,98 @@ export async function getRoomPerformance(from: string, to: string): Promise<Room
     rooms: roomStats.sort((a, b) => b.totalRevenue - a.totalRevenue),
     byType,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Anomalous stay detector — fire-and-forget from the hotel page
+// ---------------------------------------------------------------------------
+
+/**
+ * Scans active stays for impossible or corrupt timer data and notifies
+ * hotel_rental_monitoring + admin. Runs fire-and-forget on every hotel page
+ * load but deduplicates via a recent-notification check (one alert per stay
+ * per 6-hour window).
+ *
+ * Detected cases:
+ *  A) check_in_at is in the FUTURE — impossible with DB now(); means data corruption
+ *  B) planned_hours is ≥ 48 — exceeds the new server-side cap; legacy bad data
+ *  C) stay has been active for > (planned_hours × 1.5) hours without checkout
+ *     — may be a ghost stay from an offline event that was never cleared
+ */
+export async function notifyAnomalousHotelStays(): Promise<void> {
+  try {
+    const admin = createAdminClient();
+    const now = new Date();
+    const nowIso = now.toISOString();
+
+    // Fetch all active, non-demo stays
+    const { data: activeStays } = await admin
+      .from("stays")
+      .select("id, unit_id, guest_label, check_in_at, planned_hours, units(unit_number)")
+      .eq("status", "active")
+      .eq("is_demo", false);
+
+    if (!activeStays || activeStays.length === 0) return;
+
+    // Dedup: fetch notification kinds sent in the last 6 hours for these stays
+    const stayIds = activeStays.map((s) => (s as Record<string, unknown>).id as string);
+    const sixHoursAgo = new Date(now.getTime() - 6 * 3600_000).toISOString();
+    const { data: recentAlerts } = await admin
+      .from("notifications")
+      .select("entity_id")
+      .eq("kind", "anomalous_stay")
+      .in("entity_id", stayIds)
+      .gte("created_at", sixHoursAgo);
+
+    const alreadyAlerted = new Set((recentAlerts ?? []).map((n) => (n as Record<string, unknown>).entity_id as string));
+
+    for (const row of activeStays as Record<string, unknown>[]) {
+      const stayId = row.id as string;
+      if (alreadyAlerted.has(stayId)) continue;
+
+      const checkInAt = new Date(row.check_in_at as string);
+      const plannedHours = Number(row.planned_hours);
+      const unitRaw = row.units as unknown;
+      const unit = (Array.isArray(unitRaw) ? unitRaw[0] : unitRaw) as { unit_number: string } | null;
+      const unitNumber = unit?.unit_number ?? "unknown";
+      const guestLabel = row.guest_label as string;
+
+      let issueDesc: string | null = null;
+
+      if (checkInAt > now) {
+        // Case A: check_in_at is in the future — data is corrupt
+        const minsAhead = Math.round((checkInAt.getTime() - now.getTime()) / 60_000);
+        issueDesc = `Check-in timestamp is ${minsAhead} min in the future (check_in_at: ${checkInAt.toISOString()}). This causes the timer to show far more time than booked. The DB data for this stay is likely corrupt — check and correct it in Supabase.`;
+      } else if (plannedHours >= 48) {
+        // Case B: absurdly large planned_hours
+        issueDesc = `planned_hours = ${plannedHours} (≥ 48 h). This is above the booking cap and will produce a multi-day timer. Correct the value in Supabase or void and re-check-in the guest.`;
+      } else {
+        // Case C: stay is overdue by more than 50% of planned time (ghost stay)
+        const elapsedH = (now.getTime() - checkInAt.getTime()) / 3_600_000;
+        if (elapsedH > plannedHours * 1.5) {
+          const overH = Math.round(elapsedH - plannedHours);
+          issueDesc = `Stay has been active for ${Math.round(elapsedH)}h but was only booked for ${plannedHours}h (overdue by ${overH}h). This may be a ghost stay from an offline event that was never checked out.`;
+        }
+      }
+
+      if (!issueDesc) continue;
+
+      const body = `Room ${unitNumber} · Guest: ${guestLabel}\n${issueDesc}\nStay ID: ${stayId}`;
+
+      for (const role of ["hotel_rental_monitoring", "admin"] as const) {
+        void createNotification({
+          kind: "anomalous_stay",
+          title: `⚠️ Hotel timer anomaly — ${unitNumber}`,
+          body,
+          link: `/hotel/${stayId}`,
+          entityType: "stay",
+          entityId: stayId,
+          recipientRole: role,
+          createdBy: null,
+        });
+      }
+    }
+  } catch {
+    // Never let anomaly detection crash the hotel page
+  }
 }

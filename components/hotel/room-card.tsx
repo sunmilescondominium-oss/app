@@ -116,12 +116,17 @@ export function RoomCard({
     );
   }
 
-  const outMs = new Date(stay.check_in_at).getTime() + stay.planned_hours * 3600000;
+  const checkInMs = new Date(stay.check_in_at).getTime();
+  const outMs = checkInMs + stay.planned_hours * 3600000;
   const rem = outMs - now;
+
+  // Anomaly detection: check_in_at in the future or timer exceeds planned hours
+  // indicates corrupt DB data — likely from an offline recovery event.
+  const timerAnomalous = checkInMs > now || rem > stay.planned_hours * 3_600_000 + 60_000;
 
   // Live billing: if the guest stays past checkout WITHOUT an extension, bill the
   // overtime automatically (per started hour at the extension rate).
-  const elapsedH = (now - new Date(stay.check_in_at).getTime()) / 3_600_000;
+  const elapsedH = (now - checkInMs) / 3_600_000;
   const effHours = Math.max(stay.planned_hours, Math.ceil(elapsedH));
   const overtimeHours = effHours - stay.planned_hours;
   const liveCharge = roomCharge(stay.base_rate, stay.extra_hour_rate, stay.base_hours, effHours);
@@ -135,18 +140,30 @@ export function RoomCard({
   return (
     <div
       className={`rounded-2xl border-2 p-4 ${
-        checkoutRequested ? "border-rose-500 bg-rose-100 animate-pulse" : rem < 0 ? "border-red-300 bg-red-50" : "border-amber-200 bg-amber-50"
+        timerAnomalous ? "border-purple-400 bg-purple-50"
+        : checkoutRequested ? "border-rose-500 bg-rose-100 animate-pulse"
+        : rem < 0 ? "border-red-300 bg-red-50"
+        : "border-amber-200 bg-amber-50"
       }`}
     >
       <div className="flex items-center justify-between">
         <p className="font-semibold text-stone-900">{unit.unit_number}</p>
-        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${checkoutRequested ? "bg-rose-600 text-white" : "bg-amber-200 text-amber-900"}`}>
-          {checkoutRequested ? "🔔 Check-out" : "Occupied"}
+        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+          timerAnomalous ? "bg-purple-600 text-white"
+          : checkoutRequested ? "bg-rose-600 text-white"
+          : "bg-amber-200 text-amber-900"
+        }`}>
+          {timerAnomalous ? "⚠️ Data error" : checkoutRequested ? "🔔 Check-out" : "Occupied"}
         </span>
       </div>
       <p className="mt-1 truncate text-sm text-stone-700">{stay.guest_label}</p>
       {stay.rate_plan_name && <p className="text-xs text-amber-700">{stay.rate_plan_name}</p>}
-      <p className={`mt-2 text-lg font-bold tabular-nums ${rem < 0 ? "text-red-700" : "text-stone-900"}`}>
+      {timerAnomalous && (
+        <p className="mt-1.5 rounded-lg bg-purple-100 px-2 py-1.5 text-[11px] font-semibold text-purple-800">
+          ⚠️ Timer data anomaly — supervisor must check this stay in Supabase and correct check_in_at or planned_hours. Do not use this timer for billing.
+        </p>
+      )}
+      <p className={`mt-2 text-lg font-bold tabular-nums ${timerAnomalous ? "text-purple-700 line-through" : rem < 0 ? "text-red-700" : "text-stone-900"}`}>
         {rem >= 0 ? `${fmtTimer(rem)} left` : `OVER +${fmtTimer(rem)}`}
       </p>
       <p className="text-xs text-stone-500">
