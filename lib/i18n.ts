@@ -1,4 +1,4 @@
-// Lightweight bilingual (English / Filipino) dictionary. Client-safe: any
+﻿// Lightweight bilingual (English / Filipino) dictionary. Client-safe: any
 // component can call t(lang, key). Add keys as more screens are translated.
 
 export type Lang = "en" | "fil";
@@ -287,17 +287,18 @@ export const NAV_FIL: Record<string, { label: string; blurb: string }> = {
   condo: { label: "Condo Dues", blurb: "Association dues, utilities at billing." },
   housekeeping: { label: "Housekeeping", blurb: "Paglilinis ng kwarto, supplies at turnover." },
   owner: { label: "Owner Dashboard", blurb: "Simpleng lingguhang overview." },
-  finance: { label: "P&L / Reports", blurb: "Benta, gastos at kita." },
-  banking: { label: "Bank at Reconciliation", blurb: "Bank account, deposito, tseke at reconciliation." },
+  finance: { label: "Financial Reports", blurb: "Benta, gastos at kita." },
+  banking: { label: "Banking", blurb: "Bank account, deposito, tseke at reconciliation." },
   incidents: { label: "Incident Reports", blurb: "Security, safety at damage report na may litrato." },
-  requisitions: { label: "Requisitions at Purchasing", blurb: "Mag-request, mag-approve at bumili ng materyales, gamit at supplies." },
-  accountable_forms: { label: "Accountable Forms", blurb: "Serialized OR/AR/tseke — custodian, status at reconciliation." },
-  payables: { label: "Commissions at Payables", blurb: "Allowance, referral fee, broker commission at override, incentive." },
-  kiosk_fallback: { label: "Kiosk fallback access", blurb: "Kapag sira ang kiosk: mobile clock-in na may approval." },
+  requisitions: { label: "Requisitions", blurb: "Mag-request, mag-approve at bumili ng materyales, gamit at supplies." },
+  accountable_forms: { label: "OR / AR Booklets", blurb: "Serialized OR/AR/tseke — custodian, status at reconciliation." },
+  payables: { label: "Payables at Commissions", blurb: "Allowance, referral fee, broker commission at override, incentive." },
+  expenses: { label: "Gastos", blurb: "Itala at subaybayan ang pangkalahatang gastos." },
+  kiosk_fallback: { label: "Attendance Kiosk", blurb: "Mobile clock-in kapag sira ang kiosk." },
   media: { label: "Photo/Video evidence access", blurb: "Sino ang puwedeng MAKAKITA ng litrato/video." },
-  actas: { label: "“Act as / view as” ibang role", blurb: "Sino ang puwedeng mag-preview bilang ibang role." },
+  actas: { label: '"Act as / view as" ibang role', blurb: "Sino ang puwedeng mag-preview bilang ibang role." },
   hr: { label: "HR / Payroll", blurb: "DTR at payroll summary." },
-  employee: { label: "Aking Portal", blurb: "Aking attendance, payslip at leave." },
+  employee: { label: "Aking Attendance at Leave", blurb: "Aking DTR, payslip at leave request." },
   employees: { label: "Mga Empleyado", blurb: "Staff roster, litrato at leave approval." },
   advances: { label: "Cash Advance", blurb: "Request, approval at liquidation." },
   scheduling: { label: "Shift Schedule", blurb: "Italaga ang shift ng staff bawat araw." },

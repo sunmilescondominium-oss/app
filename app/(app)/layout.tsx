@@ -34,6 +34,7 @@ export default async function AppLayout({
       label: navLabel(lang, m.key, m.label),
       blurb: navBlurb(lang, m.key, m.blurb),
       milestone: m.milestone,
+      group: m.group ?? "",
     }));
 
   // The "Act as / view as" switcher appears for canActAsAny users (all roles)

@@ -19,6 +19,7 @@ export interface NavModule {
   label: string;
   blurb: string;
   milestone: string;
+  group: string;
 }
 
 export interface RoleOption {
@@ -76,6 +77,41 @@ export function AppShell({
 
   const helpActive = pathname === "/help";
 
+  const GROUP_LABELS: Record<string, string> = {
+    daily:    "Daily Operations",
+    property: "Property & Sales",
+    finance:  "Money & Collections",
+    hr:       "HR & Attendance",
+    ops:      "Operations",
+    admin:    "Admin",
+  };
+  const GROUP_ORDER = ["daily", "property", "finance", "hr", "ops", "admin"];
+
+  const grouped = GROUP_ORDER
+    .map((g) => ({ key: g, label: GROUP_LABELS[g], items: modules.filter((m) => m.group === g) }))
+    .filter((g) => g.items.length > 0);
+
+  const ungrouped = modules.filter((m) => !GROUP_LABELS[m.group]);
+
+  function navItem(m: NavModule) {
+    const active = pathname === m.path || pathname.startsWith(m.path + "/");
+    const isChat = m.key === "chat";
+    return (
+      <Link key={m.key} href={m.path} onClick={() => setOpen(false)} className={linkCls(active)}>
+        {active && <span className="absolute inset-y-2 left-0 w-1 rounded-full bg-amber-500" />}
+        <span className="flex items-center justify-between">
+          <span className="font-semibold">{m.label}</span>
+          {isChat && unreadChat > 0 && (
+            <span className="rounded-full bg-amber-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
+              {unreadChat > 99 ? "99+" : unreadChat}
+            </span>
+          )}
+        </span>
+        <span className="mt-0.5 block text-xs text-stone-400">{m.blurb}</span>
+      </Link>
+    );
+  }
+
   const nav = (
     <nav className="flex flex-col gap-0.5">
       <Link href="/dashboard" onClick={() => setOpen(false)} className={linkCls(pathname === "/dashboard")}>
@@ -83,29 +119,23 @@ export function AppShell({
         <span className="font-semibold">{navLabel(lang, "dashboard", "🏠 Dashboard")}</span>
         <span className="mt-0.5 block text-xs text-stone-400">{navBlurb(lang, "dashboard", "Your role overview")}</span>
       </Link>
+
       {modules.length === 0 && (
         <p className="px-3 py-2 text-sm text-stone-500">{tr("no_modules")}</p>
       )}
-      {modules.map((m) => {
-        const active = pathname === m.path || pathname.startsWith(m.path + "/");
-        const isChat = m.key === "chat";
-        return (
-          <Link key={m.key} href={m.path} onClick={() => setOpen(false)} className={linkCls(active)}>
-            {active && <span className="absolute inset-y-2 left-0 w-1 rounded-full bg-amber-500" />}
-            <span className="flex items-center justify-between">
-              <span className="font-semibold">{m.label}</span>
-              {isChat && unreadChat > 0 ? (
-                <span className="rounded-full bg-amber-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
-                  {unreadChat > 99 ? "99+" : unreadChat}
-                </span>
-              ) : (
-                <span className="text-[10px] font-semibold uppercase tracking-wide text-stone-300">{m.milestone}</span>
-              )}
-            </span>
-            <span className="mt-0.5 block text-xs text-stone-400">{m.blurb}</span>
-          </Link>
-        );
-      })}
+
+      {grouped.map((group, gi) => (
+        <div key={group.key} className="flex flex-col gap-0.5">
+          {gi > 0 && <div className="my-1 border-t border-stone-100" />}
+          <p className="px-3 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-widest text-stone-400">
+            {group.label}
+          </p>
+          {group.items.map(navItem)}
+        </div>
+      ))}
+
+      {ungrouped.map(navItem)}
+
       <div className="mt-1 border-t border-stone-100 pt-1">
         <Link href="/help" onClick={() => setOpen(false)} className={linkCls(helpActive)}>
           {helpActive && <span className="absolute inset-y-2 left-0 w-1 rounded-full bg-amber-500" />}
