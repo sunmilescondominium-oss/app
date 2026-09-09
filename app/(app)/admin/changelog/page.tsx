@@ -12,6 +12,21 @@ interface ChangeEntry {
 
 const CHANGELOG: ChangeEntry[] = [
   {
+    date: "2026-09-09",
+    tag: "feature",
+    title: "Hotel: Room Performance report + Manual AR entry for offline reconciliation",
+    details: [
+      "New /hotel/performance page (Hotel Ops → Room performance →) shows ADR, RevPAR, occupancy %, total revenue, and total stays for any date range. Defaults to the current calendar month.",
+      "Per-room breakdown table shows each room's stays, revenue, average rate, average stay hours, and occupancy % with a colour-coded bar (green ≥70%, amber ≥40%, red below).",
+      "By-room-type summary groups rooms (Standard, Deluxe, etc.) with aggregate stays, revenue, and occupancy.",
+      "Date filter uses URL search params (?from=&to=) so links are shareable and the page is server-rendered.",
+      "Accessible to hotel_rental_monitoring, admin, managing_officer, consultant, and accounting roles.",
+      "New /hotel/manual-entry page (Hotel Ops → Manual AR entry →) lets supervisors record completed hotel stays backdated to any date — for reconciling manual collections taken while the system was offline.",
+      "Manual entry creates a checked-out stay record, a stay_payment, and a collections row (so the amount can be included in a transmittal). AR and OR numbers can be entered from the physical booklet or auto-assigned if left blank.",
+      "Both features are linked from the Hotel Ops nav bar for all supervisor-level roles.",
+    ],
+  },
+  {
     date: "2026-08-31",
     tag: "fix",
     title: "Chat: permissions toggle now saves; accounting can start new conversations",

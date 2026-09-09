@@ -187,6 +187,12 @@ export default async function HelpPage() {
               <Step n={4} label="Monitor rental occupancy">
                 <Code>/rentals</Code> shows all units — occupied, vacant, and checkout-requested. Click any unit to view dues, meter readings, and the current lease.
               </Step>
+              <Step n={5} label="View room performance report">
+                Go to <Code>/hotel/performance</Code> (or Hotel Ops → <strong>Room performance →</strong>). Select a date range and click <strong>Apply</strong>. The report shows ADR (average daily rate per stay), RevPAR (revenue per available room-day), fleet-wide occupancy %, total revenue, and a per-room breakdown. Defaults to the current calendar month.
+              </Step>
+              <Step n={6} label="Record a manual/offline hotel AR entry">
+                If collections were taken manually while the system was offline, go to <Code>/hotel/manual-entry</Code> (or Hotel Ops → <strong>Manual AR entry →</strong>). Select the room, enter the backdated check-in and check-out times, guest name, amount collected, and the physical AR/OR numbers from the manual booklet. The entry creates a completed stay and posts the collection so it can be included in a transmittal. Add a remark referencing the outage date and physical receipt numbers for audit purposes.
+              </Step>
             </Steps>
           </Section>
         )}
