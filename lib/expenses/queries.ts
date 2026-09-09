@@ -177,6 +177,48 @@ export async function listExpenses(filters?: {
   }));
 }
 
+export async function getExpense(id: string): Promise<Expense | null> {
+  const supabase = createAdminClient();
+  const { data: r } = await supabase
+    .from("expenses")
+    .select(`
+      id, expense_date, business_line, description, amount,
+      source, bank_account_id, or_number, approval_status,
+      approved_by, approved_at, remarks, created_at,
+      petty_cash_fund_id, petty_cash_funds(name),
+      expense_category_id, expense_categories(name),
+      expense_vendor_id, expense_vendors(name),
+      bank_accounts(label)
+    `)
+    .eq("id", id)
+    .maybeSingle();
+  if (!r) return null;
+  const row = r as Record<string, unknown>;
+  return {
+    id: row.id as string,
+    expense_date: row.expense_date as string,
+    business_line: row.business_line as string,
+    description: row.description as string,
+    amount: Number(row.amount),
+    source: row.source as Expense["source"],
+    bank_account_id: (row.bank_account_id as string) ?? null,
+    bank_account_label: ((row.bank_accounts as Record<string, unknown> | null)?.label as string) ?? null,
+    petty_cash_fund_id: (row.petty_cash_fund_id as string) ?? null,
+    fund_name: ((row.petty_cash_funds as Record<string, unknown> | null)?.name as string) ?? null,
+    expense_category_id: (row.expense_category_id as string) ?? null,
+    category_name: ((row.expense_categories as Record<string, unknown> | null)?.name as string) ?? null,
+    expense_vendor_id: (row.expense_vendor_id as string) ?? null,
+    vendor_name: ((row.expense_vendors as Record<string, unknown> | null)?.name as string) ?? null,
+    or_number: (row.or_number as string) ?? null,
+    proof_url: null,
+    approval_status: row.approval_status as Expense["approval_status"],
+    approved_by: (row.approved_by as string) ?? null,
+    approved_at: (row.approved_at as string) ?? null,
+    remarks: (row.remarks as string) ?? null,
+    created_at: row.created_at as string,
+  };
+}
+
 export interface CsvExpenseRow {
   expense_date: string;
   category: string;

@@ -5,6 +5,8 @@ import { peso } from "@/lib/collections/summary";
 import { ADVANCE_STATUSES } from "@/lib/config";
 import { PageHeader, Breadcrumb } from "@/components/ui";
 import { LiquidationForm, CloseLiquidation } from "@/components/advances/advance-forms";
+import { PrintButton } from "@/components/print-button";
+import { VoucherPrint } from "@/components/voucher/voucher-print";
 
 export const metadata = { title: "Cash Advance" };
 const label = (k: string) => ADVANCE_STATUSES.find((s) => s.key === k)?.label ?? k;
@@ -19,11 +21,18 @@ export default async function AdvanceDetailPage({ params }: { params: Promise<{ 
   const balance = Math.round((advance.amount - liquidated) * 100) / 100;
   const canLiquidate = advance.status === "released";
 
+  const voucherDate = new Date(advance.released_on ?? advance.created_at).toLocaleDateString("en-PH", {
+    timeZone: "Asia/Manila", year: "numeric", month: "long", day: "numeric",
+  });
+
   return (
     <>
-      <div className="mb-4">
+      <div className="no-print mb-4">
         <Breadcrumb items={[{ label: "Cash Advance", href: "/advances" }, { label: "Request" }]} />
-        <PageHeader title={`Advance — ${peso(advance.amount)}`} subtitle={`${who} · ${advance.purpose}`} />
+        <div className="flex items-center justify-between gap-3">
+          <PageHeader title={`Advance — ${peso(advance.amount)}`} subtitle={`${who} · ${advance.purpose}`} />
+          {advance.status === "released" && <PrintButton label="Print voucher" />}
+        </div>
       </div>
 
       <div className="mb-6 grid gap-3 sm:grid-cols-4">
@@ -82,6 +91,23 @@ export default async function AdvanceDetailPage({ params }: { params: Promise<{ 
       {canLiquidate && lines.length > 0 && (
         <div className="mt-4">
           <CloseLiquidation advanceId={advance.id} />
+        </div>
+      )}
+
+      {advance.status === "released" && (
+        <div className="mt-8">
+          <h2 className="no-print mb-3 text-sm font-semibold uppercase tracking-wide text-stone-500">Disbursement Voucher</h2>
+          <div className="mx-auto max-w-2xl print:max-w-none">
+            <VoucherPrint
+              data={{
+                rcNo: advance.id.slice(0, 8).toUpperCase(),
+                date: voucherDate,
+                paidTo: who,
+                particulars: [{ description: advance.purpose, amount: advance.amount }],
+                totalAmount: advance.amount,
+              }}
+            />
+          </div>
         </div>
       )}
     </>

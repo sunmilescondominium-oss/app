@@ -127,6 +127,7 @@ export default async function PettyCashPage({ searchParams }: { searchParams: Pr
                   <th className="px-4 py-3">Source / Expense</th>
                   <th className="px-4 py-3 text-right">In</th>
                   <th className="px-4 py-3 text-right">Out</th>
+                  <th className="px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody>
@@ -153,6 +154,13 @@ export default async function PettyCashPage({ searchParams }: { searchParams: Pr
                     </td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-rose-700">
                       {t.kind === "disbursement" ? peso(t.amount) : ""}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      {t.kind === "disbursement" && (
+                        <a href={`/petty-cash/pcv/${t.id}`} className="text-xs font-medium text-amber-700 hover:underline whitespace-nowrap">
+                          Print PCV →
+                        </a>
+                      )}
                     </td>
                   </tr>
                 ))}

@@ -63,6 +63,54 @@ export async function listPettyCashFunds(): Promise<PettyCashFund[]> {
   }));
 }
 
+export interface PettyCashDisbursement extends PettyCashTransaction {
+  fund_name: string;
+  vendor_name: string | null;
+}
+
+export async function getPettyCashDisbursement(id: string): Promise<PettyCashDisbursement | null> {
+  const supabase = createAdminClient();
+  const { data } = await supabase
+    .from("petty_cash_transactions")
+    .select("*, petty_cash_funds(name)")
+    .eq("id", id)
+    .eq("kind", "disbursement")
+    .maybeSingle();
+  if (!data) return null;
+  const r = data as Record<string, unknown>;
+
+  // Try to get vendor name from linked expense
+  let vendor_name: string | null = null;
+  if (r.expense_id) {
+    const { data: exp } = await supabase
+      .from("expenses")
+      .select("expense_vendors(name)")
+      .eq("id", r.expense_id as string)
+      .maybeSingle();
+    if (exp) {
+      const ev = (exp as Record<string, unknown>).expense_vendors as Record<string, unknown> | null;
+      vendor_name = (ev?.name as string) ?? null;
+    }
+  }
+
+  return {
+    id: r.id as string,
+    fund_id: r.fund_id as string,
+    kind: "disbursement",
+    amount: Number(r.amount),
+    pcv_no: (r.pcv_no as string) ?? null,
+    bank_account_id: null,
+    bank_account_label: null,
+    expense_id: (r.expense_id as string) ?? null,
+    description: (r.description as string) ?? null,
+    receipt_url: null,
+    created_by: (r.created_by as string) ?? null,
+    created_at: r.created_at as string,
+    fund_name: ((r.petty_cash_funds as Record<string, unknown> | null)?.name as string) ?? "Petty Cash",
+    vendor_name,
+  };
+}
+
 export async function listPettyCashTransactions(fundId: string, limit = 100): Promise<PettyCashTransaction[]> {
   const supabase = createAdminClient();
   const { data } = await supabase

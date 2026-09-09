@@ -134,12 +134,13 @@ export default async function ExpensesPage() {
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3">OR#</th>
               {canApprove && <th className="px-4 py-3">Action</th>}
+              <th className="px-4 py-3"></th>
             </tr>
           </thead>
           <tbody>
             {expenses.length === 0 && (
               <tr>
-                <td colSpan={canApprove ? 9 : 8} className="px-4 py-8 text-center text-stone-500">No expenses recorded yet.</td>
+                <td colSpan={canApprove ? 10 : 9} className="px-4 py-8 text-center text-stone-500">No expenses recorded yet.</td>
               </tr>
             )}
             {expenses.map((e) => (
@@ -168,6 +169,11 @@ export default async function ExpensesPage() {
                     )}
                   </td>
                 )}
+                <td className="px-4 py-2.5">
+                  <a href={`/expenses/${e.id}`} className="text-xs font-medium text-amber-700 hover:underline whitespace-nowrap">
+                    Print →
+                  </a>
+                </td>
               </tr>
             ))}
           </tbody>
