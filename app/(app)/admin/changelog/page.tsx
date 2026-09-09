@@ -13,6 +13,17 @@ interface ChangeEntry {
 const CHANGELOG: ChangeEntry[] = [
   {
     date: "2026-09-09",
+    tag: "improvement",
+    title: "Kiosk fallback access: admin_staff role added; help & changelog opened to more roles",
+    details: [
+      "admin_staff role can now access /kiosk-access (fallback console) — they can report the kiosk as down and request mobile clock-in for employees. Approvals remain management-only (admin, managing_officer, owner, operations_manager, consultant).",
+      "admin_staff added to the employees module read list, giving them access to /employees (staff roster, kiosk link, kiosk settings view).",
+      "Help page: new 'Kiosk fallback management' section visible to admin, admin_staff, owner, operations_manager, consultant, and accounting — explains how to report an outage, approve, use mobile clock-in, and deactivate.",
+      "Changelog page: expanded from admin/managing_officer/consultant to also include admin_staff, owner, operations_manager, and accounting.",
+    ],
+  },
+  {
+    date: "2026-09-09",
     tag: "feature",
     title: "Hotel: Room Performance report + Manual AR entry for offline reconciliation",
     details: [
@@ -208,7 +219,7 @@ function formatDate(d: string) {
 
 export default async function ChangelogPage() {
   const user = await requireAuth();
-  if (!userHasAnyRole(user, ["admin", "managing_officer", "consultant"])) {
+  if (!userHasAnyRole(user, ["admin", "admin_staff", "owner", "operations_manager", "consultant", "accounting", "managing_officer"])) {
     return <p className="p-8 text-sm text-stone-500">Access denied.</p>;
   }
 

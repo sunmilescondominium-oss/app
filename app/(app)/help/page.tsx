@@ -27,6 +27,7 @@ const ALL_SECTIONS: TocItem[] = [
   { id: "s-repairs",   title: "Repairs & maintenance",                   roles: ["electrician", "utility", "operations_manager"] },
   { id: "s-whse",      title: "Inventory & timekeeping",                 roles: ["warehouse_timekeeper"] },
   { id: "s-expenses",  title: "General Expenses & Petty Cash",            roles: ["accounting", "admin"] },
+  { id: "s-kiosk-mgmt", title: "Kiosk fallback management",             roles: ["admin", "admin_staff", "owner", "operations_manager", "accounting"] },
   { id: "s-admin",     title: "Admin panel & system configuration",      roles: ["admin", "managing_officer", "consultant"] },
   { id: "s-nav",       title: "System navigation — all pages",           roles: ["admin", "managing_officer", "consultant"] },
 ];
@@ -333,6 +334,35 @@ export default async function HelpPage() {
                 On the DTR view → click the row with the error → click <strong>Edit</strong> → correct the time-in or time-out → save. An audit note is required.
               </Step>
             </Steps>
+          </Section>
+        )}
+
+        {/* ── Kiosk Fallback Management ── */}
+        {visible(userRoles, ["admin", "admin_staff", "owner", "operations_manager", "accounting"]) && (
+          <Section id="s-kiosk-mgmt" title="Kiosk fallback management" who="Admin / Admin Staff / Owner / Operations Manager / Accounting">
+            <p className="mb-3 text-sm text-stone-500">
+              The attendance kiosk at <Code>/attendance-portal</Code> is a shared device locked by an access code — all staff use it to punch in and out daily.
+              When the kiosk is unavailable (tablet offline, broken, no internet), use the fallback console to authorise temporary mobile clock-in for affected employees.
+            </p>
+            <Steps>
+              <Step n={1} label="Report the kiosk as down">
+                Go to <Code>/kiosk-access</Code> → enter the employee IDs who need to clock in, select <strong>Clock in</strong> or <strong>Clock out</strong>, type the reason (e.g. &quot;kiosk tablet not turning on&quot;) → click <strong>Request mobile access</strong>.
+                A supervisor will approve and issue a temporary code.
+              </Step>
+              <Step n={2} label="Approve a fallback request (management only)">
+                On <Code>/kiosk-access</Code>, find the pending request → review the listed employees and reason → click <strong>Approve &amp; issue code</strong>. A time-limited code is generated and shown. Share it with the employees so they can clock in at <Code>/mobile-clock</Code>.
+              </Step>
+              <Step n={3} label="Employee uses mobile clock-in">
+                The employee opens <Code>/mobile-clock</Code> on their phone → enters their employee number and the issued code → punches in or out. The record is posted to the same DTR as a regular kiosk punch.
+              </Step>
+              <Step n={4} label="Deactivate when the kiosk is restored">
+                Once the kiosk is working again, return to <Code>/kiosk-access</Code> → find the active fallback instance → click <strong>Deactivate</strong>. This prevents further mobile clock-ins under that code.
+              </Step>
+            </Steps>
+            <p className="mt-2 text-xs text-stone-400">
+              <strong>Who can approve:</strong> Owner, Admin, Managing Officer, Operations Manager, Consultant.{" "}
+              <strong>Who can request / deactivate:</strong> all of the above plus Admin Staff.
+            </p>
           </Section>
         )}
 
