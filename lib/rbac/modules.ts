@@ -335,8 +335,8 @@ export const MODULES: Record<ModuleKey, ModuleDef> = {
     blurb: "When the kiosk is down: mobile clock-in with approval.",
     milestone: "Ops",
     // guard excluded — third-party agency staff, not on this payroll/DTR system.
-    read: ["owner", "consultant", "admin", "managing_officer", "operations_manager"],
-    write: ["owner", "consultant", "admin", "managing_officer", "operations_manager"],
+    read: ["owner", "consultant", "admin", "managing_officer", "operations_manager", "admin_staff"],
+    write: ["owner", "consultant", "admin", "managing_officer", "operations_manager", "admin_staff"],
   },
   media: {
     key: "media",
@@ -386,7 +386,7 @@ export const MODULES: Record<ModuleKey, ModuleDef> = {
     milestone: "M8",
     // Roster viewers + photo uploaders — HR / admin / consultant / ops / top users.
     // (warehouse_timekeeper handles only DTR + shift scheduling, not the roster.)
-    read: ["owner", "admin", "managing_officer", "operations_manager", "consultant", "accounting"],
+    read: ["owner", "admin", "managing_officer", "operations_manager", "consultant", "accounting", "admin_staff"],
     write: ["admin", "managing_officer", "operations_manager", "consultant", "accounting"],
   },
   advances: {

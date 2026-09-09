@@ -5,7 +5,7 @@ import { EXTERNAL_ROLE_KEYS } from "@/lib/rbac/modules";
 /** Roles that may APPROVE a guard's kiosk-down request. */
 export const FALLBACK_AUTHORIZER_ROLES = ["owner", "managing_officer", "consultant", "operations_manager", "admin"];
 /** Roles that may REQUEST / operate (report + deactivate) a fallback. */
-export const FALLBACK_OPERATOR_ROLES = ["guard", "owner", "managing_officer", "consultant", "operations_manager", "admin"];
+export const FALLBACK_OPERATOR_ROLES = ["guard", "owner", "managing_officer", "consultant", "operations_manager", "admin", "admin_staff"];
 
 export type OutageStatus = "pending" | "active" | "closed" | "expired" | "rejected";
 
