@@ -196,6 +196,7 @@ export async function checkIn(
     .from("stays")
     .insert({
       unit_id: unitId,
+      check_in_at: new Date().toISOString(),
       guest_label: String(formData.get("guest_label") ?? "").trim() || "Guest",
       guest_contact: String(formData.get("guest_contact") ?? "").trim() || null,
       rate_plan_id,
