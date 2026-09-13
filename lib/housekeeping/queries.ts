@@ -170,11 +170,15 @@ export async function listHousekeepingTasks(isDemoMode = false): Promise<Houseke
   const { data, error } = await supabase
     .from("housekeeping_tasks")
     .select("*, units!inner(unit_number, is_demo)")
-    .eq("units.is_demo", isDemoMode)
     .order("status", { ascending: true })
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
-  return (data ?? []).map(mapTask);
+  return (data ?? [])
+    .filter((r) => {
+      const u = r.units as { is_demo?: boolean | null } | null;
+      return isDemoMode ? u?.is_demo === true : u?.is_demo !== true;
+    })
+    .map(mapTask);
 }
 
 export async function getTaskDetail(id: string): Promise<TaskDetail | null> {
