@@ -263,6 +263,7 @@ export default async function HotelPage() {
           canManageConfig={canManageConfig}
           canManageTax={canManageTax}
           canManageExtraRates={canManageExtraRates}
+          isSupervisor={isSupervisor}
           suggestedArNo={suggestedArNo}
         />
       )}

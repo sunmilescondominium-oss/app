@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { roomCharge } from "@/lib/hotel/rates";
 import { peso } from "@/lib/collections/summary";
 import type { RoomBoardItem, MaintenanceIssue } from "@/lib/hotel/types";
+import { clearHousekeepingOverride } from "@/app/(app)/hotel/actions";
 
 function fmtTimer(ms: number): string {
   const s = Math.floor(Math.abs(ms) / 1000);
@@ -31,14 +33,19 @@ const ISSUE_STATUS_BADGE: Record<string, string> = {
 export function RoomCard({
   item,
   canWrite,
+  isSupervisor = false,
   onCheckIn,
 }: {
   item: RoomBoardItem;
   canWrite: boolean;
+  isSupervisor?: boolean;
   onCheckIn: (unit: RoomBoardItem["unit"]) => void;
 }) {
   const { unit, stay, needsHousekeeping, lastCheckout, maintenanceIssue } = item;
   const [now, setNow] = useState(() => Date.now());
+  const [clearing, startClear] = useTransition();
+  const [clearErr, setClearErr] = useState("");
+  const router = useRouter();
 
   useEffect(() => {
     if (!stay) return;
@@ -100,7 +107,29 @@ export function RoomCard({
         )}
 
         {forHousekeeping ? (
-          <p className="mt-3 text-xs text-amber-700">Not available until housekeeping marks it ready.</p>
+          <div className="mt-3 space-y-2">
+            <p className="text-xs text-amber-700">Not available until housekeeping marks it ready.</p>
+            {isSupervisor && (
+              <>
+                <button
+                  type="button"
+                  disabled={clearing}
+                  onClick={() => {
+                    setClearErr("");
+                    startClear(async () => {
+                      const res = await clearHousekeepingOverride(unit.id);
+                      if (!res.ok) { setClearErr(res.error); return; }
+                      router.refresh();
+                    });
+                  }}
+                  className="w-full rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-60"
+                >
+                  {clearing ? "Clearing…" : "⚠ Clear for check-in (supervisor override)"}
+                </button>
+                {clearErr && <p className="text-xs text-rose-600">{clearErr}</p>}
+              </>
+            )}
+          </div>
         ) : (
           canWrite && (
             <button

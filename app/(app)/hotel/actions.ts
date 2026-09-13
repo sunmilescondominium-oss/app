@@ -966,6 +966,58 @@ export async function bulkImportMenu(rows: Record<string, string>[]): Promise<Im
   return { ok: true, inserted, errors: errors.length ? errors : undefined };
 }
 
+// ---- supervisor housekeeping override ------------------------------------
+const HK_OVERRIDE_ROLES = ["consultant", "admin", "managing_officer"];
+
+/**
+ * Force-close all open housekeeping tasks for a unit so it can be checked in
+ * immediately. Restricted to consultant / admin / managing_officer.
+ * Logs a supervisor_override event on every task closed.
+ */
+export async function clearHousekeepingOverride(unitId: string): Promise<ActionResult> {
+  const user = await requireModuleWrite("hotel");
+  if (!userHasAnyRole(user, HK_OVERRIDE_ROLES))
+    return { ok: false, error: "Only a consultant, admin, or managing officer can override housekeeping." };
+
+  const admin = createAdminClient();
+  const { data: tasks, error: fetchErr } = await admin
+    .from("housekeeping_tasks")
+    .select("id")
+    .eq("unit_id", unitId)
+    .in("status", ["pending", "in_progress"]);
+  if (fetchErr) return { ok: false, error: fetchErr.message };
+  if (!tasks?.length) return { ok: false, error: "No open housekeeping task found for this room." };
+
+  const now = new Date().toISOString();
+  const { error: updErr } = await admin
+    .from("housekeeping_tasks")
+    .update({ status: "done", completed_at: now })
+    .in("id", tasks.map((t) => t.id));
+  if (updErr) return { ok: false, error: updErr.message };
+
+  await admin.from("housekeeping_events").insert(
+    tasks.map((t) => ({
+      task_id: t.id,
+      event_type: "supervisor_override",
+      detail: { by: user.userId, reason: "Cleared from Hotel Ops by supervisor" },
+      actor_user_id: user.userId,
+    })),
+  );
+
+  await logAudit({
+    actorUserId: user.userId,
+    actorRoles: user.roleKeys,
+    action: "housekeeping_override",
+    entity: "housekeeping_tasks",
+    entityId: unitId,
+    diff: { tasks_cleared: tasks.length },
+  });
+
+  revalidatePath("/hotel");
+  revalidatePath("/housekeeping");
+  return { ok: true };
+}
+
 // ---- consultant-only hard deletes (testing / data cleanup) ---------------
 const DEV_DELETE_ROLES = ["consultant"];
 

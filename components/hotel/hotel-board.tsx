@@ -150,6 +150,7 @@ export function HotelBoard({
   canManageConfig,
   canManageTax,
   canManageExtraRates,
+  isSupervisor,
   suggestedArNo,
 }: {
   board: RoomBoardItem[];
@@ -162,6 +163,7 @@ export function HotelBoard({
   canManageConfig: boolean;
   canManageTax: boolean;
   canManageExtraRates: boolean;
+  isSupervisor: boolean;
   suggestedArNo?: string;
 }) {
   const router = useRouter();
@@ -200,7 +202,7 @@ export function HotelBoard({
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
         {board.map((item) => (
-          <RoomCard key={item.unit.id} item={item} canWrite={canWrite} onCheckIn={(unit) => setModal({ kind: "checkin", unit })} />
+          <RoomCard key={item.unit.id} item={item} canWrite={canWrite} isSupervisor={isSupervisor} onCheckIn={(unit) => setModal({ kind: "checkin", unit })} />
         ))}
       </div>
 
