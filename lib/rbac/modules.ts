@@ -104,6 +104,12 @@ export const ROLE_GROUPS = [
     roles: ["accounting", "errand_liaison"] as string[],
   },
   {
+    key: "admin_ops",
+    label: "Admin Staff",
+    description: "Administrative operations — attendance kiosk, scheduling, employee roster",
+    roles: ["admin_staff"] as string[],
+  },
+  {
     key: "support",
     label: "Security & Support",
     description: "Guard, warehouse, timekeeper",
@@ -408,7 +414,7 @@ export const MODULES: Record<ModuleKey, ModuleDef> = {
     blurb: "DTR & payroll summary.",
     milestone: "M8",
     group: "hr",
-    read: ["warehouse_timekeeper", "accounting", "admin", "managing_officer"],
+    read: ["warehouse_timekeeper", "accounting", "admin", "managing_officer", "admin_staff"],
     write: ["admin", "accounting"],
   },
   scheduling: {
@@ -418,8 +424,8 @@ export const MODULES: Record<ModuleKey, ModuleDef> = {
     blurb: "Assign staff shifts per day.",
     milestone: "M8",
     group: "hr",
-    read: ["admin", "managing_officer", "operations_manager", "warehouse_timekeeper"],
-    write: ["admin", "managing_officer", "operations_manager", "warehouse_timekeeper"],
+    read: ["admin", "managing_officer", "operations_manager", "warehouse_timekeeper", "admin_staff"],
+    write: ["admin", "managing_officer", "operations_manager", "warehouse_timekeeper", "admin_staff"],
   },
   advances: {
     key: "advances",
@@ -486,7 +492,7 @@ export const MODULES: Record<ModuleKey, ModuleDef> = {
     // Accounting can read the roster to send access / verification emails
     // (see canInviteUsers); editing users stays admin (+ consultant super).
     // TODO(client-confirm): should managing_officer also be able to edit users?
-    read: ["admin", "managing_officer", "accounting"],
+    read: ["admin", "managing_officer", "accounting", "admin_staff"],
     write: ["admin"],
   },
   settings: {
