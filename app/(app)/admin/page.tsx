@@ -55,6 +55,13 @@ const ADMIN_SECTIONS = [
     roles: ["admin", "managing_officer", "consultant"],
   },
   {
+    href: "/admin/activity",
+    title: "Activity Log",
+    blurb: "Full audit trail of every create, update, delete, and override. Filter by user, module, action, or date range.",
+    icon: "🗂️",
+    roles: ["admin", "managing_officer", "consultant"],
+  },
+  {
     href: "/admin/health",
     title: "System Health",
     blurb: "Connectivity, configuration, free tier usage, and error log. Copy diagnostics to share with your developer.",
