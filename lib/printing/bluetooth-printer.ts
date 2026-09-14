@@ -12,8 +12,8 @@ const CHAR_UUID    = "00002af1-0000-1000-8000-00805f9b34fb";
 const FB_SERVICE   = "0000ff00-0000-1000-8000-00805f9b34fb";
 const FB_CHAR      = "0000ff02-0000-1000-8000-00805f9b34fb";
 
-const CHUNK          = 512;
-const CHUNK_DELAY_MS = 50;
+const CHUNK          = 128;
+const CHUNK_DELAY_MS = 100;
 
 export type PrintResult   = { success: boolean; error?: string };
 export type ConnectResult = { success: boolean; deviceName: string; error?: string };

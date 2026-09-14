@@ -197,6 +197,11 @@ export default async function HotelPage() {
             →
           </Link>
         )}
+        {isSupervisor && (
+          <Link href="/hotel/settings" className="text-sm font-medium text-amber-700 hover:underline">
+            Printer settings →
+          </Link>
+        )}
         {canManageConfig && (
           <>
             <CsvImporter title="Import rate plans from CSV" label="Import rate plans" templateName="rate_plans_template.csv" templateCsv={RATE_PLAN_TEMPLATE} requiredHeaders={["name", "base_rate"]} commit={bulkImportRatePlans} />
