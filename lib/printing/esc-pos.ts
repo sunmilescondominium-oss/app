@@ -236,7 +236,7 @@ export class EscPos {
   }
 
   qr(url: string, size = 6): this {
-    const data = [...url].map((c) => c.charCodeAt(0));
+    const data = enc.encode(url);
     const len = data.length + 3;
     const pL = len & 0xff, pH = (len >> 8) & 0xff;
     this.buf.push(
