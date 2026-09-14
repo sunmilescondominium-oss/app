@@ -56,7 +56,7 @@ export default async function DashboardPage() {
   const can = (m: Parameters<typeof canReadModule>[1]) => canReadModule(user.roleKeys, m);
   const isApprover = user.roleKeys.some((r) => ["admin", "managing_officer", "consultant"].includes(r));
   const [d, photoPath, pendingRequests] = await Promise.all([
-    getDashboard(),
+    getDashboard(user.demoMode),
     myPhotoPath(user.userId),
     isApprover ? listPendingRequests() : Promise.resolve([]),
   ]);

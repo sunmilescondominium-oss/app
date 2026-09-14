@@ -14,9 +14,15 @@ export interface DashboardData {
 }
 
 /** One cheap pass of headline numbers; the page shows only role-relevant cards. */
-export async function getDashboard(): Promise<DashboardData> {
+export async function getDashboard(isDemoMode = false): Promise<DashboardData> {
   const admin = createAdminClient();
   const today = todayManila();
+
+  const hkQuery = admin
+    .from("housekeeping_tasks")
+    .select("unit_id, status, units!inner(is_demo)")
+    .in("status", ["pending", "in_progress"])
+    .eq("units.is_demo", isDemoMode);
 
   const [
     { data: colsToday },
@@ -35,7 +41,7 @@ export async function getDashboard(): Promise<DashboardData> {
     admin.from("transmittals").select("id", { count: "exact", head: true }).in("status", ["submitted", "deposited"]),
     admin.from("units").select("id").eq("business_line", "hotel").eq("is_active", true),
     admin.from("stays").select("unit_id").eq("status", "active"),
-    admin.from("housekeeping_tasks").select("unit_id, status").in("status", ["pending", "in_progress"]),
+    hkQuery,
     admin.from("units").select("id").in("business_line", ["rental", "airbnb"]).eq("is_active", true),
     admin.from("leases").select("unit_id").eq("status", "active"),
     admin.from("rental_dues").select("due_date").eq("status", "unpaid"),
