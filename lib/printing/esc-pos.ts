@@ -3,6 +3,32 @@
 const ESC = 0x1b;
 const GS  = 0x1d;
 
+// Latin-extended → ASCII transliteration (Ñ→N, É→E, etc.)
+// Thermal printers use ASCII + codepage — UTF-8 multi-byte chars break alignment.
+const LATIN_XLAT: Readonly<Record<number, number>> = {
+  0xc0:65,0xc1:65,0xc2:65,0xc3:65,0xc4:65,0xc5:65, // À-Å → A
+  0xe0:97,0xe1:97,0xe2:97,0xe3:97,0xe4:97,0xe5:97,  // à-å → a
+  0xc8:69,0xc9:69,0xca:69,0xcb:69,                   // È-Ë → E
+  0xe8:101,0xe9:101,0xea:101,0xeb:101,               // è-ë → e
+  0xcc:73,0xcd:73,0xce:73,0xcf:73,                   // Ì-Ï → I
+  0xec:105,0xed:105,0xee:105,0xef:105,               // ì-ï → i
+  0xd1:78,0xf1:110,                                   // Ñ/ñ → N/n
+  0xd2:79,0xd3:79,0xd4:79,0xd5:79,0xd6:79,0xd8:79,  // Ò-Ö,Ø → O
+  0xf2:111,0xf3:111,0xf4:111,0xf5:111,0xf6:111,0xf8:111, // ò-ö,ø → o
+  0xd9:85,0xda:85,0xdb:85,0xdc:85,                   // Ù-Ü → U
+  0xf9:117,0xfa:117,0xfb:117,0xfc:117,               // ù-ü → u
+  0xc7:67,0xe7:99,                                    // Ç/ç → C/c
+};
+
+function toEscPosBytes(text: string): number[] {
+  const out: number[] = [];
+  for (let i = 0; i < text.length; i++) {
+    const cp = text.charCodeAt(i);
+    out.push(cp < 128 ? cp : (LATIN_XLAT[cp] ?? 0x3f));
+  }
+  return out;
+}
+
 // ─── COMMANDS: ready-to-merge Uint8Array primitives ──────────────────────────
 
 export const COMMANDS = {
@@ -36,15 +62,15 @@ export const COMMANDS = {
 
 // ─── Functional builder API ───────────────────────────────────────────────────
 
+// TextEncoder used only for QR/barcode binary payloads — NOT for display text.
 const enc = new TextEncoder();
 
-/** Encode text + line feed as Uint8Array. */
+/** Encode text + line feed as Uint8Array. Uses 1-byte-per-char encoding so
+ *  padEnd/slice alignment stays correct on the printer. */
 export function buildText(text: string): Uint8Array {
-  const encoded = enc.encode(text);
-  const out = new Uint8Array(encoded.length + 1);
-  out.set(encoded);
-  out[encoded.length] = 0x0a;
-  return out;
+  const bytes = toEscPosBytes(text);
+  bytes.push(0x0a);
+  return new Uint8Array(bytes);
 }
 
 /** Repeat `char` × `width` then a line feed. */
@@ -162,8 +188,8 @@ export function mergeCommands(...arrays: (Uint8Array | readonly number[] | numbe
 
 // ─── Class API — kept for backward compatibility with format-folio.ts ─────────
 
-/** Column width used by the EscPos class (48-char mode). */
-export const COLS = 48;
+/** Column width for 57/58mm printers at normal font (32 chars per line). */
+export const COLS = 32;
 
 export class EscPos {
   private buf: number[] = [];
@@ -180,7 +206,7 @@ export class EscPos {
 
   underline(on: boolean): this { this.buf.push(ESC, 0x2D, on ? 1 : 0); return this; }
 
-  doubleHeight(on: boolean): this { this.buf.push(GS, 0x21, on ? 0x10 : 0x00); return this; }
+  doubleHeight(on: boolean): this { this.buf.push(GS, 0x21, on ? 0x01 : 0x00); return this; }
 
   textSize(s: "normal" | "doubleHeight" | "doubleWidth" | "doubleAll"): this {
     const m: Record<string, number> = { normal: 0x00, doubleHeight: 0x01, doubleWidth: 0x10, doubleAll: 0x11 };
@@ -189,10 +215,7 @@ export class EscPos {
   }
 
   text(s: string): this {
-    for (let i = 0; i < s.length; i++) {
-      const c = s.charCodeAt(i);
-      this.buf.push(c < 128 ? c : 0x3f);
-    }
+    for (const b of toEscPosBytes(s)) this.buf.push(b);
     return this;
   }
 

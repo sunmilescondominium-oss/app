@@ -15,6 +15,9 @@ export function ReceiptFrame({ children }: { children: ReactNode }) {
 
   return (
     <div>
+      {/* Inject dynamic @page size so the browser prints thermal paper, not letter */}
+      <style>{`@media print{@page{size:${w}mm auto;margin:0}.no-print{display:none!important}body{margin:0;background:#fff}}`}</style>
+
       <div className="no-print mb-3 flex flex-wrap items-center gap-2">
         <span className="text-xs text-stone-500">Receipt width:</span>
         <button type="button" onClick={() => setW("58")} className={btn("58")}>
@@ -32,7 +35,7 @@ export function ReceiptFrame({ children }: { children: ReactNode }) {
         </button>
       </div>
       <div
-        className="mx-auto rounded-2xl border border-stone-200 bg-white p-4 text-xs leading-tight text-stone-900 print:rounded-none print:border-0 print:p-1"
+        className="mx-auto rounded-2xl border border-stone-200 bg-white p-4 text-xs leading-tight text-stone-900 print:rounded-none print:border-0 print:p-0 print:mx-0"
         style={{ width: w === "58" ? "58mm" : "80mm" }}
       >
         {children}
