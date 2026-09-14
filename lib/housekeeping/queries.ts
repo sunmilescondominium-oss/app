@@ -85,7 +85,7 @@ function mapRoomType(r: Record<string, unknown>): RoomTypeConfig {
 
 /** All room-type cleaning configs (timers + checklist). */
 export async function listRoomTypes(): Promise<RoomTypeConfig[]> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("housekeeping_room_types")
     .select("*")
@@ -101,7 +101,7 @@ export async function listRoomTypes(): Promise<RoomTypeConfig[]> {
  * checkout first so what will free up next is on top.
  */
 export async function listOccupiedRooms(isDemoMode = false): Promise<OccupiedRoom[]> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const [{ data: stays }, { data: leases }] = await Promise.all([
     supabase
       .from("stays")
@@ -159,14 +159,14 @@ function mapSupply(r: Record<string, unknown>): RoomSupply {
 }
 
 export async function listSupplies(): Promise<RoomSupply[]> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data, error } = await supabase.from("room_supplies").select("*").eq("is_active", true).order("sort_order", { ascending: true });
   if (error) throw new Error(error.message);
   return (data ?? []).map(mapSupply);
 }
 
 export async function listHousekeepingTasks(isDemoMode = false): Promise<HousekeepingTask[]> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("housekeeping_tasks")
     .select("*, units!inner(unit_number, is_demo)")
@@ -182,7 +182,7 @@ export async function listHousekeepingTasks(isDemoMode = false): Promise<Houseke
 }
 
 export async function getTaskDetail(id: string): Promise<TaskDetail | null> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data, error } = await supabase.from("housekeeping_tasks").select("*, units(unit_number)").eq("id", id).maybeSingle();
   if (error) throw new Error(error.message);
   if (!data) return null;
