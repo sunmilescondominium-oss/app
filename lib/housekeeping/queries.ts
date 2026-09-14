@@ -174,7 +174,7 @@ export async function listHousekeepingTasks(isDemoMode = false): Promise<Houseke
     supabase
       .from("housekeeping_tasks")
       .select("*, units(unit_number)")
-      .order("status", { ascending: true })
+      .in("status", ["pending", "in_progress"])
       .order("created_at", { ascending: false }),
   ]);
 
