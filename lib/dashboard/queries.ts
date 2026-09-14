@@ -20,9 +20,8 @@ export async function getDashboard(isDemoMode = false): Promise<DashboardData> {
 
   const hkQuery = admin
     .from("housekeeping_tasks")
-    .select("unit_id, status, units!inner(is_demo)")
-    .in("status", ["pending", "in_progress"])
-    .eq("units.is_demo", isDemoMode);
+    .select("unit_id, status, units(is_demo)")
+    .in("status", ["pending", "in_progress"]);
 
   const [
     { data: colsToday },
@@ -83,7 +82,10 @@ export async function getDashboard(isDemoMode = false): Promise<DashboardData> {
     txPending: txPending ?? 0,
     hotel,
     rentals,
-    housekeepingOpen: (openHk ?? []).length,
+    housekeepingOpen: (openHk ?? []).filter((t) => {
+      const u = t.units as { is_demo?: boolean | null } | null;
+      return isDemoMode ? u?.is_demo === true : u?.is_demo !== true;
+    }).length,
     attendance,
     pendingRequests: pendingRequests ?? 0,
     repairsOpen: repairsOpen ?? 0,

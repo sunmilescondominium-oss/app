@@ -169,14 +169,16 @@ export async function listHousekeepingTasks(isDemoMode = false): Promise<Houseke
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("housekeeping_tasks")
-    .select("*, units!inner(unit_number, is_demo)")
+    .select("*, units(unit_number, is_demo)")
     .order("status", { ascending: true })
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
   return (data ?? [])
     .filter((r) => {
       const u = r.units as { is_demo?: boolean | null } | null;
-      return isDemoMode ? u?.is_demo === true : u?.is_demo !== true;
+      // tasks with no unit (unit deleted) are shown to real users, hidden in demo
+      if (!u) return !isDemoMode;
+      return isDemoMode ? u.is_demo === true : u.is_demo !== true;
     })
     .map(mapTask);
 }
