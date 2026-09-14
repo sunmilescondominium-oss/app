@@ -167,18 +167,24 @@ export async function listSupplies(): Promise<RoomSupply[]> {
 
 export async function listHousekeepingTasks(isDemoMode = false): Promise<HousekeepingTask[]> {
   const supabase = createAdminClient();
-  const { data, error } = await supabase
-    .from("housekeeping_tasks")
-    .select("*, units(unit_number, is_demo)")
-    .order("status", { ascending: true })
-    .order("created_at", { ascending: false });
+
+  // Fetch unit IDs for the correct demo partition separately to avoid join issues.
+  const [{ data: unitRows }, { data, error }] = await Promise.all([
+    supabase.from("units").select("id").eq("is_demo", isDemoMode),
+    supabase
+      .from("housekeeping_tasks")
+      .select("*, units(unit_number)")
+      .order("status", { ascending: true })
+      .order("created_at", { ascending: false }),
+  ]);
+
   if (error) throw new Error(error.message);
+  const validUnitIds = new Set((unitRows ?? []).map((u) => u.id as string));
+
   return (data ?? [])
     .filter((r) => {
-      const u = r.units as { is_demo?: boolean | null } | null;
-      // tasks with no unit (unit deleted) are shown to real users, hidden in demo
-      if (!u) return !isDemoMode;
-      return isDemoMode ? u.is_demo === true : u.is_demo !== true;
+      if (!r.unit_id) return !isDemoMode;
+      return validUnitIds.has(r.unit_id as string);
     })
     .map(mapTask);
 }
