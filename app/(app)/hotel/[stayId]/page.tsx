@@ -21,7 +21,6 @@ import { SupervisorOpsPanel } from "@/components/hotel/supervisor-ops-panel";
 import { ExtraPersonPanel } from "@/components/hotel/extra-person-panel";
 import { GateEntryPanel } from "@/components/hotel/gate-entry-panel";
 import { MaintenanceIssuePanel } from "@/components/hotel/maintenance-issue-panel";
-import { BluetoothPrintButton } from "@/components/printing/bluetooth-print-button";
 import type { FolioData } from "@/lib/printing/format-folio";
 
 export const metadata = { title: "Folio" };
@@ -121,7 +120,6 @@ export default async function StayFolioPage({
           ← Room board
         </Link>
         <div className="flex items-center gap-3">
-          <BluetoothPrintButton folioData={folioData} />
           {isConsultant && <DeleteStayButton stayId={stayId} />}
         </div>
       </div>
@@ -264,7 +262,7 @@ export default async function StayFolioPage({
           />
         </div>
 
-        <ReceiptFrame>
+        <ReceiptFrame folioData={folioData}>
           <div className="border-b border-dashed border-stone-300 pb-2 text-center">
             <p className="text-sm font-bold">{APP_BRAND_SHORT}</p>
             <p>Guest Folio / Receipt</p>
