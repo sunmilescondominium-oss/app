@@ -12,6 +12,7 @@ import {
   rejectExpense,
   savePettyCashFund,
   loadPettyCashFund,
+  saveVoucherNotes,
   type CsvImportRow,
 } from "@/lib/expenses/actions";
 import type { ExpenseCategory, ExpenseVendor, ExpenseSettings, CsvExpenseRow, PettyCashFund } from "@/lib/expenses/queries";
@@ -134,15 +135,19 @@ export function RecordExpenseForm({
         <label className="mb-1 block text-xs font-medium text-stone-600">OR / Receipt number</label>
         <input type="text" name="or_number" placeholder="e.g. 1234" className={inputCls} />
       </div>
+      {source === "bank" && (
+        <div>
+          <label className="mb-1 block text-xs font-medium text-stone-600">Check number</label>
+          <input type="text" name="check_number" placeholder="e.g. CHK-001234" className={inputCls} />
+        </div>
+      )}
       <div className="sm:col-span-2">
         <label className="mb-1 block text-xs font-medium text-stone-600">Remarks</label>
         <input type="text" name="remarks" placeholder="Optional notes" className={inputCls} />
       </div>
-      {settings.approval_threshold > 0 && (
-        <p className="sm:col-span-2 text-xs text-amber-700">
-          Expenses {peso(settings.approval_threshold)} and above will be held for approval by a supervisor.
-        </p>
-      )}
+      <p className="sm:col-span-2 text-xs text-amber-700">
+        All expenses are held for approval by a supervisor before being counted in P&amp;L.
+      </p>
       {state && !state.ok && <p className="sm:col-span-2 text-sm text-rose-600">{state.error}</p>}
       {state?.ok && <p className="sm:col-span-2 text-sm text-emerald-600">Expense recorded.</p>}
       <div className="sm:col-span-2">
@@ -392,15 +397,32 @@ export function VendorForm({ vendor }: { vendor?: ExpenseVendor }) {
 export function ExpenseSettingsForm({ settings }: { settings: ExpenseSettings }) {
   const [state, action, pending] = useActionState<AR, FormData>(saveExpenseSettings, undefined);
   return (
-    <form action={action} className="flex flex-wrap items-end gap-4">
-      <div>
-        <label className="mb-1 block text-xs font-medium text-stone-600">Approval threshold (₱)</label>
-        <input type="number" name="approval_threshold" defaultValue={settings.approval_threshold} min="0" step="100" className="w-40 rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm tabular-nums" />
-        <p className="mt-1 text-xs text-stone-400">Expenses at or above this amount require approval before being counted in P&L.</p>
+    <form action={action} className="space-y-6">
+      <div className="flex flex-wrap items-end gap-4">
+        <div>
+          <label className="mb-1 block text-xs font-medium text-stone-600">Approval threshold (₱)</label>
+          <input type="number" name="approval_threshold" defaultValue={settings.approval_threshold} min="0" step="100" className="w-40 rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm tabular-nums" />
+          <p className="mt-1 text-xs text-stone-400">Expenses at or above this amount require approval before being counted in P&L.</p>
+        </div>
       </div>
-      {state && !state.ok && <p className="w-full text-xs text-rose-600">{state.error}</p>}
-      {state?.ok && <p className="w-full text-xs text-emerald-600">Settings saved.</p>}
-      <button disabled={pending} className="self-start mt-6 rounded-xl bg-stone-800 px-4 py-2 text-sm font-semibold text-white hover:bg-stone-700 disabled:opacity-50">
+      <div className="border-t border-stone-100 pt-4">
+        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-stone-500">Voucher numbering</p>
+        <div className="flex flex-wrap items-end gap-4">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-stone-600">Voucher prefix</label>
+            <input type="text" name="voucher_prefix" defaultValue={settings.voucher_prefix} maxLength={8} placeholder="EV" className="w-24 rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm uppercase" />
+            <p className="mt-1 text-xs text-stone-400">e.g. EV → EV-00001</p>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-stone-600">Next voucher number</label>
+            <input type="number" name="voucher_seq_next" defaultValue={settings.voucher_seq_next} min="1" step="1" className="w-32 rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm tabular-nums" />
+            <p className="mt-1 text-xs text-stone-400">Edit to reset or continue from a prior sequence.</p>
+          </div>
+        </div>
+      </div>
+      {state && !state.ok && <p className="text-xs text-rose-600">{state.error}</p>}
+      {state?.ok && <p className="text-xs text-emerald-600">Settings saved.</p>}
+      <button disabled={pending} className="rounded-xl bg-stone-800 px-4 py-2 text-sm font-semibold text-white hover:bg-stone-700 disabled:opacity-50">
         {pending ? "Saving…" : "Save settings"}
       </button>
     </form>
@@ -507,6 +529,74 @@ export function CsvImportPanel({
         </div>
       )}
       {result && <p className={`text-sm font-medium ${result.startsWith("Error") ? "text-rose-600" : "text-emerald-600"}`}>{result}</p>}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Voucher editor bar — editable particulars + save + print on /expenses/[id]
+// ---------------------------------------------------------------------------
+
+export function VoucherEditorBar({
+  expenseId,
+  initialNotes,
+  autoDescription,
+  isReprint,
+}: {
+  expenseId: string;
+  initialNotes: string | null;
+  autoDescription: string;
+  isReprint: boolean;
+}) {
+  const [notes, setNotes] = useState(initialNotes ?? autoDescription);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [err, setErr] = useState("");
+
+  async function handleSave() {
+    setSaving(true); setSaved(false); setErr("");
+    const r = await saveVoucherNotes(expenseId, notes);
+    setSaving(false);
+    if (!r.ok) { setErr(r.error); return; }
+    setSaved(true);
+    setTimeout(() => setSaved(false), 3000);
+  }
+
+  return (
+    <div className="no-print mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 space-y-3">
+      <p className="text-xs font-semibold uppercase tracking-wide text-amber-800">Edit voucher particulars</p>
+      <p className="text-xs text-amber-700">
+        This text appears in the &ldquo;Payment for:&rdquo; line on the printed voucher. Edit as needed, then save before printing.
+      </p>
+      <textarea
+        value={notes}
+        onChange={(e) => { setNotes(e.target.value); setSaved(false); }}
+        rows={3}
+        className="w-full rounded-xl border border-amber-300 bg-white px-3 py-2 text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-amber-400"
+        placeholder="Describe the payment purpose, source of funds, dates, etc."
+      />
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="rounded-xl bg-amber-600 px-4 py-1.5 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-50"
+        >
+          {saving ? "Saving…" : "Save particulars"}
+        </button>
+        {saved && <span className="text-xs text-emerald-600 font-medium">Saved ✓</span>}
+        {err && <span className="text-xs text-rose-600">{err}</span>}
+        <button
+          onClick={() => window.print()}
+          className="rounded-xl bg-stone-800 px-4 py-1.5 text-sm font-semibold text-white hover:bg-stone-700"
+        >
+          {isReprint ? "🖨 Reprint voucher" : "🖨 Print voucher"}
+        </button>
+        {isReprint && (
+          <span className="rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-semibold text-rose-700 uppercase tracking-wide">
+            Reprint copy
+          </span>
+        )}
+      </div>
     </div>
   );
 }

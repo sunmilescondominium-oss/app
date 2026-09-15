@@ -22,6 +22,8 @@ export interface ExpenseSettings {
   approval_threshold: number;
   approver_roles: string[];
   petty_cash_draw_roles: string[];
+  voucher_prefix: string;
+  voucher_seq_next: number;
 }
 
 export interface PettyCashFund {
@@ -50,6 +52,9 @@ export interface Expense {
   expense_vendor_id: string | null;
   vendor_name: string | null;
   or_number: string | null;
+  check_number: string | null;
+  voucher_number: string | null;
+  voucher_notes: string | null;
   proof_url: string | null;
   approval_status: "pending" | "approved" | "rejected";
   approved_by: string | null;
@@ -80,10 +85,10 @@ export async function getExpenseSettings(): Promise<ExpenseSettings> {
   const supabase = createAdminClient();
   const { data } = await supabase
     .from("expense_settings")
-    .select("approval_threshold, approver_roles, petty_cash_draw_roles")
+    .select("approval_threshold, approver_roles, petty_cash_draw_roles, voucher_prefix, voucher_seq_next")
     .eq("id", 1)
     .maybeSingle();
-  return (data ?? { approval_threshold: 5000, approver_roles: ["admin", "accounting", "managing_officer"], petty_cash_draw_roles: ["admin", "accounting"] }) as ExpenseSettings;
+  return (data ?? { approval_threshold: 5000, approver_roles: ["admin", "accounting", "managing_officer"], petty_cash_draw_roles: ["admin", "accounting"], voucher_prefix: "EV", voucher_seq_next: 1 }) as ExpenseSettings;
 }
 
 export async function listPettyCashFunds(): Promise<PettyCashFund[]> {
@@ -133,8 +138,8 @@ export async function listExpenses(filters?: {
     .from("expenses")
     .select(`
       id, expense_date, business_line, description, amount,
-      source, bank_account_id, or_number, proof_url, approval_status,
-      approved_by, approved_at, remarks, created_at,
+      source, bank_account_id, or_number, check_number, voucher_number, voucher_notes,
+      proof_url, approval_status, approved_by, approved_at, remarks, created_at,
       petty_cash_fund_id, petty_cash_funds(name),
       expense_category_id, expense_categories(name),
       expense_vendor_id, expense_vendors(name),
@@ -168,6 +173,9 @@ export async function listExpenses(filters?: {
     expense_vendor_id: (r.expense_vendor_id as string) ?? null,
     vendor_name: ((r.expense_vendors as Record<string, unknown> | null)?.name as string) ?? null,
     or_number: (r.or_number as string) ?? null,
+    check_number: (r.check_number as string) ?? null,
+    voucher_number: (r.voucher_number as string) ?? null,
+    voucher_notes: (r.voucher_notes as string) ?? null,
     proof_url: (r.proof_url as string) ?? null,
     approval_status: r.approval_status as Expense["approval_status"],
     approved_by: (r.approved_by as string) ?? null,
@@ -183,8 +191,8 @@ export async function getExpense(id: string): Promise<Expense | null> {
     .from("expenses")
     .select(`
       id, expense_date, business_line, description, amount,
-      source, bank_account_id, or_number, approval_status,
-      approved_by, approved_at, remarks, created_at,
+      source, bank_account_id, or_number, check_number, voucher_number, voucher_notes,
+      approval_status, approved_by, approved_at, remarks, created_at,
       petty_cash_fund_id, petty_cash_funds(name),
       expense_category_id, expense_categories(name),
       expense_vendor_id, expense_vendors(name),
@@ -210,6 +218,9 @@ export async function getExpense(id: string): Promise<Expense | null> {
     expense_vendor_id: (row.expense_vendor_id as string) ?? null,
     vendor_name: ((row.expense_vendors as Record<string, unknown> | null)?.name as string) ?? null,
     or_number: (row.or_number as string) ?? null,
+    check_number: (row.check_number as string) ?? null,
+    voucher_number: (row.voucher_number as string) ?? null,
+    voucher_notes: (row.voucher_notes as string) ?? null,
     proof_url: null,
     approval_status: row.approval_status as Expense["approval_status"],
     approved_by: (row.approved_by as string) ?? null,

@@ -72,17 +72,36 @@ export async function saveExpenseVendor(_prev: ActionResult | undefined, formDat
 export async function saveExpenseSettings(_prev: ActionResult | undefined, formData: FormData): Promise<ActionResult> {
   const user = await requireModuleWrite("expenses");
   const approval_threshold = Number(formData.get("approval_threshold") ?? 5000);
+  const voucher_prefix = String(formData.get("voucher_prefix") ?? "EV").trim().toUpperCase() || "EV";
+  const voucher_seq_next = Number(formData.get("voucher_seq_next") ?? 1);
+
   if (!Number.isFinite(approval_threshold) || approval_threshold < 0) {
     return { ok: false, error: "Approval threshold must be a non-negative number." };
   }
-  const supabase = await createClient();
-  const { error } = await supabase
+  if (!Number.isFinite(voucher_seq_next) || voucher_seq_next < 1) {
+    return { ok: false, error: "Next voucher number must be at least 1." };
+  }
+
+  const admin = createAdminClient();
+  const { error } = await admin
     .from("expense_settings")
-    .update({ approval_threshold, updated_by: user.userId, updated_at: new Date().toISOString() })
+    .update({ approval_threshold, voucher_prefix, voucher_seq_next })
     .eq("id", 1);
   if (error) return { ok: false, error: error.message };
-  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "update", entity: "expense_settings", entityId: "1", diff: { approval_threshold } });
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "update", entity: "expense_settings", entityId: "1", diff: { approval_threshold, voucher_prefix, voucher_seq_next } });
   revalidatePath("/expenses");
+  return { ok: true };
+}
+
+export async function saveVoucherNotes(expenseId: string, notes: string): Promise<ActionResult> {
+  await requireModule("expenses");
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("expenses")
+    .update({ voucher_notes: notes.trim() || null })
+    .eq("id", expenseId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath(`/expenses/${expenseId}`);
   return { ok: true };
 }
 
@@ -213,6 +232,7 @@ export async function recordExpense(_prev: ActionResult | undefined, formData: F
   const bank_account_id = String(formData.get("bank_account_id") ?? "").trim() || null;
   const petty_cash_fund_id = String(formData.get("petty_cash_fund_id") ?? "").trim() || null;
   const or_number = String(formData.get("or_number") ?? "").trim() || null;
+  const check_number = String(formData.get("check_number") ?? "").trim() || null;
   const proof_url = String(formData.get("proof_url") ?? "").trim() || null;
   const remarks = String(formData.get("remarks") ?? "").trim() || null;
 
@@ -235,12 +255,11 @@ export async function recordExpense(_prev: ActionResult | undefined, formData: F
     }
   }
 
-  // Determine approval status based on threshold
-  const supabase = await createClient();
-  const { data: settingsRow } = await admin.from("expense_settings").select("approval_threshold").eq("id", 1).maybeSingle();
-  const threshold = Number((settingsRow as Record<string, unknown> | null)?.approval_threshold ?? 5000);
-  const approval_status = amount >= threshold ? "pending" : "approved";
+  // Assign next voucher number atomically via DB function
+  const { data: vno } = await admin.rpc("next_voucher_number");
+  const voucher_number = (vno as string | null) ?? null;
 
+  const supabase = await createClient();
   const { data: newExpense, error } = await supabase.from("expenses").insert({
     expense_date,
     business_line: "general",
@@ -252,8 +271,10 @@ export async function recordExpense(_prev: ActionResult | undefined, formData: F
     expense_category_id,
     expense_vendor_id,
     or_number,
+    check_number,
+    voucher_number,
     proof_url,
-    approval_status,
+    approval_status: "pending",
     remarks,
     created_by: user.userId,
   }).select("id").single();
