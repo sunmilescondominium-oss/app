@@ -2,14 +2,15 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 
-const STORAGE_KEY = "calc_pos";
+const POS_KEY  = "calc_pos";
+const OPEN_KEY = "calc_open";
 
 type Op = "+" | "-" | "×" | "÷" | null;
 
 function fmt(n: number): string {
   if (!isFinite(n)) return "Error";
   const s = n.toLocaleString("en-PH", { maximumFractionDigits: 10 });
-  return s.length > 18 ? n.toPrecision(10) : s;
+  return s.length > 16 ? n.toPrecision(10) : s;
 }
 
 function compute(a: number, op: Op, b: number): number {
@@ -21,33 +22,46 @@ function compute(a: number, op: Op, b: number): number {
 }
 
 export function FloatingCalculator() {
-  // ── position & visibility ─────────────────────────────────────────────────
-  const [pos, setPos] = useState<{ x: number; y: number }>({ x: 0, y: 80 });
+  // ── mount guard: nothing renders until client hydration is complete ─────────
+  const [mounted, setMounted] = useState(false);
+  const [pos,  setPos]  = useState({ x: 0, y: 0 });
+  const [open, setOpen] = useState(false);
 
-  // Restore saved position after mount (avoids SSR window access)
   useEffect(() => {
+    // Restore position
+    let x = window.innerWidth - 220, y = window.innerHeight - 64;
     try {
-      const s = localStorage.getItem(STORAGE_KEY);
-      if (s) { setPos(JSON.parse(s)); return; }
+      const s = localStorage.getItem(POS_KEY);
+      if (s) { const p = JSON.parse(s); x = p.x; y = p.y; }
     } catch { /* ignore */ }
-    setPos({ x: Math.max(0, window.innerWidth - 260), y: 80 });
+    // Restore open/closed state
+    let wasOpen = false;
+    try { wasOpen = localStorage.getItem(OPEN_KEY) === "1"; } catch { /* ignore */ }
+    setPos({ x, y });
+    setOpen(wasOpen);
+    setMounted(true);
   }, []);
-  const [minimized, setMinimized] = useState(false);
-  const [visible, setVisible] = useState(true);
-
-  const dragging = useRef(false);
-  const dragOffset = useRef({ x: 0, y: 0 });
-  const panelRef = useRef<HTMLDivElement>(null);
 
   const savePos = useCallback((p: { x: number; y: number }) => {
     setPos(p);
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(p)); } catch { /* ignore */ }
+    try { localStorage.setItem(POS_KEY, JSON.stringify(p)); } catch { /* ignore */ }
   }, []);
 
-  // ── drag handlers ─────────────────────────────────────────────────────────
+  const toggleOpen = useCallback((v: boolean) => {
+    setOpen(v);
+    try { localStorage.setItem(OPEN_KEY, v ? "1" : "0"); } catch { /* ignore */ }
+  }, []);
+
+  // ── drag ──────────────────────────────────────────────────────────────────
+  const dragging   = useRef(false);
+  const dragOffset = useRef({ x: 0, y: 0 });
+  const didDrag    = useRef(false);
+  const panelRef   = useRef<HTMLDivElement>(null);
+
   const onMouseDown = (e: React.MouseEvent) => {
-    if ((e.target as HTMLElement).closest("button")) return;
+    if ((e.target as HTMLElement).closest("button,input,textarea")) return;
     dragging.current = true;
+    didDrag.current  = false;
     dragOffset.current = { x: e.clientX - pos.x, y: e.clientY - pos.y };
     e.preventDefault();
   };
@@ -55,9 +69,10 @@ export function FloatingCalculator() {
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
       if (!dragging.current || !panelRef.current) return;
-      const panel = panelRef.current;
-      const maxX = window.innerWidth - panel.offsetWidth;
-      const maxY = window.innerHeight - panel.offsetHeight;
+      didDrag.current = true;
+      const panel  = panelRef.current;
+      const maxX   = window.innerWidth  - panel.offsetWidth;
+      const maxY   = window.innerHeight - panel.offsetHeight;
       savePos({
         x: Math.max(0, Math.min(maxX, e.clientX - dragOffset.current.x)),
         y: Math.max(0, Math.min(maxY, e.clientY - dragOffset.current.y)),
@@ -65,19 +80,19 @@ export function FloatingCalculator() {
     };
     const onUp = () => { dragging.current = false; };
     window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
+    window.addEventListener("mouseup",   onUp);
     return () => {
       window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
+      window.removeEventListener("mouseup",   onUp);
     };
   }, [savePos]);
 
   // ── calculator state ──────────────────────────────────────────────────────
-  const [display, setDisplay] = useState("0");
-  const [pending, setPending] = useState<number | null>(null);
-  const [op, setOp] = useState<Op>(null);
+  const [display,    setDisplay]    = useState("0");
+  const [pending,    setPending]    = useState<number | null>(null);
+  const [op,         setOp]         = useState<Op>(null);
   const [justEvaled, setJustEvaled] = useState(false);
-  const [memory, setMemory] = useState(0);
+  const [memory,     setMemory]     = useState(0);
 
   const current = parseFloat(display.replace(/,/g, "")) || 0;
 
@@ -86,7 +101,7 @@ export function FloatingCalculator() {
     setDisplay((prev) => {
       if (d === "." && prev.includes(".")) return prev;
       if (prev === "0" && d !== ".") return d;
-      if (prev.replace(/[^0-9]/g, "").length >= 15) return prev;
+      if (prev.replace(/[^0-9]/g, "").length >= 14) return prev;
       return prev + d;
     });
   }
@@ -112,135 +127,145 @@ export function FloatingCalculator() {
     setJustEvaled(true);
   }
 
-  function clear() { setDisplay("0"); setPending(null); setOp(null); setJustEvaled(false); }
+  function clear()      { setDisplay("0"); setPending(null); setOp(null); setJustEvaled(false); }
   function clearEntry() { setDisplay("0"); setJustEvaled(false); }
-  function backspace() {
+  function backspace()  {
     if (justEvaled) { clear(); return; }
     setDisplay((prev) => (prev.length <= 1 ? "0" : prev.slice(0, -1)));
   }
-  function toggleSign() { setDisplay((prev) => (prev.startsWith("-") ? prev.slice(1) : "-" + prev)); }
-  function percent() { setDisplay(fmt(current / 100)); }
+  function toggleSign() { setDisplay((prev) => (prev.startsWith("-") ? prev.slice(1) : prev === "0" ? "0" : "-" + prev)); }
+  function percent()    { setDisplay(fmt(current / 100)); }
 
-  function mPlus() { setMemory((m) => m + current); }
-  function mMinus() { setMemory((m) => m - current); }
-  function mRecall() { setDisplay(fmt(memory)); setJustEvaled(true); }
-  function mClear() { setMemory(0); }
+  // ── don't render anything until client is ready ───────────────────────────
+  if (!mounted) return null;
 
-  if (!visible) {
+  // ─────────────────────────────────────────────────────────────────────────
+  // Pill (minimised) — single draggable chip
+  // ─────────────────────────────────────────────────────────────────────────
+  if (!open) {
     return (
-      <button
-        onClick={() => setVisible(true)}
-        className="no-print fixed z-[9999] rounded-full bg-amber-600 px-3 py-2 text-xs font-bold text-white shadow-lg hover:bg-amber-700"
-        style={{ right: 16, bottom: 20 }}
-        title="Open calculator"
+      <div
+        ref={panelRef}
+        className="no-print fixed z-[9999]"
+        style={{ left: pos.x, top: pos.y }}
       >
-        🧮
-      </button>
+        <div
+          onMouseDown={onMouseDown}
+          onClick={() => { if (!didDrag.current) toggleOpen(true); }}
+          className="flex cursor-pointer items-center gap-2 rounded-full bg-stone-800 px-4 py-2 shadow-xl ring-1 ring-white/10 hover:bg-stone-700 active:scale-95 transition-transform select-none"
+          title="Open calculator"
+        >
+          <span className="text-base leading-none">🧮</span>
+          <span className="text-xs font-semibold text-stone-200 whitespace-nowrap">Calc</span>
+          {memory !== 0 && (
+            <span className="ml-0.5 rounded-full bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold text-white">M</span>
+          )}
+        </div>
+      </div>
     );
   }
 
-  const btn = (label: string, onClick: () => void, variant: "num" | "op" | "fn" | "eq" | "mem" = "num") => {
-    const base = "flex items-center justify-center rounded-lg text-sm font-semibold select-none active:scale-95 transition-transform cursor-pointer h-9";
-    const cls: Record<typeof variant, string> = {
+  // ─────────────────────────────────────────────────────────────────────────
+  // Full panel (maximised)
+  // ─────────────────────────────────────────────────────────────────────────
+  const Btn = ({
+    label, onClick, variant = "num",
+  }: {
+    label: string;
+    onClick: () => void;
+    variant?: "num" | "op" | "fn" | "eq" | "mem";
+  }) => {
+    const base = "flex items-center justify-center rounded-xl text-sm font-semibold select-none active:scale-95 transition-transform cursor-pointer h-10";
+    const cls: Record<string, string> = {
       num: `${base} bg-stone-100 hover:bg-stone-200 text-stone-800`,
-      op:  `${base} bg-amber-500 hover:bg-amber-600 text-white`,
-      fn:  `${base} bg-stone-300 hover:bg-stone-400 text-stone-800`,
-      eq:  `${base} bg-emerald-600 hover:bg-emerald-700 text-white col-span-2`,
-      mem: `${base} bg-stone-200 hover:bg-stone-300 text-stone-600 text-xs`,
+      op:  `${base} bg-amber-500 hover:bg-amber-400 text-white`,
+      fn:  `${base} bg-stone-300 hover:bg-stone-400 text-stone-700`,
+      eq:  `${base} bg-emerald-600 hover:bg-emerald-500 text-white col-span-2`,
+      mem: `${base} bg-stone-200 hover:bg-stone-300 text-stone-500 text-[11px]`,
     };
-    return (
-      <button key={label} onClick={onClick} className={cls[variant]}>
-        {label}
-      </button>
-    );
+    return <button onClick={onClick} className={cls[variant]}>{label}</button>;
   };
 
   return (
     <div
       ref={panelRef}
-      className="no-print fixed z-[9999] select-none rounded-2xl shadow-2xl"
-      style={{ left: pos.x, top: pos.y, width: 232 }}
+      className="no-print fixed z-[9999] rounded-2xl shadow-2xl overflow-hidden"
+      style={{ left: pos.x, top: pos.y, width: 240 }}
     >
-      {/* Title bar */}
+      {/* Title bar — drag handle */}
       <div
         onMouseDown={onMouseDown}
-        className="flex cursor-grab items-center justify-between rounded-t-2xl bg-stone-800 px-3 py-2 active:cursor-grabbing"
+        className="flex cursor-grab items-center justify-between bg-stone-800 px-3 py-2.5 active:cursor-grabbing select-none"
       >
-        <span className="text-xs font-semibold text-stone-300">🧮 Calculator</span>
-        <div className="flex gap-1.5">
-          <button
-            onClick={() => setMinimized((v) => !v)}
-            className="flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 text-[9px] font-bold text-amber-900 hover:bg-amber-300"
-            title={minimized ? "Expand" : "Minimize"}
-          >
-            {minimized ? "▲" : "▼"}
-          </button>
-          <button
-            onClick={() => setVisible(false)}
-            className="flex h-4 w-4 items-center justify-center rounded-full bg-rose-400 text-[9px] font-bold text-white hover:bg-rose-300"
-            title="Close"
-          >
-            ✕
-          </button>
+        <div className="flex items-center gap-2">
+          <span className="text-sm">🧮</span>
+          <span className="text-xs font-semibold text-stone-300">Calculator</span>
         </div>
+        <button
+          onClick={() => toggleOpen(false)}
+          className="flex h-5 w-5 items-center justify-center rounded-full bg-stone-600 hover:bg-stone-500 text-stone-300 hover:text-white text-[10px] transition-colors"
+          title="Minimise to pill"
+        >
+          ─
+        </button>
       </div>
 
-      {/* Body — hidden when minimized */}
-      {!minimized && (
-        <div className="rounded-b-2xl bg-stone-50 p-2 shadow-inner">
-          {/* Display */}
-          <div className="mb-2 rounded-xl bg-stone-900 px-3 py-2 text-right">
-            <div className="h-4 text-right text-[10px] text-stone-500">
-              {pending !== null ? `${fmt(pending)} ${op ?? ""}` : " "}
+      {/* Calculator body */}
+      <div className="bg-stone-50 p-2.5">
+        {/* Display */}
+        <div className="mb-2.5 rounded-xl bg-stone-900 px-3 pt-2 pb-2.5">
+          <div className="text-right text-[10px] text-stone-500 h-4 leading-none">
+            {pending !== null ? `${fmt(pending)} ${op ?? ""}` : " "}
+          </div>
+          <div
+            className="mt-1 truncate text-right font-mono text-2xl font-bold text-emerald-400 tabular-nums leading-none"
+            title={display}
+          >
+            {display}
+          </div>
+          {memory !== 0 && (
+            <div className="mt-1 text-right text-[10px] text-amber-400 leading-none">
+              M: {fmt(memory)}
             </div>
-            <div
-              className="mt-0.5 truncate text-right font-mono text-xl font-bold text-emerald-400 tabular-nums"
-              title={display}
-            >
-              {display}
-            </div>
-            {memory !== 0 && (
-              <div className="text-right text-[10px] text-amber-400">M: {fmt(memory)}</div>
-            )}
-          </div>
-
-          {/* Memory row */}
-          <div className="mb-1.5 grid grid-cols-4 gap-1">
-            {btn("MC", mClear, "mem")}
-            {btn("MR", mRecall, "mem")}
-            {btn("M−", mMinus, "mem")}
-            {btn("M+", mPlus, "mem")}
-          </div>
-
-          {/* Buttons grid */}
-          <div className="grid grid-cols-4 gap-1">
-            {btn("AC",  clear,        "fn")}
-            {btn("CE",  clearEntry,   "fn")}
-            {btn("⌫",   backspace,    "fn")}
-            {btn("÷",   () => setOperator("÷"), "op")}
-
-            {btn("7",   () => digit("7"))}
-            {btn("8",   () => digit("8"))}
-            {btn("9",   () => digit("9"))}
-            {btn("×",   () => setOperator("×"), "op")}
-
-            {btn("4",   () => digit("4"))}
-            {btn("5",   () => digit("5"))}
-            {btn("6",   () => digit("6"))}
-            {btn("−",   () => setOperator("-"), "op")}
-
-            {btn("1",   () => digit("1"))}
-            {btn("2",   () => digit("2"))}
-            {btn("3",   () => digit("3"))}
-            {btn("+",   () => setOperator("+"), "op")}
-
-            {btn("+/−", toggleSign,   "fn")}
-            {btn("0",   () => digit("0"))}
-            {btn(".",   () => digit("."))}
-            {btn("=",   evaluate,     "eq")}
-          </div>
+          )}
         </div>
-      )}
+
+        {/* Memory row */}
+        <div className="mb-1.5 grid grid-cols-4 gap-1">
+          <Btn label="MC" onClick={() => setMemory(0)}                           variant="mem" />
+          <Btn label="MR" onClick={() => { setDisplay(fmt(memory)); setJustEvaled(true); }} variant="mem" />
+          <Btn label="M−" onClick={() => setMemory((m) => m - current)}          variant="mem" />
+          <Btn label="M+" onClick={() => setMemory((m) => m + current)}          variant="mem" />
+        </div>
+
+        {/* Main grid */}
+        <div className="grid grid-cols-4 gap-1">
+          <Btn label="AC"  onClick={clear}                         variant="fn" />
+          <Btn label="CE"  onClick={clearEntry}                    variant="fn" />
+          <Btn label="⌫"   onClick={backspace}                     variant="fn" />
+          <Btn label="÷"   onClick={() => setOperator("÷")}        variant="op" />
+
+          <Btn label="7"   onClick={() => digit("7")} />
+          <Btn label="8"   onClick={() => digit("8")} />
+          <Btn label="9"   onClick={() => digit("9")} />
+          <Btn label="×"   onClick={() => setOperator("×")}        variant="op" />
+
+          <Btn label="4"   onClick={() => digit("4")} />
+          <Btn label="5"   onClick={() => digit("5")} />
+          <Btn label="6"   onClick={() => digit("6")} />
+          <Btn label="−"   onClick={() => setOperator("-")}        variant="op" />
+
+          <Btn label="1"   onClick={() => digit("1")} />
+          <Btn label="2"   onClick={() => digit("2")} />
+          <Btn label="3"   onClick={() => digit("3")} />
+          <Btn label="+"   onClick={() => setOperator("+")}        variant="op" />
+
+          <Btn label="+/−" onClick={toggleSign}                    variant="fn" />
+          <Btn label="0"   onClick={() => digit("0")} />
+          <Btn label="."   onClick={() => digit(".")} />
+          <Btn label="="   onClick={evaluate}                      variant="eq" />
+        </div>
+      </div>
     </div>
   );
 }
