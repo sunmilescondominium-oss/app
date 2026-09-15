@@ -8,6 +8,7 @@ import {
 } from "@/lib/expenses/queries";
 import { listAccountOptions } from "@/lib/banking/queries";
 import { PageHeader, Breadcrumb } from "@/components/ui";
+import { FloatingCalculator } from "@/components/ui/floating-calculator";
 import {
   RecordExpenseForm,
   CategoryForm,
@@ -253,6 +254,7 @@ export default async function ExpensesPage() {
           </details>
         </>
       )}
+      <FloatingCalculator />
     </>
   );
 }

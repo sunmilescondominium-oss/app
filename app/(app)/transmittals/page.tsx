@@ -4,6 +4,7 @@ import { listTransmittals, getReceiptSeries, listDeletedTransmittals, listPendin
 import { listAccountOptions } from "@/lib/banking/queries";
 import { peso, todayManila } from "@/lib/collections/summary";
 import { PageHeader, Badge } from "@/components/ui";
+import { FloatingCalculator } from "@/components/ui/floating-calculator";
 import { BuildTransmittalForm } from "@/components/transmittals/build-form";
 import { ReceiptSeriesPanel } from "@/components/transmittals/receipt-series";
 import { HelpPanel } from "@/components/guide/help";
@@ -274,6 +275,7 @@ export default async function TransmittalsPage() {
           onPurge={purgeTransmittal}
         />
       )}
+      <FloatingCalculator />
     </>
   );
 }

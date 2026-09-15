@@ -7,6 +7,7 @@ import { getActiveItemTypes } from "@/lib/collections/item-types";
 import { summarizeCollections, peso, todayManila } from "@/lib/collections/summary";
 import { APP_BRAND_SHORT } from "@/lib/config";
 import { PageHeader, Badge } from "@/components/ui";
+import { FloatingCalculator } from "@/components/ui/floating-calculator";
 import { CollectionsPanel } from "@/components/collections/collections-panel";
 import { DeletedCollectionsPanel } from "@/components/collections/deleted-records-panel";
 import { restoreCollection, purgeCollection } from "./actions";
@@ -169,6 +170,7 @@ export default async function CollectionsPage({
           onPurge={purgeCollection}
         />
       )}
+      <FloatingCalculator />
     </>
   );
 }
