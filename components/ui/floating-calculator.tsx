@@ -87,6 +87,17 @@ export function FloatingCalculator() {
     };
   }, [savePos]);
 
+  // ── keyboard / numpad support ─────────────────────────────────────────────
+  // We store refs to the latest calc functions so the effect doesn't need to
+  // re-register on every render.
+  const digitRef      = useRef<(d: string) => void>(() => {});
+  const setOpRef      = useRef<(o: Op) => void>(() => {});
+  const evaluateRef   = useRef<() => void>(() => {});
+  const clearRef      = useRef<() => void>(() => {});
+  const backspaceRef  = useRef<() => void>(() => {});
+  const toggleSignRef = useRef<() => void>(() => {});
+  const percentRef    = useRef<() => void>(() => {});
+
   // ── calculator state ──────────────────────────────────────────────────────
   const [display,    setDisplay]    = useState("0");
   const [pending,    setPending]    = useState<number | null>(null);
@@ -135,6 +146,43 @@ export function FloatingCalculator() {
   }
   function toggleSign() { setDisplay((prev) => (prev.startsWith("-") ? prev.slice(1) : prev === "0" ? "0" : "-" + prev)); }
   function percent()    { setDisplay(fmt(current / 100)); }
+
+  // Keep refs current so the keyboard effect sees the latest closures.
+  digitRef.current      = digit;
+  setOpRef.current      = setOperator;
+  evaluateRef.current   = evaluate;
+  clearRef.current      = clear;
+  backspaceRef.current  = backspace;
+  toggleSignRef.current = toggleSign;
+  percentRef.current    = percent;
+
+  // ── keyboard / numpad listener (only active when calculator is open) ───────
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      // Don't steal keys when user is typing in a page input/textarea
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      // Don't steal modifier combos (Ctrl+C etc.)
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+      const k = e.key;
+      if (k >= "0" && k <= "9")   { digitRef.current(k);       e.preventDefault(); return; }
+      if (k === ".")               { digitRef.current(".");      e.preventDefault(); return; }
+      if (k === "+" )              { setOpRef.current("+");      e.preventDefault(); return; }
+      if (k === "-" )              { setOpRef.current("-");      e.preventDefault(); return; }
+      if (k === "*" )              { setOpRef.current("×");      e.preventDefault(); return; }
+      if (k === "/")               { setOpRef.current("÷");      e.preventDefault(); return; }
+      if (k === "Enter" || k === "=") { evaluateRef.current();  e.preventDefault(); return; }
+      if (k === "Backspace")       { backspaceRef.current();     e.preventDefault(); return; }
+      if (k === "Escape")          { clearRef.current();         e.preventDefault(); return; }
+      if (k === "Delete")          { clearRef.current();         e.preventDefault(); return; }
+      if (k === "%")               { percentRef.current();       e.preventDefault(); return; }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
 
   // ── don't render anything until client is ready ───────────────────────────
   if (!mounted) return null;
