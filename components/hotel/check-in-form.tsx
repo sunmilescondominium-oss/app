@@ -51,6 +51,7 @@ export function CheckInForm({
   const [discountApplied, setDiscountApplied] = useState(false);
   const [photoCaptured, setPhotoCaptured] = useState(false);
   const [advanceMethod, setAdvanceMethod] = useState<string>(HOTEL_PAYMENT_METHODS[0]?.key ?? "cash");
+  const [arNo, setArNo] = useState<string>(suggestedArNo ?? "");
   const [clientError, setClientError] = useState("");
   const [extraPersons, setExtraPersons] = useState(0);
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -289,7 +290,18 @@ export function CheckInForm({
           </div>
           <div>
             <label className={labelCls}>AR No (from booklet)</label>
-            <input name="advance_ar_no" defaultValue={suggestedArNo ?? ""} className={inputCls} placeholder={suggestedArNo ?? "e.g. AR-002384"} />
+            <input
+              name="advance_ar_no"
+              value={arNo}
+              onChange={(e) => setArNo(e.target.value.toUpperCase())}
+              className={inputCls}
+              placeholder="e.g. AR-002384"
+            />
+            {suggestedArNo && arNo !== suggestedArNo && (
+              <p className="mt-0.5 text-[10px] text-amber-700">
+                Suggested: {suggestedArNo} &mdash; edited value will be saved and used for next increment.
+              </p>
+            )}
           </div>
           <div>
             <label className={labelCls}>OR No (optional)</label>

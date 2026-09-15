@@ -179,14 +179,15 @@ export async function getSessionSummary(sessionId: string): Promise<SessionSumma
 
 /**
  * Next suggested AR number for the current cashier shift.
- * Bases the suggestion on the active session's beginning_ar_no + count of
- * payments already recorded since the session opened. Falls back to the
- * receipt_series sequence when no session is active.
+ * Uses the most recently recorded AR number in stay_payments for this session
+ * (so manual edits are honoured) and increments by 1. Falls back to the
+ * session's beginning_ar_no when no payments have been recorded yet, or to
+ * the receipt_series sequence when no session is active.
  */
 export async function getSuggestedNextArNo(): Promise<string> {
   const admin = createAdminClient();
 
-  // Prefer active session: parse beginning_ar_no, offset by payment count.
+  // Active session: increment from the last actual AR used, not from a count.
   const { data: session } = await admin
     .from("hotel_cashier_sessions")
     .select("beginning_ar_no, opened_at")
@@ -194,17 +195,24 @@ export async function getSuggestedNextArNo(): Promise<string> {
     .maybeSingle();
 
   if (session?.beginning_ar_no) {
-    const baseAr = session.beginning_ar_no as string;
-    const { count } = await admin
+    // Find the last AR number actually recorded in this session's payments.
+    const { data: lastPayment } = await admin
       .from("stay_payments")
-      .select("id", { count: "exact", head: true })
-      .gte("created_at", session.opened_at as string);
-    const payCount = count ?? 0;
-    const match = baseAr.match(/^([A-Za-z\-]+)(\d+)$/);
+      .select("ar_no")
+      .gte("created_at", session.opened_at as string)
+      .not("ar_no", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    // If payments exist, next = last AR + 1. If not, beginning_ar_no is still unused.
+    const lastAr = (lastPayment?.ar_no as string | null) ?? null;
+    const baseAr = session.beginning_ar_no as string;
+    const match = (lastAr ?? baseAr).match(/^([A-Za-z\-]+)(\d+)$/);
     if (match) {
       const prefix = match[1];
       const padLen = match[2].length;
-      const num = parseInt(match[2], 10) + payCount;
+      const num = parseInt(match[2], 10) + (lastAr ? 1 : 0);
       return `${prefix}${String(num).padStart(padLen, "0")}`;
     }
     return baseAr;
