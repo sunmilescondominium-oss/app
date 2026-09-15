@@ -7,10 +7,28 @@ const OPEN_KEY = "calc_open";
 
 type Op = "+" | "-" | "×" | "÷" | null;
 
+/** Format a computed result number for display */
 function fmt(n: number): string {
   if (!isFinite(n)) return "Error";
   const s = n.toLocaleString("en-PH", { maximumFractionDigits: 10 });
   return s.length > 16 ? n.toPrecision(10) : s;
+}
+
+/**
+ * Format a raw digit string (e.g. "1234567.89") with commas on the integer
+ * part for the live display — keeps the decimal portion unformatted so the
+ * user can still type freely.
+ */
+function fmtDisplay(raw: string): string {
+  if (raw === "Error") return raw;
+  const neg = raw.startsWith("-");
+  const abs = neg ? raw.slice(1) : raw;
+  const dotIdx = abs.indexOf(".");
+  const intPart = dotIdx >= 0 ? abs.slice(0, dotIdx) : abs;
+  const decPart = dotIdx >= 0 ? abs.slice(dotIdx) : "";   // includes the "."
+  const intNum  = parseInt(intPart || "0", 10);
+  const intFmt  = isNaN(intNum) ? intPart : intNum.toLocaleString("en-PH");
+  return (neg ? "-" : "") + intFmt + decPart;
 }
 
 function compute(a: number, op: Op, b: number): number {
@@ -22,19 +40,14 @@ function compute(a: number, op: Op, b: number): number {
 }
 
 export function FloatingCalculator() {
-  // ── mount guard: nothing renders until client hydration is complete ─────────
+  // ── mount guard ───────────────────────────────────────────────────────────
   const [mounted, setMounted] = useState(false);
   const [pos,  setPos]  = useState({ x: 0, y: 0 });
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    // Restore position
     let x = window.innerWidth - 220, y = window.innerHeight - 64;
-    try {
-      const s = localStorage.getItem(POS_KEY);
-      if (s) { const p = JSON.parse(s); x = p.x; y = p.y; }
-    } catch { /* ignore */ }
-    // Restore open/closed state
+    try { const s = localStorage.getItem(POS_KEY); if (s) { const p = JSON.parse(s); x = p.x; y = p.y; } } catch { /* ignore */ }
     let wasOpen = false;
     try { wasOpen = localStorage.getItem(OPEN_KEY) === "1"; } catch { /* ignore */ }
     setPos({ x, y });
@@ -70,9 +83,9 @@ export function FloatingCalculator() {
     const onMove = (e: MouseEvent) => {
       if (!dragging.current || !panelRef.current) return;
       didDrag.current = true;
-      const panel  = panelRef.current;
-      const maxX   = window.innerWidth  - panel.offsetWidth;
-      const maxY   = window.innerHeight - panel.offsetHeight;
+      const panel = panelRef.current;
+      const maxX  = window.innerWidth  - panel.offsetWidth;
+      const maxY  = window.innerHeight - panel.offsetHeight;
       savePos({
         x: Math.max(0, Math.min(maxX, e.clientX - dragOffset.current.x)),
         y: Math.max(0, Math.min(maxY, e.clientY - dragOffset.current.y)),
@@ -87,16 +100,22 @@ export function FloatingCalculator() {
     };
   }, [savePos]);
 
-  // ── keyboard / numpad support ─────────────────────────────────────────────
-  // We store refs to the latest calc functions so the effect doesn't need to
-  // re-register on every render.
-  const digitRef      = useRef<(d: string) => void>(() => {});
-  const setOpRef      = useRef<(o: Op) => void>(() => {});
-  const evaluateRef   = useRef<() => void>(() => {});
-  const clearRef      = useRef<() => void>(() => {});
-  const backspaceRef  = useRef<() => void>(() => {});
-  const toggleSignRef = useRef<() => void>(() => {});
-  const percentRef    = useRef<() => void>(() => {});
+  // ── Alt+C global toggle (always active, even when focus is in a form) ─────
+  useEffect(() => {
+    if (!mounted) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.altKey && !e.ctrlKey && !e.metaKey && e.key.toLowerCase() === "c") {
+        e.preventDefault();
+        setOpen((prev) => {
+          const next = !prev;
+          try { localStorage.setItem(OPEN_KEY, next ? "1" : "0"); } catch { /* ignore */ }
+          return next;
+        });
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [mounted]);
 
   // ── calculator state ──────────────────────────────────────────────────────
   const [display,    setDisplay]    = useState("0");
@@ -147,7 +166,14 @@ export function FloatingCalculator() {
   function toggleSign() { setDisplay((prev) => (prev.startsWith("-") ? prev.slice(1) : prev === "0" ? "0" : "-" + prev)); }
   function percent()    { setDisplay(fmt(current / 100)); }
 
-  // Keep refs current so the keyboard effect sees the latest closures.
+  // ── calculator keyboard (only when expanded, not in form fields) ──────────
+  const digitRef      = useRef(digit);
+  const setOpRef      = useRef(setOperator);
+  const evaluateRef   = useRef(evaluate);
+  const clearRef      = useRef(clear);
+  const backspaceRef  = useRef(backspace);
+  const toggleSignRef = useRef(toggleSign);
+  const percentRef    = useRef(percent);
   digitRef.current      = digit;
   setOpRef.current      = setOperator;
   evaluateRef.current   = evaluate;
@@ -156,52 +182,44 @@ export function FloatingCalculator() {
   toggleSignRef.current = toggleSign;
   percentRef.current    = percent;
 
-  // ── keyboard / numpad listener (only active when calculator is open) ───────
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      // Don't steal keys when user is typing in a page input/textarea
+      // Skip if Alt+C (handled by the global toggle above)
+      if (e.altKey && e.key.toLowerCase() === "c") return;
+      // Skip if focus is in a page form field
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-      // Don't steal modifier combos (Ctrl+C etc.)
       if (e.ctrlKey || e.metaKey || e.altKey) return;
 
       const k = e.key;
-      if (k >= "0" && k <= "9")   { digitRef.current(k);       e.preventDefault(); return; }
-      if (k === ".")               { digitRef.current(".");      e.preventDefault(); return; }
-      if (k === "+" )              { setOpRef.current("+");      e.preventDefault(); return; }
-      if (k === "-" )              { setOpRef.current("-");      e.preventDefault(); return; }
-      if (k === "*" )              { setOpRef.current("×");      e.preventDefault(); return; }
-      if (k === "/")               { setOpRef.current("÷");      e.preventDefault(); return; }
-      if (k === "Enter" || k === "=") { evaluateRef.current();  e.preventDefault(); return; }
-      if (k === "Backspace")       { backspaceRef.current();     e.preventDefault(); return; }
-      if (k === "Escape")          { clearRef.current();         e.preventDefault(); return; }
-      if (k === "Delete")          { clearRef.current();         e.preventDefault(); return; }
-      if (k === "%")               { percentRef.current();       e.preventDefault(); return; }
+      if (k >= "0" && k <= "9")        { digitRef.current(k);        e.preventDefault(); return; }
+      if (k === ".")                   { digitRef.current(".");       e.preventDefault(); return; }
+      if (k === "+")                   { setOpRef.current("+");       e.preventDefault(); return; }
+      if (k === "-")                   { setOpRef.current("-");       e.preventDefault(); return; }
+      if (k === "*")                   { setOpRef.current("×");       e.preventDefault(); return; }
+      if (k === "/")                   { setOpRef.current("÷");       e.preventDefault(); return; }
+      if (k === "Enter" || k === "=")  { evaluateRef.current();       e.preventDefault(); return; }
+      if (k === "Backspace")           { backspaceRef.current();      e.preventDefault(); return; }
+      if (k === "Escape" || k === "Delete") { clearRef.current();     e.preventDefault(); return; }
+      if (k === "%")                   { percentRef.current();        e.preventDefault(); return; }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
-  // ── don't render anything until client is ready ───────────────────────────
+  // ── nothing until hydrated ────────────────────────────────────────────────
   if (!mounted) return null;
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Pill (minimised) — single draggable chip
-  // ─────────────────────────────────────────────────────────────────────────
+  // ── Pill (minimised) ──────────────────────────────────────────────────────
   if (!open) {
     return (
-      <div
-        ref={panelRef}
-        className="no-print fixed z-[9999]"
-        style={{ left: pos.x, top: pos.y }}
-      >
+      <div ref={panelRef} className="no-print fixed z-[9999]" style={{ left: pos.x, top: pos.y }}>
         <div
           onMouseDown={onMouseDown}
           onClick={() => { if (!didDrag.current) toggleOpen(true); }}
           className="flex cursor-pointer items-center gap-2 rounded-full bg-stone-800 px-4 py-2 shadow-xl ring-1 ring-white/10 hover:bg-stone-700 active:scale-95 transition-transform select-none"
-          title="Open calculator"
+          title="Open calculator (Alt+C)"
         >
           <span className="text-base leading-none">🧮</span>
           <span className="text-xs font-semibold text-stone-200 whitespace-nowrap">Calc</span>
@@ -213,9 +231,7 @@ export function FloatingCalculator() {
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Full panel (maximised)
-  // ─────────────────────────────────────────────────────────────────────────
+  // ── Full panel (expanded) ─────────────────────────────────────────────────
   const Btn = ({
     label, onClick, variant = "num",
   }: {
@@ -248,11 +264,12 @@ export function FloatingCalculator() {
         <div className="flex items-center gap-2">
           <span className="text-sm">🧮</span>
           <span className="text-xs font-semibold text-stone-300">Calculator</span>
+          <span className="text-[9px] text-stone-500">Alt+C</span>
         </div>
         <button
           onClick={() => toggleOpen(false)}
           className="flex h-5 w-5 items-center justify-center rounded-full bg-stone-600 hover:bg-stone-500 text-stone-300 hover:text-white text-[10px] transition-colors"
-          title="Minimise to pill"
+          title="Minimise to pill (Alt+C)"
         >
           ─
         </button>
@@ -269,7 +286,7 @@ export function FloatingCalculator() {
             className="mt-1 truncate text-right font-mono text-2xl font-bold text-emerald-400 tabular-nums leading-none"
             title={display}
           >
-            {display}
+            {fmtDisplay(display)}
           </div>
           {memory !== 0 && (
             <div className="mt-1 text-right text-[10px] text-amber-400 leading-none">
@@ -280,10 +297,10 @@ export function FloatingCalculator() {
 
         {/* Memory row */}
         <div className="mb-1.5 grid grid-cols-4 gap-1">
-          <Btn label="MC" onClick={() => setMemory(0)}                           variant="mem" />
-          <Btn label="MR" onClick={() => { setDisplay(fmt(memory)); setJustEvaled(true); }} variant="mem" />
-          <Btn label="M−" onClick={() => setMemory((m) => m - current)}          variant="mem" />
-          <Btn label="M+" onClick={() => setMemory((m) => m + current)}          variant="mem" />
+          <Btn label="MC" onClick={() => setMemory(0)}                                       variant="mem" />
+          <Btn label="MR" onClick={() => { setDisplay(fmt(memory)); setJustEvaled(true); }}  variant="mem" />
+          <Btn label="M−" onClick={() => setMemory((m) => m - current)}                      variant="mem" />
+          <Btn label="M+" onClick={() => setMemory((m) => m + current)}                      variant="mem" />
         </div>
 
         {/* Main grid */}
