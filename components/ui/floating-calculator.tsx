@@ -7,28 +7,37 @@ const OPEN_KEY = "calc_open";
 
 type Op = "+" | "-" | "×" | "÷" | null;
 
-/** Format a computed result number for display */
-function fmt(n: number): string {
+/**
+ * Convert a computed number to a clean JS number string (no locale commas).
+ * toPrecision(12) then parseFloat strips float noise:
+ *   0.1 + 0.2 = 0.30000000000000004 → "0.3"
+ *   1.005      → "1.005"
+ */
+function toRaw(n: number): string {
   if (!isFinite(n)) return "Error";
-  const s = n.toLocaleString("en-PH", { maximumFractionDigits: 10 });
-  return s.length > 16 ? n.toPrecision(10) : s;
+  return String(parseFloat(n.toPrecision(12)));
 }
 
 /**
- * Format a raw digit string (e.g. "1234567.89") with commas on the integer
- * part for the live display — keeps the decimal portion unformatted so the
- * user can still type freely.
+ * Format a clean number string (no commas) for the display box — adds
+ * thousands commas to the integer part only, leaves decimal as-is so
+ * the user can keep typing freely.
  */
 function fmtDisplay(raw: string): string {
   if (raw === "Error") return raw;
   const neg = raw.startsWith("-");
   const abs = neg ? raw.slice(1) : raw;
-  const dotIdx = abs.indexOf(".");
-  const intPart = dotIdx >= 0 ? abs.slice(0, dotIdx) : abs;
-  const decPart = dotIdx >= 0 ? abs.slice(dotIdx) : "";   // includes the "."
-  const intNum  = parseInt(intPart || "0", 10);
-  const intFmt  = isNaN(intNum) ? intPart : intNum.toLocaleString("en-PH");
+  const dot = abs.indexOf(".");
+  const intPart = dot >= 0 ? abs.slice(0, dot) : abs;
+  const decPart = dot >= 0 ? abs.slice(dot) : "";        // includes "."
+  const intFmt  = Number(intPart || "0").toLocaleString("en-PH");
   return (neg ? "-" : "") + intFmt + decPart;
+}
+
+/** Format a number for the pending-op / memory label (locale, rounded). */
+function fmtLabel(n: number): string {
+  if (!isFinite(n)) return "Error";
+  return n.toLocaleString("en-PH", { maximumFractionDigits: 6 });
 }
 
 function compute(a: number, op: Op, b: number): number {
@@ -100,7 +109,7 @@ export function FloatingCalculator() {
     };
   }, [savePos]);
 
-  // ── Alt+C global toggle (always active, even when focus is in a form) ─────
+  // ── Alt+C global toggle (fires even when a form field is focused) ──────────
   useEffect(() => {
     if (!mounted) return;
     const onKey = (e: KeyboardEvent) => {
@@ -118,20 +127,22 @@ export function FloatingCalculator() {
   }, [mounted]);
 
   // ── calculator state ──────────────────────────────────────────────────────
+  // display is always a clean JS number string — never contains locale commas.
   const [display,    setDisplay]    = useState("0");
   const [pending,    setPending]    = useState<number | null>(null);
   const [op,         setOp]         = useState<Op>(null);
   const [justEvaled, setJustEvaled] = useState(false);
   const [memory,     setMemory]     = useState(0);
 
-  const current = parseFloat(display.replace(/,/g, "")) || 0;
+  // No .replace(/,/g,"") needed — display is always comma-free.
+  const current = parseFloat(display) || 0;
 
   function digit(d: string) {
-    if (justEvaled) { setDisplay(d); setJustEvaled(false); return; }
+    if (justEvaled) { setDisplay(d === "." ? "0." : d); setJustEvaled(false); return; }
     setDisplay((prev) => {
       if (d === "." && prev.includes(".")) return prev;
       if (prev === "0" && d !== ".") return d;
-      if (prev.replace(/[^0-9]/g, "").length >= 14) return prev;
+      if (prev.replace(/\D/g, "").length >= 14) return prev;
       return prev + d;
     });
   }
@@ -140,7 +151,7 @@ export function FloatingCalculator() {
     if (pending !== null && op && !justEvaled) {
       const result = compute(pending, op, current);
       setPending(result);
-      setDisplay(fmt(result));
+      setDisplay(toRaw(result));
     } else {
       setPending(current);
     }
@@ -151,7 +162,7 @@ export function FloatingCalculator() {
   function evaluate() {
     if (pending === null || !op) return;
     const result = compute(pending, op, current);
-    setDisplay(fmt(result));
+    setDisplay(toRaw(result));
     setPending(null);
     setOp(null);
     setJustEvaled(true);
@@ -163,10 +174,16 @@ export function FloatingCalculator() {
     if (justEvaled) { clear(); return; }
     setDisplay((prev) => (prev.length <= 1 ? "0" : prev.slice(0, -1)));
   }
-  function toggleSign() { setDisplay((prev) => (prev.startsWith("-") ? prev.slice(1) : prev === "0" ? "0" : "-" + prev)); }
-  function percent()    { setDisplay(fmt(current / 100)); }
+  function toggleSign() {
+    setDisplay((prev) =>
+      prev === "0" || prev === "Error" ? "0"
+      : prev.startsWith("-") ? prev.slice(1)
+      : "-" + prev,
+    );
+  }
+  function percent() { setDisplay(toRaw(current / 100)); }
 
-  // ── calculator keyboard (only when expanded, not in form fields) ──────────
+  // ── keyboard support ──────────────────────────────────────────────────────
   const digitRef      = useRef(digit);
   const setOpRef      = useRef(setOperator);
   const evaluateRef   = useRef(evaluate);
@@ -185,24 +202,34 @@ export function FloatingCalculator() {
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      // Skip if Alt+C (handled by the global toggle above)
-      if (e.altKey && e.key.toLowerCase() === "c") return;
-      // Skip if focus is in a page form field
-      const tag = (e.target as HTMLElement)?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if (e.altKey && e.key.toLowerCase() === "c") return; // global toggle
       if (e.ctrlKey || e.metaKey || e.altKey) return;
 
       const k = e.key;
-      if (k >= "0" && k <= "9")        { digitRef.current(k);        e.preventDefault(); return; }
-      if (k === ".")                   { digitRef.current(".");       e.preventDefault(); return; }
-      if (k === "+")                   { setOpRef.current("+");       e.preventDefault(); return; }
-      if (k === "-")                   { setOpRef.current("-");       e.preventDefault(); return; }
-      if (k === "*")                   { setOpRef.current("×");       e.preventDefault(); return; }
-      if (k === "/")                   { setOpRef.current("÷");       e.preventDefault(); return; }
-      if (k === "Enter" || k === "=")  { evaluateRef.current();       e.preventDefault(); return; }
-      if (k === "Backspace")           { backspaceRef.current();      e.preventDefault(); return; }
-      if (k === "Escape" || k === "Delete") { clearRef.current();     e.preventDefault(); return; }
-      if (k === "%")                   { percentRef.current();        e.preventDefault(); return; }
+      const tag = (e.target as HTMLElement)?.tagName ?? "";
+      const inField = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+
+      // Enter / numpad Enter = equals (fires even when a form field is focused
+      // because Enter in a field submits the form, it doesn't type a character)
+      if (k === "Enter") {
+        evaluateRef.current();
+        e.preventDefault();
+        return;
+      }
+
+      // All other keys are ignored when focus is inside a page form field
+      if (inField) return;
+
+      if (k >= "0" && k <= "9")         { digitRef.current(k);       e.preventDefault(); return; }
+      if (k === ".")                    { digitRef.current(".");      e.preventDefault(); return; }
+      if (k === "=")                    { evaluateRef.current();      e.preventDefault(); return; }
+      if (k === "+")                    { setOpRef.current("+");      e.preventDefault(); return; }
+      if (k === "-")                    { setOpRef.current("-");      e.preventDefault(); return; }
+      if (k === "*")                    { setOpRef.current("×");      e.preventDefault(); return; }
+      if (k === "/")                    { setOpRef.current("÷");      e.preventDefault(); return; }
+      if (k === "Backspace")            { backspaceRef.current();     e.preventDefault(); return; }
+      if (k === "Escape" || k === "Delete") { clearRef.current();    e.preventDefault(); return; }
+      if (k === "%")                    { percentRef.current();       e.preventDefault(); return; }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -211,7 +238,7 @@ export function FloatingCalculator() {
   // ── nothing until hydrated ────────────────────────────────────────────────
   if (!mounted) return null;
 
-  // ── Pill (minimised) ──────────────────────────────────────────────────────
+  // ── Pill ──────────────────────────────────────────────────────────────────
   if (!open) {
     return (
       <div ref={panelRef} className="no-print fixed z-[9999]" style={{ left: pos.x, top: pos.y }}>
@@ -231,7 +258,7 @@ export function FloatingCalculator() {
     );
   }
 
-  // ── Full panel (expanded) ─────────────────────────────────────────────────
+  // ── Full panel ────────────────────────────────────────────────────────────
   const Btn = ({
     label, onClick, variant = "num",
   }: {
@@ -247,7 +274,7 @@ export function FloatingCalculator() {
       eq:  `${base} bg-emerald-600 hover:bg-emerald-500 text-white col-span-2`,
       mem: `${base} bg-stone-200 hover:bg-stone-300 text-stone-500 text-[11px]`,
     };
-    return <button onClick={onClick} className={cls[variant]}>{label}</button>;
+    return <button type="button" onClick={onClick} className={cls[variant]}>{label}</button>;
   };
 
   return (
@@ -256,7 +283,7 @@ export function FloatingCalculator() {
       className="no-print fixed z-[9999] rounded-2xl shadow-2xl overflow-hidden"
       style={{ left: pos.x, top: pos.y, width: 240 }}
     >
-      {/* Title bar — drag handle */}
+      {/* Title bar */}
       <div
         onMouseDown={onMouseDown}
         className="flex cursor-grab items-center justify-between bg-stone-800 px-3 py-2.5 active:cursor-grabbing select-none"
@@ -267,20 +294,21 @@ export function FloatingCalculator() {
           <span className="text-[9px] text-stone-500">Alt+C</span>
         </div>
         <button
+          type="button"
           onClick={() => toggleOpen(false)}
           className="flex h-5 w-5 items-center justify-center rounded-full bg-stone-600 hover:bg-stone-500 text-stone-300 hover:text-white text-[10px] transition-colors"
-          title="Minimise to pill (Alt+C)"
+          title="Minimise (Alt+C)"
         >
           ─
         </button>
       </div>
 
-      {/* Calculator body */}
+      {/* Body */}
       <div className="bg-stone-50 p-2.5">
         {/* Display */}
         <div className="mb-2.5 rounded-xl bg-stone-900 px-3 pt-2 pb-2.5">
           <div className="text-right text-[10px] text-stone-500 h-4 leading-none">
-            {pending !== null ? `${fmt(pending)} ${op ?? ""}` : " "}
+            {pending !== null ? `${fmtLabel(pending)} ${op ?? ""}` : " "}
           </div>
           <div
             className="mt-1 truncate text-right font-mono text-2xl font-bold text-emerald-400 tabular-nums leading-none"
@@ -290,45 +318,45 @@ export function FloatingCalculator() {
           </div>
           {memory !== 0 && (
             <div className="mt-1 text-right text-[10px] text-amber-400 leading-none">
-              M: {fmt(memory)}
+              M: {fmtLabel(memory)}
             </div>
           )}
         </div>
 
-        {/* Memory row */}
+        {/* Memory */}
         <div className="mb-1.5 grid grid-cols-4 gap-1">
-          <Btn label="MC" onClick={() => setMemory(0)}                                       variant="mem" />
-          <Btn label="MR" onClick={() => { setDisplay(fmt(memory)); setJustEvaled(true); }}  variant="mem" />
-          <Btn label="M−" onClick={() => setMemory((m) => m - current)}                      variant="mem" />
-          <Btn label="M+" onClick={() => setMemory((m) => m + current)}                      variant="mem" />
+          <Btn label="MC" onClick={() => setMemory(0)}                                          variant="mem" />
+          <Btn label="MR" onClick={() => { setDisplay(toRaw(memory)); setJustEvaled(true); }}   variant="mem" />
+          <Btn label="M−" onClick={() => setMemory((m) => m - current)}                         variant="mem" />
+          <Btn label="M+" onClick={() => setMemory((m) => m + current)}                         variant="mem" />
         </div>
 
-        {/* Main grid */}
+        {/* Buttons */}
         <div className="grid grid-cols-4 gap-1">
-          <Btn label="AC"  onClick={clear}                         variant="fn" />
-          <Btn label="CE"  onClick={clearEntry}                    variant="fn" />
-          <Btn label="⌫"   onClick={backspace}                     variant="fn" />
-          <Btn label="÷"   onClick={() => setOperator("÷")}        variant="op" />
+          <Btn label="AC"  onClick={clear}                        variant="fn" />
+          <Btn label="CE"  onClick={clearEntry}                   variant="fn" />
+          <Btn label="⌫"   onClick={backspace}                    variant="fn" />
+          <Btn label="÷"   onClick={() => setOperator("÷")}       variant="op" />
 
           <Btn label="7"   onClick={() => digit("7")} />
           <Btn label="8"   onClick={() => digit("8")} />
           <Btn label="9"   onClick={() => digit("9")} />
-          <Btn label="×"   onClick={() => setOperator("×")}        variant="op" />
+          <Btn label="×"   onClick={() => setOperator("×")}       variant="op" />
 
           <Btn label="4"   onClick={() => digit("4")} />
           <Btn label="5"   onClick={() => digit("5")} />
           <Btn label="6"   onClick={() => digit("6")} />
-          <Btn label="−"   onClick={() => setOperator("-")}        variant="op" />
+          <Btn label="−"   onClick={() => setOperator("-")}       variant="op" />
 
           <Btn label="1"   onClick={() => digit("1")} />
           <Btn label="2"   onClick={() => digit("2")} />
           <Btn label="3"   onClick={() => digit("3")} />
-          <Btn label="+"   onClick={() => setOperator("+")}        variant="op" />
+          <Btn label="+"   onClick={() => setOperator("+")}       variant="op" />
 
-          <Btn label="+/−" onClick={toggleSign}                    variant="fn" />
+          <Btn label="+/−" onClick={toggleSign}                   variant="fn" />
           <Btn label="0"   onClick={() => digit("0")} />
           <Btn label="."   onClick={() => digit(".")} />
-          <Btn label="="   onClick={evaluate}                      variant="eq" />
+          <Btn label="="   onClick={evaluate}                     variant="eq" />
         </div>
       </div>
     </div>
