@@ -137,21 +137,6 @@ function VoucherBody({ data }: { data: VoucherData }) {
             <td colSpan={5} style={td}>{paidToAddress}</td>
           </tr>
 
-          {/* Source of funds */}
-          {sourceOfFunds && (
-            <tr>
-              <td style={{ ...labelCol }}>Source of funds</td>
-              <td colSpan={5} style={td}>
-                {sourceOfFunds}
-                {checkNumber && (
-                  <span style={{ marginLeft: "12px", fontWeight: "bold" }}>
-                    Check No.: {checkNumber}
-                  </span>
-                )}
-              </td>
-            </tr>
-          )}
-
           {/* Particulars header */}
           <tr>
             <td colSpan={5} style={th}>PARTICULARS</td>
@@ -170,6 +155,21 @@ function VoucherBody({ data }: { data: VoucherData }) {
               </td>
             </tr>
           ))}
+
+          {/* Source of funds row — inside particulars block */}
+          {sourceOfFunds && (
+            <tr style={{ height: "22px" }}>
+              <td style={{ ...labelCol, whiteSpace: "nowrap", color: "#444" }}>Source of funds :</td>
+              <td colSpan={5} style={td}>
+                <span style={{ fontWeight: "bold" }}>{sourceOfFunds}</span>
+                {checkNumber && (
+                  <span style={{ marginLeft: "16px" }}>
+                    Check No.: <span style={{ fontWeight: "bold" }}>{checkNumber}</span>
+                  </span>
+                )}
+              </td>
+            </tr>
+          )}
 
           {/* Total */}
           <tr>
