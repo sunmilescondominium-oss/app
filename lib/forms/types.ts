@@ -19,9 +19,9 @@ export type BusinessEntity = { id: string; name: string; tradeName: string | nul
 export const LOW_STOCK_THRESHOLD = 5;
 
 export type BookletRow = {
-  id: string; bookletNo: string; typeCode: string; typeName: string; typeBir: boolean;
+  id: string; bookletNo: string; typeId: string; typeCode: string; typeName: string; typeBir: boolean;
   prefix: string; from: number; to: number; total: number;
-  custodianLabel: string | null; custodianRole: string | null;
+  custodianUserId: string | null; custodianLabel: string | null; custodianRole: string | null;
   businessLine: string | null; issuedToRole: string | null; issuedToLabel: string | null;
   status: string; counts: Record<SerialStatus, number>; accounted: number;
   entityId: string | null; entityName: string | null; entityTin: string | null;

@@ -51,8 +51,9 @@ export async function listBooklets(): Promise<BookletRow[]> {
     const total = Number(b.serial_to) - Number(b.serial_from) + 1;
     return {
       id: b.id as string, bookletNo: b.booklet_no as string,
-      typeCode: (t?.code as string) ?? "—", typeName: (t?.name as string) ?? "—", typeBir: (t?.bir_reportable as boolean) ?? true,
+      typeId: (b.form_type_id as string) ?? "", typeCode: (t?.code as string) ?? "—", typeName: (t?.name as string) ?? "—", typeBir: (t?.bir_reportable as boolean) ?? true,
       prefix: (b.prefix as string) ?? "", from: Number(b.serial_from), to: Number(b.serial_to), total,
+      custodianUserId: (b.custodian_user_id as string) ?? null,
       custodianLabel: b.custodian_user_id ? lbl.get(b.custodian_user_id as string) ?? null : null,
       custodianRole: (b.custodian_role as string) ?? null,
       businessLine: (b.business_line as string) ?? null, issuedToRole: (b.issued_to_role as string) ?? null, issuedToLabel: (b.issued_to_label as string) ?? null,
@@ -82,8 +83,9 @@ export async function bookletDetail(id: string): Promise<{ booklet: BookletRow; 
   return {
     booklet: {
       id: b.id as string, bookletNo: b.booklet_no as string,
-      typeCode: (type?.code as string) ?? "—", typeName: (type?.name as string) ?? "—", typeBir: (type?.bir_reportable as boolean) ?? true,
+      typeId: (b.form_type_id as string) ?? "", typeCode: (type?.code as string) ?? "—", typeName: (type?.name as string) ?? "—", typeBir: (type?.bir_reportable as boolean) ?? true,
       prefix: (b.prefix as string) ?? "", from: Number(b.serial_from), to: Number(b.serial_to), total,
+      custodianUserId: (b.custodian_user_id as string) ?? null,
       custodianLabel: b.custodian_user_id ? lbl.get(b.custodian_user_id as string) ?? null : null,
       custodianRole: (b.custodian_role as string) ?? null,
       businessLine: (b.business_line as string) ?? null, issuedToRole: (b.issued_to_role as string) ?? null, issuedToLabel: (b.issued_to_label as string) ?? null,

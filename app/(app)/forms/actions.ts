@@ -169,6 +169,48 @@ export async function createFormType(code: string, name: string, birReportable =
   return { ok: true };
 }
 
+/** Edit booklet metadata (type, BIR info, custodian, status). Serial range is immutable. */
+export async function updateBooklet(bookletId: string, input: {
+  bookletNo: string; formTypeId: string;
+  businessEntityId?: string; birAtpNo?: string; birAtpDate?: string; printerName?: string;
+  custodianUserId: string; custodianRole: string;
+  businessLine?: string; issuedToRole?: string; issuedToLabel?: string;
+  status: string;
+}): Promise<ActionResult> {
+  const user = await requireModuleWrite("accountable_forms");
+  if (!userHasAnyRole(user, FORM_MANAGER_ROLES)) return { ok: false, error: "Not allowed." };
+  if (!input.bookletNo.trim()) return { ok: false, error: "Booklet number is required." };
+  const admin = createAdminClient();
+
+  const { data: ftype } = await admin.from("form_types").select("bir_reportable").eq("id", input.formTypeId).maybeSingle();
+  if (ftype?.bir_reportable) {
+    if (!input.businessEntityId) return { ok: false, error: "This is a BIR form — choose the registered business." };
+    if (!input.birAtpNo?.trim()) return { ok: false, error: "This is a BIR form — enter the BIR Authority-to-Print (ATP) number." };
+  }
+
+  const { error } = await admin.from("form_booklets").update({
+    booklet_no: input.bookletNo.trim(),
+    form_type_id: input.formTypeId,
+    business_entity_id: input.businessEntityId || null,
+    bir_atp_no: input.birAtpNo?.trim() || null,
+    bir_atp_date: input.birAtpDate || null,
+    printer_name: input.printerName?.trim() || null,
+    custodian_user_id: input.custodianUserId || null,
+    custodian_role: input.custodianRole || null,
+    business_line: input.businessLine?.trim() || null,
+    issued_to_role: input.issuedToRole || null,
+    issued_to_label: input.issuedToLabel?.trim() || null,
+    status: input.status,
+    updated_at: new Date().toISOString(),
+  }).eq("id", bookletId);
+  if (error) return { ok: false, error: error.message };
+
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "update", entity: "form_booklets", entityId: bookletId, diff: { bookletNo: input.bookletNo, status: input.status } });
+  revalidatePath("/forms");
+  revalidatePath(`/forms/${bookletId}`);
+  return { ok: true };
+}
+
 /** Hard-delete a booklet and all its serials (consultant only — testing cleanup). */
 export async function deleteBooklet(bookletId: string): Promise<ActionResult> {
   const user = await requireModuleWrite("accountable_forms");
