@@ -37,10 +37,21 @@ export default async function CollectionsPage({
   const date   = (typeof sp.date    === "string" && sp.date)    || todayManila();
   const arFrom = typeof sp.ar_from  === "string" ? sp.ar_from.trim()  : "";
   const arTo   = typeof sp.ar_to    === "string" ? sp.ar_to.trim()    : "";
-  const hasArFilter = !!(arFrom || arTo);
+  const orNo   = typeof sp.or_no    === "string" ? sp.or_no.trim()    : "";
+  const hasArFilter  = !!(arFrom || arTo);
+  const hasOrFilter  = !!orNo;
+  const hasAnyFilter = hasArFilter || hasOrFilter;
+
+  // When AR filter is active, search across last 365 days (not just today)
+  const queryDate = hasArFilter ? undefined : date;
 
   const [collections, unitOptions, itemTypes, bankMap, bankItemsMap, deletedCollections] = await Promise.all([
-    listCollections({ date, arFrom: arFrom || undefined, arTo: arTo || undefined }),
+    listCollections({
+      date:   queryDate,
+      arFrom: arFrom || undefined,
+      arTo:   arTo   || undefined,
+      orNo:   orNo   || undefined,
+    }),
     canWrite ? listUnitOptions() : Promise.resolve([]),
     getActiveItemTypes(),
     getBankNameMap(),
@@ -67,7 +78,7 @@ export default async function CollectionsPage({
         <p className="text-sm">Daily Collections Report — {date}</p>
       </div>
 
-      {/* Date + AR filter */}
+      {/* Date + AR + Receipt# filter */}
       <form
         method="get"
         className="no-print mb-4 rounded-2xl border border-stone-200 bg-white p-4"
@@ -77,6 +88,8 @@ export default async function CollectionsPage({
             <label className="mb-1 block text-xs font-medium text-stone-600">Date</label>
             <input type="date" name="date" defaultValue={date} className={inputCls} />
           </div>
+
+          {/* AR range */}
           <div className="flex items-end gap-2">
             <div>
               <label className="mb-1 block text-xs font-medium text-stone-600">AR From</label>
@@ -85,7 +98,7 @@ export default async function CollectionsPage({
                 name="ar_from"
                 defaultValue={arFrom}
                 placeholder="e.g. AR 205500"
-                className={`${inputCls} w-36`}
+                className={`${inputCls} w-32`}
               />
             </div>
             <span className="pb-2.5 text-stone-400">—</span>
@@ -96,19 +109,32 @@ export default async function CollectionsPage({
                 name="ar_to"
                 defaultValue={arTo}
                 placeholder="e.g. AR 205600"
-                className={`${inputCls} w-36`}
+                className={`${inputCls} w-32`}
               />
             </div>
           </div>
+
+          {/* Receipt # */}
+          <div>
+            <label className="mb-1 block text-xs font-medium text-stone-600">Receipt #</label>
+            <input
+              type="text"
+              name="or_no"
+              defaultValue={orNo}
+              placeholder="e.g. 205580"
+              className={`${inputCls} w-28`}
+            />
+          </div>
+
           <button
             type="submit"
             className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700"
           >
             View
           </button>
-          {hasArFilter && (
+          {hasAnyFilter && (
             <a href={`/collections?date=${date}`} className="py-2 text-sm text-stone-500 hover:underline">
-              Clear AR filter
+              Clear filters
             </a>
           )}
           <a href={`/api/export/collections?date=${date}`} className="ml-auto rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100">
@@ -128,23 +154,27 @@ export default async function CollectionsPage({
             </Link>
           )}
         </div>
-        {hasArFilter && (
+        {(hasArFilter || hasOrFilter) && (
           <p className="mt-2 text-xs text-amber-700">
-            AR range filter active — searching across the last 12 months
-            {arFrom && arTo ? ` (${arFrom} – ${arTo})` : arFrom ? ` from ${arFrom}` : ` up to ${arTo}`}.
+            {[
+              hasArFilter && `AR range: ${arFrom || "—"} – ${arTo || "—"} (last 12 months)`,
+              hasOrFilter && `Receipt #: "${orNo}"`,
+            ].filter(Boolean).join(" · ")}
           </p>
         )}
       </form>
 
       {/* Summary */}
       <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div className={`rounded-xl border px-4 py-3 ${hasArFilter ? "border-emerald-200 bg-emerald-50" : "border-stone-200 bg-white"}`}>
-          <p className={`text-2xl font-bold tabular-nums ${hasArFilter ? "text-emerald-800" : "text-stone-900"}`}>{peso(summary.grandTotal)}</p>
-          <p className={`text-xs ${hasArFilter ? "text-emerald-700" : "text-stone-500"}`}>{hasArFilter ? "AR range total" : "Grand total"}</p>
+        <div className={`rounded-xl border px-4 py-3 ${hasAnyFilter ? "border-emerald-200 bg-emerald-50" : "border-stone-200 bg-white"}`}>
+          <p className={`text-2xl font-bold tabular-nums ${hasAnyFilter ? "text-emerald-800" : "text-stone-900"}`}>{peso(summary.grandTotal)}</p>
+          <p className={`text-xs ${hasAnyFilter ? "text-emerald-700" : "text-stone-500"}`}>
+            {hasAnyFilter ? "Filtered total" : "Grand total"}
+          </p>
         </div>
         <div className="rounded-xl border border-stone-200 bg-white px-4 py-3">
           <p className="text-2xl font-bold tabular-nums text-stone-900">{summary.count}</p>
-          <p className="text-xs text-stone-500">Entries{hasArFilter ? " in range" : ""}</p>
+          <p className="text-xs text-stone-500">Entries{hasAnyFilter ? " (filtered)" : ""}</p>
         </div>
       </div>
 
@@ -161,7 +191,7 @@ export default async function CollectionsPage({
             {summary.rows.length === 0 && (
               <tr>
                 <td colSpan={3} className="px-4 py-6 text-center text-stone-500">
-                  No collections for this date.
+                  No collections for {hasAnyFilter ? "the current filter" : "this date"}.
                 </td>
               </tr>
             )}
@@ -189,8 +219,8 @@ export default async function CollectionsPage({
         itemTypes={itemTypes}
         bankMap={bankMap}
         bankItemsMap={bankItemsMap}
-        canWrite={canWrite && !hasArFilter}
-        canEdit={canEdit && !hasArFilter}
+        canWrite={canWrite && !hasAnyFilter}
+        canEdit={canEdit && !hasAnyFilter}
         canClearChecks={canClearChecks}
         isConsultant={isConsultant}
         date={date}

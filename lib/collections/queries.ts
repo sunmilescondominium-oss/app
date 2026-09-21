@@ -159,6 +159,7 @@ export interface CollectionsOptions {
   date?: string;
   arFrom?: string;
   arTo?: string;
+  orNo?: string;   // receipt / OR number partial match (case-insensitive)
 }
 
 export async function listCollections(dateOrOptions: string | CollectionsOptions): Promise<Collection[]> {
@@ -166,7 +167,7 @@ export async function listCollections(dateOrOptions: string | CollectionsOptions
     ? { date: dateOrOptions }
     : dateOrOptions;
 
-  const { date, arFrom, arTo } = opts;
+  const { date, arFrom, arTo, orNo } = opts;
   const hasArRange = !!(arFrom || arTo);
 
   // Build and execute the query
@@ -221,6 +222,14 @@ export async function listCollections(dateOrOptions: string | CollectionsOptions
         return true;
       });
     }
+  }
+
+  // Apply OR/receipt number filter in JS (case-insensitive partial match)
+  if (orNo) {
+    const needle = orNo.toLowerCase().trim();
+    collections = collections.filter(
+      (c) => c.or_number && c.or_number.toLowerCase().includes(needle),
+    );
   }
 
   // Enrich hotel rows with stay billing only for single-date queries
