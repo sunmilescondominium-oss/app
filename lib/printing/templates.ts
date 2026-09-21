@@ -138,9 +138,15 @@ export function receipt(d: ReceiptData): Uint8Array {
 
   // Items
   for (const item of d.items) {
-    const right = `${item.qty} x ${fmt2(item.price)}`;
-    const left = item.name.slice(0, COLS - right.length - 1);
-    parts.push(buildText(left.padEnd(COLS - right.length) + right));
+    const right   = `${item.qty} x ${fmt2(item.price)}`;
+    const maxLeft = COLS - right.length - 1;
+    if (item.name.length <= maxLeft) {
+      parts.push(buildText(item.name.padEnd(maxLeft + 1) + right));
+    } else {
+      // Name too long for one line — wrap: name first, price right-aligned below
+      parts.push(buildText(item.name.slice(0, COLS)));
+      parts.push(buildText(" ".repeat(COLS - right.length) + right));
+    }
   }
 
   parts.push(buildDivider("-", COLS));

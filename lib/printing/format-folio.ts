@@ -59,8 +59,56 @@ export interface FolioOptions {
   qrSize?: number;     // QR module size 1–8 (default 6)
 }
 
+export interface TestPageOptions {
+  paperWidth?: string;  // "58" or "80"
+  brandName?: string;
+  feedLines?: number;
+  qrSize?: number;
+}
+
+export function formatTestPage(opts: TestPageOptions = {}): Uint8Array {
+  const { brandName = "Sun Miles", feedLines = 1, qrSize = 6 } = opts;
+  const e = new EscPos();
+  e.init();
+
+  e.align("center")
+   .bold(true).doubleHeight(true).text(brandName.slice(0, COLS)).lf()
+   .doubleHeight(false).bold(false)
+   .text("Printer Test Page").lf()
+   .lf(1);
+
+  e.align("left").separator("=");
+  e.text("Alignment test:").lf();
+  e.row("Left", "Right");
+  e.row("Paper width:", `${COLS} cols`);
+  e.row("Feed lines:", String(feedLines));
+  e.row("QR size:", String(qrSize));
+  e.separator("-");
+
+  e.text("Text sizes:").lf();
+  e.bold(true).text("Bold text line").lf().bold(false);
+  e.doubleHeight(true).text("Dbl height").lf().doubleHeight(false);
+  e.text("Normal text line").lf();
+  e.separator("-");
+
+  e.text("Number alignment:").lf();
+  e.row("Item 1", "P100.00");
+  e.row("Item 2", "P1,250.50");
+  e.row("Item 3", "P12,000.00");
+  e.bold(true).row("TOTAL:", "P13,350.50").bold(false);
+  e.separator("=");
+
+  e.align("center")
+   .text("QR code test (size " + qrSize + ")").lf();
+  e.qr("https://sun-miles-pms.vercel.app", qrSize).lf(1);
+  e.text("Printer test successful!").lf();
+  e.feedAndCut(feedLines);
+
+  return e.bytes();
+}
+
 export function formatFolio(d: FolioData, opts: FolioOptions = {}): Uint8Array {
-  const { feedLines = 3, qrSize = 6 } = opts;
+  const { feedLines = 1, qrSize = 6 } = opts;
   const t: StayCharge = stayTotals(d.stay, d.paid, d.ordersTotal);
   const e = new EscPos();
   e.init();

@@ -197,6 +197,11 @@ export default async function HotelPage() {
             →
           </Link>
         )}
+        {(isCashier || isSupervisor) && (
+          <Link href="/hotel/printer-setup" className="text-sm font-medium text-amber-700 hover:underline">
+            Printer setup →
+          </Link>
+        )}
         {isSupervisor && (
           <Link href="/hotel/settings" className="text-sm font-medium text-amber-700 hover:underline">
             Printer settings →

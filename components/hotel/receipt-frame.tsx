@@ -3,6 +3,7 @@
 import { type ReactNode, useState, useEffect } from "react";
 import { BluetoothPrinter, bluetoothSupported } from "@/lib/printing/bluetooth-printer";
 import type { FolioData } from "@/lib/printing/format-folio";
+import Link from "next/link";
 
 type PrintStatus = "idle" | "connecting" | "printing" | "done" | "error";
 type PaperWidth = "58" | "80";
@@ -26,17 +27,18 @@ export function ReceiptFrame({
   folioData?: FolioData;
 }) {
   const [w, setWState]         = useState<PaperWidth>("58");
-  const [feedLines, setFeedState] = useState(3);
+  const [feedLines, setFeedState] = useState(1);
   const [qrSize, setQrState]   = useState(6);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [status, setStatus]    = useState<PrintStatus>("idle");
+  const [testStatus, setTestStatus] = useState<PrintStatus>("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const [printer] = useState(() => new BluetoothPrinter());
 
   // Hydrate from localStorage after mount
   useEffect(() => {
     setWState((lsGet(LS_WIDTH, "58") as PaperWidth));
-    setFeedState(parseInt(lsGet(LS_FEED, "3"), 10) || 3);
+    setFeedState(parseInt(lsGet(LS_FEED, "1"), 10) || 1);
     setQrState(parseInt(lsGet(LS_QR_SIZE, "6"), 10) || 6);
   }, []);
 
@@ -50,6 +52,25 @@ export function ReceiptFrame({
     }`;
 
   const busy = status === "connecting" || status === "printing";
+
+  async function handleTestPrint() {
+    setErrorMsg("");
+    try {
+      if (!printer.connected) {
+        setTestStatus("connecting");
+        await printer.connect();
+      }
+      setTestStatus("printing");
+      const { formatTestPage } = await import("@/lib/printing/format-folio");
+      const bytes = formatTestPage({ feedLines, qrSize });
+      await printer.print(bytes);
+      setTestStatus("done");
+      setTimeout(() => setTestStatus("idle"), 4000);
+    } catch (err) {
+      setTestStatus("error");
+      setErrorMsg(err instanceof Error ? err.message : String(err));
+    }
+  }
 
   async function handleBlePrint() {
     if (!folioData) return;
@@ -163,7 +184,7 @@ export function ReceiptFrame({
                   className="rounded-lg border border-stone-300 px-2 py-1.5 text-xs outline-none focus:border-amber-400"
                 >
                   {[0, 1, 2, 3, 4, 5].map((n) => (
-                    <option key={n} value={n}>{n} line{n !== 1 ? "s" : ""}</option>
+                    <option key={n} value={n}>{n} line{n !== 1 ? "s" : ""}{n === 1 ? " (default)" : ""}</option>
                   ))}
                 </select>
               </div>
@@ -180,6 +201,32 @@ export function ReceiptFrame({
                   ))}
                 </select>
               </div>
+            </div>
+            {/* Test print + link */}
+            <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-stone-200 pt-3">
+              {bluetoothSupported() ? (
+                <button
+                  type="button"
+                  onClick={handleTestPrint}
+                  disabled={testStatus === "connecting" || testStatus === "printing"}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                    testStatus === "done"  ? "bg-emerald-600 text-white" :
+                    testStatus === "error" ? "bg-rose-600 text-white hover:bg-rose-700" :
+                    "bg-stone-700 text-white hover:bg-stone-800"
+                  }`}
+                >
+                  {testStatus === "connecting" ? "Connecting…" :
+                   testStatus === "printing"   ? "Printing…" :
+                   testStatus === "done"       ? "✓ Test printed" :
+                   testStatus === "error"      ? "⚠ Retry test" :
+                   "🖨 Print test page"}
+                </button>
+              ) : (
+                <span className="text-xs text-stone-400">Bluetooth not available — test print unavailable</span>
+              )}
+              <Link href="/hotel/printer-setup" className="text-xs text-amber-700 hover:underline">
+                Full printer setup →
+              </Link>
             </div>
           </div>
         )}
