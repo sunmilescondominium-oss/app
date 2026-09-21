@@ -159,7 +159,8 @@ export interface CollectionsOptions {
   date?: string;
   arFrom?: string;
   arTo?: string;
-  orNo?: string;   // receipt / OR number partial match (case-insensitive)
+  orFrom?: string;  // receipt / OR number range start (inclusive, numeric suffix)
+  orTo?: string;    // receipt / OR number range end (inclusive, numeric suffix)
 }
 
 export async function listCollections(dateOrOptions: string | CollectionsOptions): Promise<Collection[]> {
@@ -167,8 +168,9 @@ export async function listCollections(dateOrOptions: string | CollectionsOptions
     ? { date: dateOrOptions }
     : dateOrOptions;
 
-  const { date, arFrom, arTo, orNo } = opts;
+  const { date, arFrom, arTo, orFrom, orTo } = opts;
   const hasArRange = !!(arFrom || arTo);
+  const hasOrRange = !!(orFrom || orTo);
 
   // Build and execute the query
   let rawData: Record<string, unknown>[] | null;
@@ -224,12 +226,19 @@ export async function listCollections(dateOrOptions: string | CollectionsOptions
     }
   }
 
-  // Apply OR/receipt number filter in JS (case-insensitive partial match)
-  if (orNo) {
-    const needle = orNo.toLowerCase().trim();
-    collections = collections.filter(
-      (c) => c.or_number && c.or_number.toLowerCase().includes(needle),
-    );
+  // Apply OR/receipt number range filter in JS (numeric suffix comparison)
+  if (hasOrRange) {
+    const fromNum = extractArNum(orFrom);
+    const toNum   = extractArNum(orTo);
+    if (!isNaN(fromNum) || !isNaN(toNum)) {
+      collections = collections.filter((c) => {
+        const n = extractArNum(c.or_number);
+        if (isNaN(n)) return false;
+        if (!isNaN(fromNum) && n < fromNum) return false;
+        if (!isNaN(toNum)   && n > toNum)   return false;
+        return true;
+      });
+    }
   }
 
   // Enrich hotel rows with stay billing only for single-date queries

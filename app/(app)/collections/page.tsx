@@ -37,20 +37,22 @@ export default async function CollectionsPage({
   const date   = (typeof sp.date    === "string" && sp.date)    || todayManila();
   const arFrom = typeof sp.ar_from  === "string" ? sp.ar_from.trim()  : "";
   const arTo   = typeof sp.ar_to    === "string" ? sp.ar_to.trim()    : "";
-  const orNo   = typeof sp.or_no    === "string" ? sp.or_no.trim()    : "";
+  const orFrom = typeof sp.or_from === "string" ? sp.or_from.trim() : "";
+  const orTo   = typeof sp.or_to   === "string" ? sp.or_to.trim()   : "";
   const hasArFilter  = !!(arFrom || arTo);
-  const hasOrFilter  = !!orNo;
+  const hasOrFilter  = !!(orFrom || orTo);
   const hasAnyFilter = hasArFilter || hasOrFilter;
 
-  // When AR filter is active, search across last 365 days (not just today)
-  const queryDate = hasArFilter ? undefined : date;
+  // When AR or OR range filter is active, search across last 365 days (not just today)
+  const queryDate = hasAnyFilter ? undefined : date;
 
   const [collections, unitOptions, itemTypes, bankMap, bankItemsMap, deletedCollections] = await Promise.all([
     listCollections({
       date:   queryDate,
-      arFrom: arFrom || undefined,
-      arTo:   arTo   || undefined,
-      orNo:   orNo   || undefined,
+      arFrom: arFrom  || undefined,
+      arTo:   arTo    || undefined,
+      orFrom: orFrom  || undefined,
+      orTo:   orTo    || undefined,
     }),
     canWrite ? listUnitOptions() : Promise.resolve([]),
     getActiveItemTypes(),
@@ -114,16 +116,29 @@ export default async function CollectionsPage({
             </div>
           </div>
 
-          {/* Receipt # */}
-          <div>
-            <label className="mb-1 block text-xs font-medium text-stone-600">Receipt #</label>
-            <input
-              type="text"
-              name="or_no"
-              defaultValue={orNo}
-              placeholder="e.g. 205580"
-              className={`${inputCls} w-28`}
-            />
+          {/* Receipt # range */}
+          <div className="flex items-end gap-2">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-stone-600">Receipt # From</label>
+              <input
+                type="text"
+                name="or_from"
+                defaultValue={orFrom}
+                placeholder="e.g. 205500"
+                className={`${inputCls} w-28`}
+              />
+            </div>
+            <span className="pb-2.5 text-stone-400">—</span>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-stone-600">Receipt # To</label>
+              <input
+                type="text"
+                name="or_to"
+                defaultValue={orTo}
+                placeholder="e.g. 205600"
+                className={`${inputCls} w-28`}
+              />
+            </div>
           </div>
 
           <button
@@ -154,11 +169,12 @@ export default async function CollectionsPage({
             </Link>
           )}
         </div>
-        {(hasArFilter || hasOrFilter) && (
+        {hasAnyFilter && (
           <p className="mt-2 text-xs text-amber-700">
             {[
-              hasArFilter && `AR range: ${arFrom || "—"} – ${arTo || "—"} (last 12 months)`,
-              hasOrFilter && `Receipt #: "${orNo}"`,
+              hasArFilter && `AR: ${arFrom || "—"} – ${arTo || "—"}`,
+              hasOrFilter && `Receipt #: ${orFrom || "—"} – ${orTo || "—"}`,
+              "searching last 12 months",
             ].filter(Boolean).join(" · ")}
           </p>
         )}
