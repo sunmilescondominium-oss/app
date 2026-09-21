@@ -14,6 +14,7 @@ import { ReceiptFrame } from "@/components/hotel/receipt-frame";
 import { FolioActions } from "@/components/hotel/folio-actions";
 import { RoomCheck } from "@/components/hotel/room-check";
 import { DeleteStayButton, DeletePaymentButton } from "@/components/hotel/consultant-delete";
+import { EditPaymentArButton } from "@/components/hotel/edit-payment-ar";
 import { listDocPhotos } from "@/lib/docs/photos";
 import { PhotoDocPanel } from "@/components/capture/photo-doc-panel";
 import { TransferRoomModal } from "@/components/hotel/transfer-room-modal";
@@ -37,6 +38,7 @@ export default async function StayFolioPage({
   const canWrite = canWriteModule(user.roleKeys, "hotel");
   const isConsultant = user.roleKeys.includes("consultant");
   const isSupervisor = userHasAnyRole(user, ["hotel_rental_monitoring", "admin", "managing_officer", "consultant"]);
+  const canEditAr = userHasAnyRole(user, ["admin", "managing_officer", "accounting", "consultant"]);
   const [detail, menu, roomCheck, damagePhotos, tz, suggestedArNo, board, transferRecord] = await Promise.all([
     getStayDetail(stayId),
     listMenuItems(),
@@ -236,7 +238,16 @@ export default async function StayFolioPage({
           {maintenanceIssue && (
             <MaintenanceIssuePanel issue={maintenanceIssue} canResolve={canResolveMaintenance} />
           )}
-          {canWrite && <FolioActions stayId={stay.id} status={stay.status} balance={t.balance} checkInAt={stay.check_in_at} suggestedArNo={suggestedArNo} />}
+          {canWrite && (
+            <FolioActions
+              stayId={stay.id}
+              status={stay.status}
+              balance={t.balance}
+              checkInAt={stay.check_in_at}
+              suggestedArNo={suggestedArNo}
+              existingArNo={payments[0]?.ar_no ?? null}
+            />
+          )}
           {stay.status === "active" && canWrite && (
             <TransferRoomModal
               stayId={stay.id}
@@ -349,15 +360,20 @@ export default async function StayFolioPage({
             {payments.map((p) => {
               const label = `${METHOD_LABEL[p.method] ?? p.method}${p.receipt_no ? ` ${p.receipt_no}` : ""}${p.ar_no ? ` · ${p.ar_no}` : ""}`;
               return (
-                <div key={p.id} className="flex items-center justify-between gap-1">
-                  <span className="text-stone-500 text-[11px]">
-                    {label}
-                    {p.payment_note && <span className="ml-1 text-[10px] text-amber-700">({p.payment_note})</span>}
-                  </span>
-                  <span className="flex items-center tabular-nums text-[11px]">
-                    {peso(p.amount)}
-                    {isConsultant && <DeletePaymentButton paymentId={p.id} stayId={stayId} label={label} />}
-                  </span>
+                <div key={p.id} className="text-[11px]">
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-stone-500">
+                      {label}
+                      {p.payment_note && <span className="ml-1 text-[10px] text-amber-700">({p.payment_note})</span>}
+                      {canEditAr && (
+                        <EditPaymentArButton paymentId={p.id} arNo={p.ar_no ?? null} orNo={p.receipt_no ?? null} />
+                      )}
+                    </span>
+                    <span className="flex items-center tabular-nums">
+                      {peso(p.amount)}
+                      {isConsultant && <DeletePaymentButton paymentId={p.id} stayId={stayId} label={label} />}
+                    </span>
+                  </div>
                 </div>
               );
             })}

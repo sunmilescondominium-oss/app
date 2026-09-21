@@ -24,12 +24,14 @@ export function FolioActions({
   balance,
   checkInAt,
   suggestedArNo,
+  existingArNo,
 }: {
   stayId: string;
   status: string;
   balance: number;
   checkInAt?: string;
   suggestedArNo?: string;
+  existingArNo?: string | null;
 }) {
   const router = useRouter();
   const [payState, payAction, payPending] = useActionState<ActionResult | undefined, FormData>(
@@ -164,7 +166,15 @@ export function FolioActions({
         </div>
         <div>
           <label className={labelCls}>AR No</label>
-          <input name="ar_no" defaultValue={suggestedArNo ?? ""} placeholder={suggestedArNo ?? "e.g. AR-002384"} className={`${inputCls} w-32`} />
+          <input
+            name="ar_no"
+            defaultValue={existingArNo ?? suggestedArNo ?? ""}
+            placeholder={suggestedArNo ?? "e.g. AR-002384"}
+            className={`${inputCls} w-32`}
+          />
+          {existingArNo && (
+            <p className="mt-0.5 text-[10px] text-stone-400">Same AR as check-in</p>
+          )}
         </div>
         <div>
           <label className={labelCls}>OR No (optional)</label>
