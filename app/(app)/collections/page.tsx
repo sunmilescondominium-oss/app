@@ -34,10 +34,13 @@ export default async function CollectionsPage({
   );
 
   const sp = await searchParams;
-  const date = (typeof sp.date === "string" && sp.date) || todayManila();
+  const date   = (typeof sp.date    === "string" && sp.date)    || todayManila();
+  const arFrom = typeof sp.ar_from  === "string" ? sp.ar_from.trim()  : "";
+  const arTo   = typeof sp.ar_to    === "string" ? sp.ar_to.trim()    : "";
+  const hasArFilter = !!(arFrom || arTo);
 
   const [collections, unitOptions, itemTypes, bankMap, bankItemsMap, deletedCollections] = await Promise.all([
-    listCollections(date),
+    listCollections({ date, arFrom: arFrom || undefined, arTo: arTo || undefined }),
     canWrite ? listUnitOptions() : Promise.resolve([]),
     getActiveItemTypes(),
     getBankNameMap(),
@@ -64,48 +67,84 @@ export default async function CollectionsPage({
         <p className="text-sm">Daily Collections Report — {date}</p>
       </div>
 
-      {/* Date filter */}
+      {/* Date + AR filter */}
       <form
         method="get"
-        className="no-print mb-4 flex flex-wrap items-end gap-3 rounded-2xl border border-stone-200 bg-white p-4"
+        className="no-print mb-4 rounded-2xl border border-stone-200 bg-white p-4"
       >
-        <div>
-          <label className="mb-1 block text-xs font-medium text-stone-600">Date</label>
-          <input type="date" name="date" defaultValue={date} className={inputCls} />
-        </div>
-        <button
-          type="submit"
-          className="rounded-lg bg-stone-800 px-4 py-2 text-sm font-medium text-white hover:bg-stone-900"
-        >
-          View
-        </button>
-        <a href={`/api/export/collections?date=${date}`} className="ml-auto rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100">
-          ⬇ Export to Sheets
-        </a>
-        {canSeeARRegister && (
-          <Link
-            href={`/hotel/collection-report?date=${date}`}
-            className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800 hover:bg-amber-100"
+        <div className="flex flex-wrap items-end gap-3">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-stone-600">Date</label>
+            <input type="date" name="date" defaultValue={date} className={inputCls} />
+          </div>
+          <div className="flex items-end gap-2">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-stone-600">AR From</label>
+              <input
+                type="text"
+                name="ar_from"
+                defaultValue={arFrom}
+                placeholder="e.g. AR 205500"
+                className={`${inputCls} w-36`}
+              />
+            </div>
+            <span className="pb-2.5 text-stone-400">—</span>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-stone-600">AR To</label>
+              <input
+                type="text"
+                name="ar_to"
+                defaultValue={arTo}
+                placeholder="e.g. AR 205600"
+                className={`${inputCls} w-36`}
+              />
+            </div>
+          </div>
+          <button
+            type="submit"
+            className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700"
           >
-            🧾 Hotel room report →
-          </Link>
-        )}
-        {canWrite && (
-          <Link href="/admin/rate-cards" className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-medium text-sky-700 hover:bg-sky-100">
-            Rate cards
-          </Link>
+            View
+          </button>
+          {hasArFilter && (
+            <a href={`/collections?date=${date}`} className="py-2 text-sm text-stone-500 hover:underline">
+              Clear AR filter
+            </a>
+          )}
+          <a href={`/api/export/collections?date=${date}`} className="ml-auto rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100">
+            ⬇ Export to Sheets
+          </a>
+          {canSeeARRegister && (
+            <Link
+              href={`/hotel/collection-report?date=${date}`}
+              className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800 hover:bg-amber-100"
+            >
+              🧾 Hotel room report →
+            </Link>
+          )}
+          {canWrite && (
+            <Link href="/admin/rate-cards" className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-medium text-sky-700 hover:bg-sky-100">
+              Rate cards
+            </Link>
+          )}
+        </div>
+        {hasArFilter && (
+          <p className="mt-2 text-xs text-amber-700">
+            AR range filter active — searching across the last 12 months
+            {arFrom && arTo ? ` (${arFrom} – ${arTo})` : arFrom ? ` from ${arFrom}` : ` up to ${arTo}`}.
+          </p>
         )}
       </form>
 
       {/* Summary */}
       <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div className="rounded-xl border border-stone-200 bg-white px-4 py-3">
-          <p className="text-2xl font-bold tabular-nums text-stone-900">{peso(summary.grandTotal)}</p>
-          <p className="text-xs text-stone-500">Grand total</p>
+        <div className={`rounded-xl border px-4 py-3 ${hasArFilter ? "border-emerald-200 bg-emerald-50" : "border-stone-200 bg-white"}`}>
+          <p className={`text-2xl font-bold tabular-nums ${hasArFilter ? "text-emerald-800" : "text-stone-900"}`}>{peso(summary.grandTotal)}</p>
+          <p className={`text-xs ${hasArFilter ? "text-emerald-700" : "text-stone-500"}`}>{hasArFilter ? "AR range total" : "Grand total"}</p>
         </div>
         <div className="rounded-xl border border-stone-200 bg-white px-4 py-3">
           <p className="text-2xl font-bold tabular-nums text-stone-900">{summary.count}</p>
-          <p className="text-xs text-stone-500">Entries</p>
+          <p className="text-xs text-stone-500">Entries{hasArFilter ? " in range" : ""}</p>
         </div>
       </div>
 
@@ -150,8 +189,8 @@ export default async function CollectionsPage({
         itemTypes={itemTypes}
         bankMap={bankMap}
         bankItemsMap={bankItemsMap}
-        canWrite={canWrite}
-        canEdit={canEdit}
+        canWrite={canWrite && !hasArFilter}
+        canEdit={canEdit && !hasArFilter}
         canClearChecks={canClearChecks}
         isConsultant={isConsultant}
         date={date}

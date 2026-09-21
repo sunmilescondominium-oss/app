@@ -148,31 +148,99 @@ async function fetchStayBillingByUnitDate(
   return map;
 }
 
-export async function listCollections(date: string): Promise<Collection[]> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("collections")
-    .select("*, units(unit_number, properties(name))")
-    .eq("collected_on", date)
-    .is("deleted_at", null)
-    .order("created_at", { ascending: true });
-  if (error) throw new Error(error.message);
-  const collections = (data ?? []).map(mapCollection);
+/** Extract the trailing integer from an AR string like "AR 205567" or "AR-000123". */
+function extractArNum(ar: string | null | undefined): number {
+  if (!ar) return NaN;
+  const m = ar.replace(/\s+/g, "").match(/\d+$/);
+  return m ? parseInt(m[0], 10) : NaN;
+}
 
-  // Enrich hotel/short-stay rows with full stay billing data (join by unit_id + date)
-  const hotelUnitIds = [
-    ...new Set(
-      collections
-        .filter((c) => c.business_line === "hotel" && c.unit_id)
-        .map((c) => c.unit_id as string),
-    ),
-  ];
-  const billingMap = await fetchStayBillingByUnitDate(hotelUnitIds, date);
-  return collections.map((c) =>
-    c.unit_id && billingMap.has(c.unit_id)
-      ? { ...c, stayBilling: billingMap.get(c.unit_id) ?? null }
-      : c,
-  );
+export interface CollectionsOptions {
+  date?: string;
+  arFrom?: string;
+  arTo?: string;
+}
+
+export async function listCollections(dateOrOptions: string | CollectionsOptions): Promise<Collection[]> {
+  const opts: CollectionsOptions = typeof dateOrOptions === "string"
+    ? { date: dateOrOptions }
+    : dateOrOptions;
+
+  const { date, arFrom, arTo } = opts;
+  const hasArRange = !!(arFrom || arTo);
+
+  // Build and execute the query
+  let rawData: Record<string, unknown>[] | null;
+  let queryError: { message: string } | null;
+
+  if (hasArRange) {
+    // AR range mode: admin client to bypass date-scoped RLS
+    const admin = createAdminClient();
+    const cutoff = new Date();
+    cutoff.setFullYear(cutoff.getFullYear() - 1);
+    const cutoffDate = cutoff.toISOString().slice(0, 10);
+
+    let q = admin
+      .from("collections")
+      .select("*, units(unit_number, properties(name))")
+      .is("deleted_at", null)
+      .gte("collected_on", cutoffDate);
+    if (date) q = q.eq("collected_on", date);
+
+    const { data, error } = await q
+      .order("collected_on", { ascending: true })
+      .order("created_at", { ascending: true });
+    rawData = data as Record<string, unknown>[] | null;
+    queryError = error;
+  } else {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("collections")
+      .select("*, units(unit_number, properties(name))")
+      .eq("collected_on", date ?? "")
+      .is("deleted_at", null)
+      .order("created_at", { ascending: true });
+    rawData = data as Record<string, unknown>[] | null;
+    queryError = error;
+  }
+
+  if (queryError) throw new Error(queryError.message);
+
+  let collections = (rawData ?? []).map(mapCollection);
+
+  // Apply AR range filter in JS (handles varied prefix formats)
+  if (hasArRange) {
+    const fromNum = extractArNum(arFrom);
+    const toNum   = extractArNum(arTo);
+    if (!isNaN(fromNum) || !isNaN(toNum)) {
+      collections = collections.filter((c) => {
+        const n = extractArNum(c.ar_no);
+        if (isNaN(n)) return false;
+        if (!isNaN(fromNum) && n < fromNum) return false;
+        if (!isNaN(toNum)   && n > toNum)   return false;
+        return true;
+      });
+    }
+  }
+
+  // Enrich hotel rows with stay billing only for single-date queries
+  if (date) {
+    const hotelUnitIds = [
+      ...new Set(
+        collections
+          .filter((c) => c.business_line === "hotel" && c.unit_id)
+          .map((c) => c.unit_id as string),
+      ),
+    ];
+    const billingMap = await fetchStayBillingByUnitDate(hotelUnitIds, date);
+    return collections.map((c) =>
+      c.unit_id && billingMap.has(c.unit_id)
+        ? { ...c, stayBilling: billingMap.get(c.unit_id) ?? null }
+        : c,
+    );
+  }
+
+  return collections;
 }
 
 export interface DeletedCollection {
