@@ -3,7 +3,6 @@
 import { EscPos, COLS } from "./esc-pos";
 import { stayTotals, StayCharge } from "@/lib/hotel/rates";
 
-// ESC/POS-safe peso amount (no ₱ glyph — use 'P' instead)
 function pP(amount: number): string {
   return "P" + amount.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
@@ -15,14 +14,31 @@ function fmtDate(iso: string): string {
   });
 }
 
+function fmtDateCompact(iso: string): string {
+  return new Date(iso).toLocaleString("en-PH", {
+    month: "numeric", day: "numeric", year: "numeric",
+    hour: "numeric", minute: "2-digit", hour12: true,
+  });
+}
+
+function hoursUsed(checkIn: string, checkOut?: string | null): string {
+  const end = checkOut ? new Date(checkOut) : new Date();
+  const mins = Math.max(0, Math.floor((end.getTime() - new Date(checkIn).getTime()) / 60000));
+  return `${Math.floor(mins / 60)}h ${(mins % 60).toString().padStart(2, "0")}m`;
+}
+
 export interface FolioData {
   brandName: string;
+  subtitle?: string;
   roomNumber: string;
   arNo?: string | null;
   guestLabel?: string | null;
+  planName?: string | null;
   checkIn: string;
   checkOut?: string | null;
   plannedHours: number;
+  extensions?: Array<{ addedHours: number; createdAt: string }>;
+  isActive?: boolean;
   stay: Parameters<typeof stayTotals>[0];
   paid: number;
   ordersTotal: number;
@@ -38,7 +54,13 @@ export interface FolioData {
   qrUrl?: string | null;
 }
 
-export function formatFolio(d: FolioData): Uint8Array {
+export interface FolioOptions {
+  feedLines?: number;  // lines to feed before cut (default 3)
+  qrSize?: number;     // QR module size 1–8 (default 6)
+}
+
+export function formatFolio(d: FolioData, opts: FolioOptions = {}): Uint8Array {
+  const { feedLines = 3, qrSize = 6 } = opts;
   const t: StayCharge = stayTotals(d.stay, d.paid, d.ordersTotal);
   const e = new EscPos();
   e.init();
@@ -50,7 +72,7 @@ export function formatFolio(d: FolioData): Uint8Array {
    .text(d.brandName.slice(0, COLS)).lf()
    .doubleHeight(false)
    .bold(false)
-   .text("Hotel Folio / Official Receipt").lf()
+   .text(d.subtitle ?? "Guest Folio / Receipt").lf()
    .lf(1);
 
   e.align("left")
@@ -59,10 +81,33 @@ export function formatFolio(d: FolioData): Uint8Array {
   // Stay details
   if (d.arNo) e.row("AR No:", d.arNo);
   e.row("Room:", d.roomNumber);
-  if (d.guestLabel) e.row("Guest:", d.guestLabel.slice(0, 28));
-  e.row("Check-in:", fmtDate(d.checkIn));
-  if (d.checkOut) e.row("Check-out:", fmtDate(d.checkOut));
-  e.row("Duration:", `${d.plannedHours}h`);
+  if (d.guestLabel) e.row("Guest:", d.guestLabel.slice(0, 24));
+  if (d.planName) {
+    // Plan name can be long — wrap if needed
+    const planLabel = "Plan:";
+    const maxPlan = COLS - planLabel.length - 1;
+    const plan = d.planName.length <= maxPlan
+      ? d.planName
+      : d.planName.slice(0, maxPlan - 2) + "..";
+    e.row(planLabel, plan);
+  }
+  e.separator();
+
+  // Time section
+  e.row("Check-in:", fmtDateCompact(d.checkIn));
+  e.row("Base hours:", `${d.stay.base_hours ?? d.plannedHours}h`);
+  if (d.extensions && d.extensions.length > 0) {
+    for (let i = 0; i < d.extensions.length; i++) {
+      e.row(`Ext ${i + 1}:`, `+${d.extensions[i].addedHours}h`);
+    }
+    e.row("Total planned:", `${d.plannedHours}h`);
+  }
+  if (d.checkOut) {
+    e.row("Check-out:", fmtDateCompact(d.checkOut));
+    e.row("Actual used:", hoursUsed(d.checkIn, d.checkOut));
+  } else if (d.isActive) {
+    e.row("Status:", `Active ${hoursUsed(d.checkIn, null)}`);
+  }
   e.separator();
 
   // Charges
@@ -75,16 +120,19 @@ export function formatFolio(d: FolioData): Uint8Array {
 
   if (t.orders > 0) {
     e.row("Food & beverage:", pP(t.orders));
-    // Itemize orders
     for (const o of d.orders) {
-      const line = `  ${o.qty}x ${o.name.slice(0, 28)}`;
-      e.row(line, pP(o.qty * o.unit_price));
+      const priceStr = pP(o.qty * o.unit_price);
+      const prefix   = `  ${o.qty}x `;
+      const maxName  = COLS - prefix.length - priceStr.length - 1;
+      const name     = o.name.length <= maxName
+        ? o.name
+        : o.name.slice(0, maxName - 2) + "..";
+      e.row(prefix + name, priceStr);
     }
   }
 
   e.separator("-");
 
-  // Discounts
   if (d.promoDiscountAmount > 0 && d.promoName) {
     e.row(`Promo (${d.promoName.slice(0, 20)}):`, "-" + pP(d.promoDiscountAmount));
   }
@@ -103,14 +151,20 @@ export function formatFolio(d: FolioData): Uint8Array {
   e.bold(true).row("BALANCE:", pP(t.balance)).bold(false);
   e.separator("=");
 
-  // Payment breakdown
+  // Payment rows — format: "  Method OR_NO AR_NO    P350.00"
   if (d.payments.length > 0) {
-    e.text("Payments:").lf();
     for (const p of d.payments) {
-      const label = `  ${fmtDate(p.created_at).slice(0, 22)}`;
-      e.row(label, pP(p.amount));
-      if (p.ar_no || p.or_no) {
-        e.text(`  ${[p.ar_no, p.or_no].filter(Boolean).join(" / ")}`).lf();
+      const orPart = p.or_no ? ` ${p.or_no}` : "";
+      const arPart = p.ar_no ? ` ${p.ar_no}` : "";
+      const fullLabel = `  ${p.method}${orPart}${arPart}`;
+      const amtStr = pP(p.amount);
+      if (fullLabel.length + 1 + amtStr.length <= COLS) {
+        e.row(fullLabel, amtStr);
+      } else {
+        // Too long — show method+amount, ref on next line
+        e.row(`  ${p.method}`.slice(0, COLS - amtStr.length - 1), amtStr);
+        const ref = [p.or_no, p.ar_no].filter(Boolean).join(" / ");
+        if (ref) e.text(`  ${ref}`).lf();
       }
     }
     e.separator();
@@ -118,12 +172,13 @@ export function formatFolio(d: FolioData): Uint8Array {
 
   // QR code
   if (d.qrUrl) {
-    e.align("center").text("Scan for online bill:").lf();
-    e.qr(d.qrUrl).lf(2);
+    e.align("center")
+     .text("Scan to view your bill, countdown & extend").lf();
+    e.qr(d.qrUrl, qrSize).lf(1);
   }
 
-  e.align("center").text("Thank you for staying with us!").lf().lf(3);
-  e.cut();
+  e.align("center").text("Thank you for staying with us!").lf();
+  e.feedAndCut(feedLines);
 
   return e.bytes();
 }

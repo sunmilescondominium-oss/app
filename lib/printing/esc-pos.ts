@@ -33,7 +33,8 @@ function toEscPosBytes(text: string): number[] {
 
 export const COMMANDS = {
   init:           new Uint8Array([0x1B, 0x40]),
-  cut:            new Uint8Array([0x1D, 0x56, 0x41, 0x00]),
+  cut:            new Uint8Array([0x1D, 0x56, 0x00]),
+  partialCut:     new Uint8Array([0x1D, 0x56, 0x01]),
   feedLines:      (n: number) => new Uint8Array([0x1B, 0x64, n]),
   align: {
     left:         new Uint8Array([0x1B, 0x61, 0x00]),
@@ -249,7 +250,14 @@ export class EscPos {
     return this;
   }
 
-  cut(): this { this.buf.push(GS, 0x56, 0x41, 0x00); return this; }
+  /** Full cut — GS V 0 (3-byte form, widely supported) */
+  cut(): this { this.buf.push(GS, 0x56, 0x00); return this; }
+
+  /** Partial cut — GS V 1 */
+  partialCut(): this { this.buf.push(GS, 0x56, 0x01); return this; }
+
+  /** Feed n lines then full cut */
+  feedAndCut(lines = 3): this { return this.lf(lines).cut(); }
 
   bytes(): Uint8Array { return new Uint8Array(this.buf); }
 }

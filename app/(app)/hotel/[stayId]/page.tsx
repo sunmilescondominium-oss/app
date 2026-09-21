@@ -8,7 +8,8 @@ import { stayTotals } from "@/lib/hotel/rates";
 import { computeTax } from "@/lib/hotel/tax";
 import { peso, fmtDateTime } from "@/lib/collections/summary";
 import { getAppTimezone } from "@/lib/settings/app-settings";
-import { APP_BRAND_SHORT, APP_LEGAL_NAME, HOTEL_PAYMENT_METHODS } from "@/lib/config";
+import { APP_BRAND_SHORT, HOTEL_PAYMENT_METHODS } from "@/lib/config";
+import { headers } from "next/headers";
 import { OrdersPanel } from "@/components/hotel/orders-panel";
 import { ReceiptFrame } from "@/components/hotel/receipt-frame";
 import { FolioActions } from "@/components/hotel/folio-actions";
@@ -74,19 +75,24 @@ export default async function StayFolioPage({
   const t = stayTotals(stay, paid, ordersTotal);
   const tax = computeTax(t.total, stay.tax_mode, stay.tax_rate);
 
-  const siteBase = process.env.NEXT_PUBLIC_VERCEL_URL
-    ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
-    : process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
-    : "";
+  // Use the request's own host so the QR URL matches the /api/guest/token/qr endpoint
+  const reqHeaders = await headers();
+  const reqHost  = reqHeaders.get("x-forwarded-host") ?? reqHeaders.get("host") ?? "";
+  const reqProto = reqHeaders.get("x-forwarded-proto") ?? "https";
+  const siteBase = reqHost ? `${reqProto}://${reqHost}` : (process.env.NEXT_PUBLIC_SITE_URL ?? "");
+
   const folioData: FolioData = {
-    brandName: APP_LEGAL_NAME,
+    brandName: APP_BRAND_SHORT,
+    subtitle: "Guest Folio / Receipt",
     roomNumber: detail.unit_number ?? stay.unit_id ?? "",
     arNo: payments[0]?.ar_no ?? null,
     guestLabel: stay.guest_label,
+    planName: detail.rate_plan_name ?? null,
     checkIn: stay.check_in_at,
     checkOut: stay.check_out_at,
     plannedHours: stay.planned_hours,
+    extensions: extensions.map((x) => ({ addedHours: x.added_hours, createdAt: x.created_at })),
+    isActive: stay.status === "active",
     stay: {
       base_rate: stay.base_rate,
       extra_hour_rate: stay.extra_hour_rate,
