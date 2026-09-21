@@ -13,9 +13,10 @@ import {
   savePettyCashFund,
   loadPettyCashFund,
   saveVoucherNotes,
+  updateExpense,
   type CsvImportRow,
 } from "@/lib/expenses/actions";
-import type { ExpenseCategory, ExpenseVendor, ExpenseSettings, CsvExpenseRow, PettyCashFund } from "@/lib/expenses/queries";
+import type { ExpenseCategory, ExpenseVendor, ExpenseSettings, CsvExpenseRow, PettyCashFund, Expense } from "@/lib/expenses/queries";
 import { CSV_TEMPLATE_FIELDS } from "@/lib/expenses/constants";
 
 type AR = { ok: true } | { ok: false; error: string } | undefined;
@@ -537,6 +538,142 @@ export function CsvImportPanel({
 // Voucher editor bar — editable particulars + save + print on /expenses/[id]
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Edit Expense Modal
+// ---------------------------------------------------------------------------
+
+export function EditExpenseModal({
+  expense,
+  categories,
+  vendors,
+  onClose,
+}: {
+  expense: Expense;
+  categories: ExpenseCategory[];
+  vendors: ExpenseVendor[];
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const [f, setF] = useState({
+    description: expense.description ?? "",
+    expense_date: expense.expense_date ?? "",
+    amount: String(expense.amount),
+    expense_category_id: expense.expense_category_id ?? "",
+    expense_vendor_id: expense.expense_vendor_id ?? "",
+    or_number: expense.or_number ?? "",
+    check_number: expense.check_number ?? "",
+    remarks: expense.remarks ?? "",
+  });
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const set = (k: keyof typeof f, v: string) => setF((s) => ({ ...s, [k]: v }));
+  const isPettyCash = expense.source === "petty_cash";
+
+  async function submit() {
+    setErr(null); setBusy(true);
+    const amount = parseFloat(f.amount);
+    const r = await updateExpense(expense.id, {
+      description: f.description,
+      expense_date: f.expense_date,
+      amount: isNaN(amount) ? 0 : amount,
+      expense_category_id: f.expense_category_id,
+      expense_vendor_id: f.expense_vendor_id,
+      or_number: f.or_number,
+      check_number: f.check_number,
+      remarks: f.remarks,
+    });
+    setBusy(false);
+    if (!r.ok) { setErr(r.error); return; }
+    onClose();
+    router.refresh();
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-stone-200 bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-stone-100 px-5 py-4">
+          <div>
+            <h3 className="font-semibold text-stone-800">Edit expense</h3>
+            <p className="mt-0.5 text-xs text-stone-500">
+              Source ({expense.source === "petty_cash" ? expense.fund_name ?? "Petty Cash" : expense.bank_account_label ?? "Bank"}) and approval status cannot be changed here.
+            </p>
+          </div>
+          <button onClick={onClose} className="rounded-full p-1.5 text-stone-400 hover:bg-stone-100 hover:text-stone-600 transition-colors">✕</button>
+        </div>
+
+        <div className="grid gap-4 p-5 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <label className="mb-1 block text-xs font-medium text-stone-600">Description *</label>
+            <input value={f.description} onChange={(e) => set("description", e.target.value)} required className={inputCls} />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-stone-600">Date *</label>
+            <input type="date" value={f.expense_date} onChange={(e) => set("expense_date", e.target.value)} className={inputCls} />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-stone-600">Amount (₱) *</label>
+            <input
+              type="number" min="0.01" step="0.01"
+              value={f.amount}
+              onChange={(e) => set("amount", e.target.value)}
+              className={`${inputCls} tabular-nums`}
+            />
+            {isPettyCash && (
+              <p className="mt-0.5 text-[10px] text-amber-700">Petty cash fund balance reflects the original disbursement and won&apos;t auto-adjust here.</p>
+            )}
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-stone-600">Category</label>
+            <select value={f.expense_category_id} onChange={(e) => set("expense_category_id", e.target.value)} className={inputCls}>
+              <option value="">— choose —</option>
+              {categories.filter((c) => c.is_active).map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-stone-600">Vendor / Payee</label>
+            <select value={f.expense_vendor_id} onChange={(e) => set("expense_vendor_id", e.target.value)} className={inputCls}>
+              <option value="">— choose —</option>
+              {vendors.filter((v) => v.is_active).map((v) => (
+                <option key={v.id} value={v.id}>{v.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-stone-600">OR / Receipt number</label>
+            <input value={f.or_number} onChange={(e) => set("or_number", e.target.value)} placeholder="e.g. 1234" className={inputCls} />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-stone-600">Check number</label>
+            <input value={f.check_number} onChange={(e) => set("check_number", e.target.value)} placeholder="e.g. CHK-001234" className={inputCls} />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="mb-1 block text-xs font-medium text-stone-600">Remarks</label>
+            <input value={f.remarks} onChange={(e) => set("remarks", e.target.value)} placeholder="Optional notes" className={inputCls} />
+          </div>
+
+          {err && <p className="sm:col-span-2 text-sm text-rose-600">{err}</p>}
+
+          <div className="sm:col-span-2 flex justify-end gap-2">
+            <button type="button" onClick={onClose} className="rounded-xl border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50">
+              Cancel
+            </button>
+            <button type="button" onClick={submit} disabled={busy} className="rounded-xl bg-amber-600 px-5 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-50">
+              {busy ? "Saving…" : "Save changes"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 export function VoucherEditorBar({
   expenseId,
   initialNotes,

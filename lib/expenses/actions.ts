@@ -299,6 +299,45 @@ export async function recordExpense(_prev: ActionResult | undefined, formData: F
 }
 
 // ---------------------------------------------------------------------------
+// Edit an existing expense (metadata only — source/fund are immutable)
+// ---------------------------------------------------------------------------
+
+export async function updateExpense(id: string, input: {
+  description: string;
+  expense_date: string;
+  amount: number;
+  expense_category_id: string;
+  expense_vendor_id: string;
+  or_number: string;
+  check_number: string;
+  remarks: string;
+}): Promise<ActionResult> {
+  const user = await requireModuleWrite("expenses");
+  if (!id) return { ok: false, error: "Invalid expense ID." };
+  if (!input.description.trim()) return { ok: false, error: "Description is required." };
+  if (!input.expense_date) return { ok: false, error: "Date is required." };
+  if (!Number.isFinite(input.amount) || input.amount <= 0) return { ok: false, error: "Amount must be a positive number." };
+
+  const admin = createAdminClient();
+  const { error } = await admin.from("expenses").update({
+    description: input.description.trim(),
+    expense_date: input.expense_date,
+    amount: input.amount,
+    expense_category_id: input.expense_category_id || null,
+    expense_vendor_id: input.expense_vendor_id || null,
+    or_number: input.or_number.trim() || null,
+    check_number: input.check_number.trim() || null,
+    remarks: input.remarks.trim() || null,
+  }).eq("id", id);
+  if (error) return { ok: false, error: error.message };
+
+  await logAudit({ actorUserId: user.userId, actorRoles: user.roleKeys, action: "update", entity: "expenses", entityId: id, diff: { description: input.description, amount: input.amount } });
+  revalidatePath("/expenses");
+  revalidatePath("/finance");
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
 // CSV bulk import of historical expenses
 // ---------------------------------------------------------------------------
 

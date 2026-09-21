@@ -15,20 +15,14 @@ import {
   VendorForm,
   ExpenseSettingsForm,
   CsvImportPanel,
-  ExpenseApprovalButtons,
   PettyCashFundForm,
   LoadFundForm,
 } from "@/components/expenses/expense-forms";
+import { ExpenseTable } from "@/components/expenses/expense-table";
 
 export const metadata = { title: "General Expenses" };
 
 const peso = (n: number) => `₱${n.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
-const STATUS_CLS: Record<string, string> = {
-  approved: "bg-emerald-100 text-emerald-700",
-  pending:  "bg-amber-100 text-amber-800",
-  rejected: "bg-rose-100 text-rose-700",
-};
 
 const APPROVER_ROLES = ["admin", "accounting", "managing_officer"];
 
@@ -122,64 +116,13 @@ export default async function ExpensesPage() {
 
       {/* Expense list */}
       <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-stone-500">All expenses</h2>
-      <div className="table-wrap">
-        <table className="w-full min-w-[720px] text-left text-sm">
-          <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
-            <tr>
-              <th className="px-4 py-3">Date</th>
-              <th className="px-4 py-3">Description</th>
-              <th className="px-4 py-3">Category</th>
-              <th className="px-4 py-3">Vendor</th>
-              <th className="px-4 py-3">Source</th>
-              <th className="px-4 py-3 text-right">Amount</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">OR#</th>
-              {canApprove && <th className="px-4 py-3">Action</th>}
-              <th className="px-4 py-3"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {expenses.length === 0 && (
-              <tr>
-                <td colSpan={canApprove ? 10 : 9} className="px-4 py-8 text-center text-stone-500">No expenses recorded yet.</td>
-              </tr>
-            )}
-            {expenses.map((e) => (
-              <tr key={e.id} className="border-b border-stone-100 last:border-0">
-                <td className="px-4 py-2.5 text-stone-500">{e.expense_date}</td>
-                <td className="px-4 py-2.5">
-                  {e.description}
-                  {e.remarks && <span className="block text-xs text-stone-400">{e.remarks}</span>}
-                </td>
-                <td className="px-4 py-2.5 text-stone-600">{e.category_name ?? "—"}</td>
-                <td className="px-4 py-2.5 text-stone-600">{e.vendor_name ?? "—"}</td>
-                <td className="px-4 py-2.5">
-                  {e.source === "bank" ? (e.bank_account_label ?? "Bank") : e.source === "petty_cash" ? "Petty Cash" : "Import"}
-                </td>
-                <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-rose-700">{peso(e.amount)}</td>
-                <td className="px-4 py-2.5">
-                  <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_CLS[e.approval_status] ?? ""}`}>
-                    {e.approval_status}
-                  </span>
-                </td>
-                <td className="px-4 py-2.5 text-stone-500">{e.or_number ?? "—"}</td>
-                {canApprove && (
-                  <td className="px-4 py-2.5">
-                    {e.approval_status === "pending" && (
-                      <ExpenseApprovalButtons expenseId={e.id} />
-                    )}
-                  </td>
-                )}
-                <td className="px-4 py-2.5">
-                  <a href={`/expenses/${e.id}`} className="text-xs font-medium text-amber-700 hover:underline whitespace-nowrap">
-                    Print →
-                  </a>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <ExpenseTable
+        expenses={expenses}
+        categories={categories}
+        vendors={vendors}
+        canWrite={canWrite}
+        canApprove={canApprove}
+      />
 
       {/* Settings tabs — admin/accounting only */}
       {canWrite && (
