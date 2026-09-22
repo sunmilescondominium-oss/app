@@ -603,8 +603,11 @@ export async function editCollection(
     ...(collected_on ? { collected_on } : {}),
   };
 
-  // --- Free collection (not in a transmittal): apply directly ---
+  // --- Free collection (not in a transmittal): apply directly, but still require justification ---
   if (!before.transmittal_id) {
+    const justification = String(formData.get("justification") ?? "").trim();
+    if (!justification) return { ok: false, error: "Please provide a reason for this edit." };
+
     const { error: updErr } = await admin.from("collections").update(patch).eq("id", id);
     if (updErr) return { ok: false, error: updErr.message };
 
@@ -612,7 +615,7 @@ export async function editCollection(
       collection_id: id,
       edited_by: user.userId,
       editor_role: user.roleKeys[0] ?? null,
-      justification: "(direct edit — collection was not in a transmittal)",
+      justification,
       before_json: before,
       after_json: { ...before, ...patch },
     });
@@ -623,7 +626,7 @@ export async function editCollection(
       action: "update",
       entity: "collections",
       entityId: id,
-      diff: { direct_edit: true, from: { amount: before.amount, or_number: before.or_number, payment_type: before.payment_type, business_line: before.business_line }, to: patch },
+      diff: { direct_edit: true, justification, from: { amount: before.amount, or_number: before.or_number, payment_type: before.payment_type, business_line: before.business_line }, to: patch },
     });
     revalidatePath("/collections");
     return { ok: true };

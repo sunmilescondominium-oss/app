@@ -9,6 +9,7 @@ import { listAccountOptions } from "@/lib/banking/queries";
 import { APP_BRAND, APP_BRAND_SHORT, PHP_DENOMINATIONS } from "@/lib/config";
 import { TransmittalActions } from "@/components/transmittals/transmittal-actions";
 import { RevertTransmittal } from "@/components/transmittals/revert-transmittal";
+import { ReturnForCorrection } from "@/components/transmittals/return-for-correction";
 import { fixTransmittalTotal } from "@/app/(app)/transmittals/actions";
 import { CustodyPanel } from "@/components/transmittals/custody-panel";
 import { Breadcrumb } from "@/components/ui";
@@ -56,6 +57,7 @@ export default async function TransmittalDetailPage({
     ["accounting", "managing_officer"].includes(r),
   );
   const canRevert = canEditCollections(user.roleKeys);
+  const canReturn = user.roleKeys.some((r) => ["accounting", "managing_officer", "admin"].includes(r));
   const isConsultant = user.roleKeys.some((r) => ["consultant", "admin", "managing_officer"].includes(r));
   const totalMismatch = Math.round((summary.grandTotal - Number(t.total_amount)) * 100) !== 0;
 
@@ -312,6 +314,10 @@ export default async function TransmittalDetailPage({
           events={custodyEvents}
           canActNext={canActNext}
           bankAccounts={bankAccounts}
+          returnedForCorrection={Boolean(t.returned_at)}
+          returnReason={t.return_reason}
+          returnedByRole={t.returned_by_role}
+          returnedAt={t.returned_at}
         />
       </div>
 
@@ -329,6 +335,14 @@ export default async function TransmittalDetailPage({
           passbookReturned={Boolean(t.passbook_returned_on)}
         />
         <RevertTransmittal id={t.id} status={t.status} canRevert={canRevert} />
+        <ReturnForCorrection
+          transmittalId={t.id}
+          canReturn={canReturn && currentStage === "deposited"}
+          alreadyReturned={Boolean(t.returned_at)}
+          returnReason={t.return_reason}
+          returnedByRole={t.returned_by_role}
+          returnedAt={t.returned_at}
+        />
       </div>
     </>
   );

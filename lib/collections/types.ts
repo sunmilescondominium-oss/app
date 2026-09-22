@@ -81,6 +81,10 @@ export interface Transmittal {
   payment_mode: string;
   transfer_proof_path: string | null;
   transfer_bank_account_id: string | null;
+  returned_at: string | null;
+  returned_by: string | null;
+  returned_by_role: string | null;
+  return_reason: string | null;
 }
 
 export interface TransmittalDetail extends Transmittal {

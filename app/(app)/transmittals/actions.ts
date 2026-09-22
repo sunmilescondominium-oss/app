@@ -382,6 +382,76 @@ export async function depositTransmittal(
   return { ok: true };
 }
 
+/**
+ * Accounting / admin returns a deposited transmittal to the liaison for
+ * correction. Rolls custody_stage back to monitoring_recount so the liaison
+ * must redo liaison_count (with a mandatory correction_note) and deposited.
+ * The return reason is stored on the transmittal for the liaison to see.
+ */
+export async function returnForCorrection(
+  id: string,
+  reason: string,
+): Promise<ActionResult> {
+  const user = await requireModuleWrite("transmittals");
+  if (!userHasAnyRole(user, ["accounting", "managing_officer", "admin"]))
+    return { ok: false, error: "Only accounting or management can return a transmittal for correction." };
+
+  if (!reason.trim())
+    return { ok: false, error: "Please provide a reason for returning this transmittal." };
+
+  const admin = createAdminClient();
+  const { data: t } = await admin
+    .from("transmittals")
+    .select("id, status, custody_stage")
+    .eq("id", id)
+    .maybeSingle();
+  if (!t) return { ok: false, error: "Transmittal not found." };
+  if (t.status === "reconciled")
+    return { ok: false, error: "This transmittal is already reconciled and cannot be returned." };
+  if ((t.custody_stage as string) !== "deposited")
+    return { ok: false, error: "Only a fully deposited transmittal can be returned for correction." };
+  if ((t as Record<string, unknown>).returned_at)
+    return { ok: false, error: "This transmittal has already been returned and is awaiting correction." };
+
+  const returned_by_role = firstHeld(user.roleKeys, ["accounting", "managing_officer", "admin"]);
+  const { error } = await admin
+    .from("transmittals")
+    .update({
+      custody_stage: "monitoring_recount",
+      returned_at: new Date().toISOString(),
+      returned_by: user.userId,
+      returned_by_role,
+      return_reason: reason.trim(),
+    })
+    .eq("id", id);
+  if (error) return { ok: false, error: error.message };
+
+  await logAudit({
+    actorUserId: user.userId,
+    actorRoles: user.roleKeys,
+    action: "update",
+    entity: "transmittals",
+    entityId: id,
+    diff: { returned_for_correction: true, reason: reason.trim(), by_role: returned_by_role },
+  });
+
+  // Notify errand liaison to correct their entry
+  await createNotification({
+    kind: "transmittal_returned",
+    title: "Transmittal returned for correction",
+    body: `${returned_by_role?.replace(/_/g, " ")} returned a transmittal: ${reason.trim()}`,
+    link: `/transmittals/${id}`,
+    entityType: "transmittal",
+    entityId: id,
+    recipientRole: "errand_liaison",
+    createdBy: user.userId,
+  });
+
+  revalidatePath("/transmittals");
+  revalidatePath(`/transmittals/${id}`);
+  return { ok: true };
+}
+
 /** accounting records that the bank passbook was returned to them. */
 export async function returnPassbook(id: string): Promise<ActionResult> {
   const user = await requireModuleWrite("transmittals");
@@ -467,7 +537,7 @@ export async function recordCustodyStep(
 
   const { data: t } = await admin
     .from("transmittals")
-    .select("id, total_amount, custody_stage")
+    .select("id, total_amount, custody_stage, returned_at, return_reason")
     .eq("id", id)
     .maybeSingle();
   if (!t) return { ok: false, error: "Transmittal not found." };
@@ -477,6 +547,12 @@ export async function recordCustodyStep(
   if (!stage) return { ok: false, error: "Custody chain is already complete." };
   if (!canActOnStage(user.roleKeys, stage))
     return { ok: false, error: `Your role can't perform "${CUSTODY_STAGES[stage].label}".` };
+
+  // When the transmittal has been returned for correction, require a note.
+  const isCorrection = Boolean((t as Record<string, unknown>).returned_at);
+  const correction_note = String(formData.get("correction_note") ?? "").trim() || null;
+  if (isCorrection && !correction_note)
+    return { ok: false, error: "This entry was returned for correction — please explain what you are correcting." };
 
   const def = CUSTODY_STAGES[stage];
   const expected = Number(t.total_amount);
@@ -499,12 +575,21 @@ export async function recordCustodyStep(
   const { error: cErr } = await admin.from("transmittal_custody").insert({
     transmittal_id: id, stage, actor_user_id: user.userId, actor_role,
     counted_amount: counted, expected_amount: expected, variance,
-    passbook_ref, deposit_slip_ref, bank_account_id, note,
+    passbook_ref, deposit_slip_ref, bank_account_id,
+    note: note || (correction_note ? `[CORRECTION] ${correction_note}` : null),
+    correction_note,
   });
   if (cErr) return { ok: false, error: cErr.message };
 
   // Reflect key facts onto the transmittal row.
+  // If this is the correcting liaison_count, clear the returned status.
   const patch: Record<string, unknown> = { custody_stage: stage };
+  if (isCorrection && stage === "liaison_count") {
+    patch.returned_at = null;
+    patch.returned_by = null;
+    patch.returned_by_role = null;
+    patch.return_reason = null;
+  }
   if (deposit_slip_ref) patch.deposit_slip_ref = deposit_slip_ref;
   if (stage === "deposited") {
     patch.status = "deposited";

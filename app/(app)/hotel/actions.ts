@@ -251,6 +251,7 @@ export async function checkIn(
     payment_type: advanceMethod, collected_by_role: user.roleKeys.find((r) => ["hotel_cashier", "hotel_rental_monitoring"].includes(r)) ?? "hotel_cashier",
     collector_name: collectorLabel, ar_no,
     collected_on: todayManila(), remarks: "Hotel advance payment (check-in)",
+    created_by: user.userId,
   });
 
   // Referral — verify plate against guard entrance log (hotel gate only)

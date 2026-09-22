@@ -94,6 +94,7 @@ function ConfirmPanel({
 
 export function CustodyPanel({
   transmittalId, currentStage, total, events, canActNext, bankAccounts,
+  returnedForCorrection, returnReason, returnedByRole, returnedAt,
 }: {
   transmittalId: string;
   currentStage: CustodyStage;
@@ -101,6 +102,10 @@ export function CustodyPanel({
   events: CustodyEvent[];
   canActNext: boolean;
   bankAccounts: BankOption[];
+  returnedForCorrection?: boolean;
+  returnReason?: string | null;
+  returnedByRole?: string | null;
+  returnedAt?: string | null;
 }) {
   const router = useRouter();
   const [state, setState] = useState<ActionResult | undefined>(undefined);
@@ -134,9 +139,33 @@ export function CustodyPanel({
     });
   }
 
+  function roleLabel2(rk: string | null | undefined) {
+    if (!rk) return "—";
+    return rk.charAt(0).toUpperCase() + rk.slice(1).replace(/_/g, " ");
+  }
+
   return (
     <div className="rounded-2xl border border-stone-200 bg-white p-5">
       <h2 className="text-sm font-semibold uppercase tracking-wide text-stone-500">Chain of custody</h2>
+
+      {/* Correction required banner — shown to the liaison who needs to re-submit */}
+      {returnedForCorrection && (
+        <div className="mt-3 rounded-xl border border-rose-300 bg-rose-50 px-4 py-3">
+          <p className="text-sm font-semibold text-rose-800">⚠ Correction required</p>
+          <p className="text-xs text-rose-700 mt-0.5">
+            Returned by <strong>{roleLabel2(returnedByRole)}</strong>
+            {returnedAt && <> · {new Date(returnedAt).toLocaleString("en-PH", { timeZone: "Asia/Manila", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</>}
+          </p>
+          {returnReason && (
+            <p className="mt-1.5 rounded-lg border border-rose-200 bg-white px-3 py-1.5 text-xs text-rose-900">
+              <span className="font-medium">Reason:</span> {returnReason}
+            </p>
+          )}
+          <p className="mt-1.5 text-xs text-rose-600">
+            Please re-enter your count below with a correction note explaining what changed.
+          </p>
+        </div>
+      )}
 
       {/* Timeline */}
       <ol className="mt-4 space-y-3">
@@ -207,6 +236,13 @@ export function CustodyPanel({
                 </label>
               )}
               <label className="text-xs font-medium text-stone-500 sm:col-span-2">Note<input name="note" className={`${cls} mt-1 w-full`} /></label>
+              {returnedForCorrection && (
+                <label className="text-xs font-semibold text-rose-700 sm:col-span-2">
+                  Correction note <span className="text-rose-500">*</span>
+                  <p className="mb-1 text-[10px] font-normal text-rose-500">Required — explain what was wrong and what you are correcting.</p>
+                  <textarea name="correction_note" required rows={2} placeholder="e.g. Previous count of ₱40,730 was incorrect. Correct amount is ₱39,830. Recount confirmed." className={`${cls} mt-0.5 w-full`} />
+                </label>
+              )}
               <div className="flex items-center gap-2 sm:col-span-2">
                 <button type="submit" className="rounded-lg bg-amber-600 px-3 py-2 text-sm font-semibold text-white hover:bg-amber-700">{def.cta}</button>
                 {state && !state.ok && <p className="text-sm text-red-700">{state.error}</p>}

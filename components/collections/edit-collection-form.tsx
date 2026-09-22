@@ -63,7 +63,7 @@ export function EditCollectionForm({ collection, onDone }: { collection: Collect
         </p>
       ) : (
         <p className="rounded-lg bg-stone-50 px-3 py-2 text-xs text-stone-600">
-          This collection is not in a transmittal — changes will be saved immediately.
+          This collection is not yet in a transmittal — changes will be saved immediately and logged.
         </p>
       )}
 
@@ -136,14 +136,25 @@ export function EditCollectionForm({ collection, onDone }: { collection: Collect
         </div>
       )}
 
+      {/* Reason required for ALL edits — stored in collection_edits audit log */}
+      <div className={`space-y-1 rounded-xl border p-3 ${isTransmitted ? "border-rose-200 bg-rose-50/60" : "border-amber-200 bg-amber-50/60"}`}>
+        <label className="block text-xs font-semibold uppercase tracking-wide text-stone-600">
+          Reason for edit <span className="text-rose-500">*</span>
+        </label>
+        <p className="text-[10px] text-stone-400">This is recorded in the audit log and cannot be changed after saving.</p>
+        <textarea
+          name="justification"
+          required
+          rows={2}
+          placeholder="e.g. Wrong amount entered — correcting from ₱350 to ₱300. Cashier error."
+          className={inputCls}
+        />
+      </div>
+
       {/* Authorization gate — only for collections currently locked in a transmittal */}
       {isTransmitted && (
         <div className="space-y-3 rounded-xl border border-rose-200 bg-rose-50/60 p-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-rose-700">Authorization required</p>
-          <div>
-            <label className={labelCls}>Justification for this edit *</label>
-            <textarea name="justification" required rows={2} placeholder="Why is this correction needed?" className={inputCls} />
-          </div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-rose-700">Additional authorization required (entry is in a transmittal)</p>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div>
               <label className={labelCls}>Employee code *</label>
