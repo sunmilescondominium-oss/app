@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import {
   loadPettyCashFund,
   recordPettyCashDisbursement,
@@ -69,16 +69,25 @@ export function LoadFundForm({
 // Disbursement form
 // ---------------------------------------------------------------------------
 
-export function DisbursementForm({
+function DisbursementFormInner({
   funds,
   categories,
   vendors,
+  onSuccess,
 }: {
   funds: PettyCashFund[];
   categories: ExpenseCategory[];
   vendors: ExpenseVendor[];
+  onSuccess: () => void;
 }) {
-  const [state, action, pending] = useActionState<AR, FormData>(recordPettyCashDisbursement, undefined);
+  const [state, action, pending] = useActionState<AR, FormData>(
+    async (prev: AR, fd: FormData) => {
+      const res = await recordPettyCashDisbursement(prev, fd);
+      if (res.ok) onSuccess();
+      return res;
+    },
+    undefined,
+  );
 
   return (
     <form action={action} className="grid gap-4 sm:grid-cols-2">
@@ -132,13 +141,50 @@ export function DisbursementForm({
         <input type="text" name="remarks" placeholder="Optional notes" className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm" />
       </div>
       {state && !state.ok && <p className="sm:col-span-2 text-sm text-rose-600">{state.error}</p>}
-      {state?.ok && <p className="sm:col-span-2 text-sm text-emerald-600">Disbursement recorded. PCV number auto-assigned.</p>}
       <div className="sm:col-span-2">
         <button disabled={pending} className="rounded-xl bg-rose-600 px-5 py-2 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-50">
           {pending ? "Recording…" : "Record disbursement"}
         </button>
       </div>
     </form>
+  );
+}
+
+export function DisbursementForm({
+  funds,
+  categories,
+  vendors,
+}: {
+  funds: PettyCashFund[];
+  categories: ExpenseCategory[];
+  vendors: ExpenseVendor[];
+}) {
+  const [formKey, setFormKey] = useState(0);
+  const [showSuccess, setShowSuccess] = useState(false);
+
+  if (showSuccess) {
+    return (
+      <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-5 space-y-3">
+        <p className="text-sm font-semibold text-emerald-800">✓ Disbursement recorded. PCV number auto-assigned.</p>
+        <button
+          type="button"
+          onClick={() => { setShowSuccess(false); setFormKey((k) => k + 1); }}
+          className="rounded-xl border border-emerald-300 bg-white px-4 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-50"
+        >
+          Record another disbursement
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <DisbursementFormInner
+      key={formKey}
+      funds={funds}
+      categories={categories}
+      vendors={vendors}
+      onSuccess={() => setShowSuccess(true)}
+    />
   );
 }
 

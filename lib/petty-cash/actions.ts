@@ -65,6 +65,21 @@ export async function recordPettyCashDisbursement(
 
   const adminSupa = createAdminClient();
 
+  // Duplicate guard: block same user submitting the same fund + amount + description within 2 minutes
+  const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString();
+  const { data: recent } = await adminSupa
+    .from("petty_cash_transactions")
+    .select("id")
+    .eq("fund_id", fund_id)
+    .eq("amount", amount)
+    .eq("description", description)
+    .eq("created_by", user.userId)
+    .gte("created_at", twoMinutesAgo)
+    .limit(1);
+  if (recent && recent.length > 0) {
+    return { ok: false, error: "Duplicate detected: an identical disbursement was already recorded within the last 2 minutes. If this is a different expense, change the description or wait a moment and try again." };
+  }
+
   // Check fund balance
   const { data: txns } = await adminSupa
     .from("petty_cash_transactions")
