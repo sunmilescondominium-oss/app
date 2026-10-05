@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useTransition, useRef } from "react";
+import { useState, useEffect, useTransition, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   buildTransmittalForDate,
@@ -8,11 +8,18 @@ import {
   type CollectionOption,
 } from "@/app/(app)/transmittals/actions";
 import { DenominationCounter } from "./denomination-counter";
-import { COLLECTION_CATEGORIES, PAYMENT_TYPES } from "@/lib/config";
+import { COLLECTION_CATEGORIES, PAYMENT_TYPES, COLLECTION_CHARGE_TYPES } from "@/lib/config";
 import { peso } from "@/lib/collections/summary";
 
 const CAT_LABEL = Object.fromEntries(COLLECTION_CATEGORIES.map((c) => [c.key, c.label]));
 const PAY_LABEL = Object.fromEntries(PAYMENT_TYPES.map((p) => [p.key, p.label]));
+const CHARGE_LABEL = Object.fromEntries(COLLECTION_CHARGE_TYPES.map((t) => [t.key, t.label]));
+
+function chargeDisplay(c: CollectionOption): string | null {
+  if (c.charge_label) return c.charge_label;
+  if (c.charge_type) return CHARGE_LABEL[c.charge_type] ?? c.charge_type.replace(/_/g, " ");
+  return null;
+}
 
 const inputCls =
   "rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
@@ -32,6 +39,7 @@ export function BuildTransmittalForm({
 
   const [cols, setCols] = useState<CollectionOption[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [collapsedDates, setCollapsedDates] = useState<Set<string>>(new Set());
   const [paymentMode, setPaymentMode] = useState<"cash" | "bank_transfer">("cash");
   const [loadState, setLoadState] = useState<"idle" | "loading" | "empty" | "done" | "error">("idle");
   const [loadErr, setLoadErr] = useState("");
@@ -75,6 +83,8 @@ export function BuildTransmittalForm({
     const allChecked = ids.every((id) => selectedIds.has(id));
     setSelectedIds((s) => { const n = new Set(s); if (allChecked) ids.forEach((id) => n.delete(id)); else ids.forEach((id) => n.add(id)); return n; });
   };
+  const toggleCollapse = useCallback((date: string) =>
+    setCollapsedDates((s) => { const n = new Set(s); n.has(date) ? n.delete(date) : n.add(date); return n; }), []);
 
   const selectedCols = cols.filter((c) => selectedIds.has(c.id));
   const selectedTotal = selectedCols.reduce((s, c) => s + c.amount, 0);
@@ -266,40 +276,87 @@ export function BuildTransmittalForm({
               const allDateSel = dateCols.every((c) => selectedIds.has(c.id));
               const someDateSel = dateCols.some((c) => selectedIds.has(c.id));
               const dateTotal = dateCols.reduce((s, c) => s + c.amount, 0);
+              const isCollapsed = collapsedDates.has(date);
+              const selCount = dateCols.filter((c) => selectedIds.has(c.id)).length;
               return (
                 <div key={date} className="border-b border-stone-100 last:border-0">
+                  {/* Date group header — click chevron/date to collapse */}
                   <div className="flex items-center gap-3 bg-stone-50 px-4 py-2">
                     <input type="checkbox" checked={allDateSel}
                       ref={(el) => { if (el) el.indeterminate = someDateSel && !allDateSel; }}
                       onChange={() => toggleDate(date)} className="h-4 w-4 accent-amber-600" aria-label={`Select all for ${date}`} />
-                    <span className="text-xs font-semibold text-stone-700">{date}</span>
-                    <span className="ml-auto text-xs text-stone-400">{dateCols.length} entries · {peso(dateTotal)}</span>
-                  </div>
-                  {dateCols.map((c) => (
-                    <div key={c.id} className="border-t border-stone-100 px-4 py-2.5 pl-10">
-                      <div className="flex items-center gap-3">
-                        <input type="checkbox" checked={selectedIds.has(c.id)} onChange={() => toggleId(c.id)}
-                          className="h-4 w-4 flex-shrink-0 accent-amber-600" aria-label={c.or_number ?? c.id} />
-                        <span className="w-28 truncate text-sm font-medium text-stone-900">{c.or_number ?? "—"}</span>
-                        <span className="flex-1 text-xs text-stone-500">{CAT_LABEL[c.business_line] ?? c.business_line}</span>
-                        {isCheck(c) ? (
-                          <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">CHECK</span>
-                        ) : (
-                          <span className="text-xs text-stone-400">{PAY_LABEL[c.payment_type] ?? c.payment_type}</span>
-                        )}
-                        <span className="w-24 text-right text-sm tabular-nums text-stone-700">{peso(c.amount)}</span>
-                      </div>
-                      {isCheck(c) && (c.check_number || c.check_bank || c.check_date) && (
-                        <p className="mt-0.5 pl-7 text-[11px] text-amber-700">
-                          {[
-                            c.check_number ? `#${c.check_number}` : null,
-                            c.check_bank,
-                            c.check_date ? `due ${c.check_date}` : null,
-                          ].filter(Boolean).join(" · ")}
-                        </p>
+                    <button
+                      type="button"
+                      onClick={() => toggleCollapse(date)}
+                      className="flex flex-1 items-center gap-2 text-left"
+                      aria-expanded={!isCollapsed}
+                    >
+                      <span className="text-xs font-semibold text-stone-700">{date}</span>
+                      {isCollapsed && selCount > 0 && selCount < dateCols.length && (
+                        <span className="text-[10px] text-amber-700">{selCount}/{dateCols.length} selected</span>
                       )}
-                    </div>
-                  ))}
+                      <span className="ml-auto flex items-center gap-2">
+                        <span className="text-xs text-stone-400">{dateCols.length} entries · {peso(dateTotal)}</span>
+                        <svg className={`h-3.5 w-3.5 text-stone-400 transition-transform ${isCollapsed ? "-rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </span>
+                    </button>
+                  </div>
+
+                  {/* Rows — hidden when collapsed */}
+                  {!isCollapsed && dateCols.map((c) => {
+                    const charge = chargeDisplay(c);
+                    return (
+                      <div key={c.id} className="border-t border-stone-100 px-4 py-2 pl-10">
+                        {/* Main row */}
+                        <div className="flex items-center gap-2 min-w-0">
+                          <input type="checkbox" checked={selectedIds.has(c.id)} onChange={() => toggleId(c.id)}
+                            className="h-4 w-4 flex-shrink-0 accent-amber-600" aria-label={c.or_number ?? c.id} />
+                          {/* OR number */}
+                          <span className="w-24 shrink-0 truncate text-sm font-medium text-stone-900">{c.or_number ?? "—"}</span>
+                          {/* Unit / extension */}
+                          {c.unit_number ? (
+                            <span className="w-14 shrink-0 truncate rounded bg-stone-100 px-1.5 py-0.5 text-[10px] font-semibold text-stone-600">{c.unit_number}</span>
+                          ) : (
+                            <span className="w-14 shrink-0" />
+                          )}
+                          {/* Category */}
+                          <span className="hidden w-28 shrink-0 truncate text-xs text-stone-500 sm:block">{CAT_LABEL[c.business_line] ?? c.business_line}</span>
+                          {/* Charge type */}
+                          {charge ? (
+                            <span className="flex-1 truncate text-xs text-stone-500" title={charge}>{charge}</span>
+                          ) : (
+                            <span className="flex-1" />
+                          )}
+                          {/* Payment badge */}
+                          {isCheck(c) ? (
+                            <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">CHECK</span>
+                          ) : (
+                            <span className="shrink-0 text-xs text-stone-400">{PAY_LABEL[c.payment_type] ?? c.payment_type}</span>
+                          )}
+                          <span className="w-24 shrink-0 text-right text-sm tabular-nums text-stone-700">{peso(c.amount)}</span>
+                        </div>
+                        {/* Sub-row: check details + remarks */}
+                        {(isCheck(c) && (c.check_number || c.check_bank || c.check_date)) || c.remarks ? (
+                          <div className="mt-0.5 pl-7 space-y-0.5">
+                            {isCheck(c) && (c.check_number || c.check_bank || c.check_date) && (
+                              <p className="text-[11px] text-amber-700">
+                                {[
+                                  c.check_number ? `#${c.check_number}` : null,
+                                  c.check_bank,
+                                  c.check_date ? `due ${c.check_date}` : null,
+                                ].filter(Boolean).join(" · ")}
+                              </p>
+                            )}
+                            {c.remarks && (
+                              <p className="truncate text-[11px] text-stone-400" title={c.remarks}>{c.remarks}</p>
+                            )}
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })}
                 </div>
               );
             })}

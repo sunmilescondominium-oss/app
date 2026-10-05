@@ -98,6 +98,10 @@ export type CollectionOption = {
   check_number: string | null;
   check_date: string | null;
   check_bank: string | null;
+  charge_type: string | null;
+  charge_label: string | null;
+  unit_number: string | null;
+  remarks: string | null;
 };
 
 export type FetchCollectionsResult =
@@ -117,7 +121,7 @@ export async function fetchUntransmittedCollections(): Promise<FetchCollectionsR
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("collections")
-    .select("id, or_number, amount, business_line, payment_type, collected_on, check_number, check_date, check_bank")
+    .select("id, or_number, amount, business_line, payment_type, collected_on, check_number, check_date, check_bank, charge_type, charge_label, remarks, units(unit_number)")
     .is("transmittal_id", null)
     .is("deleted_at", null)
     .order("collected_on", { ascending: false })
@@ -126,17 +130,24 @@ export async function fetchUntransmittedCollections(): Promise<FetchCollectionsR
 
   return {
     ok: true,
-    collections: (data ?? []).map((c) => ({
-      id: c.id as string,
-      or_number: c.or_number as string | null,
-      amount: Number(c.amount),
-      business_line: c.business_line as string,
-      payment_type: c.payment_type as string,
-      collected_on: c.collected_on as string,
-      check_number: (c.check_number as string | null) ?? null,
-      check_date: (c.check_date as string | null) ?? null,
-      check_bank: (c.check_bank as string | null) ?? null,
-    })),
+    collections: (data ?? []).map((c) => {
+      const unit = (Array.isArray(c.units) ? c.units[0] : c.units) as { unit_number: string } | null;
+      return {
+        id: c.id as string,
+        or_number: c.or_number as string | null,
+        amount: Number(c.amount),
+        business_line: c.business_line as string,
+        payment_type: c.payment_type as string,
+        collected_on: c.collected_on as string,
+        check_number: (c.check_number as string | null) ?? null,
+        check_date: (c.check_date as string | null) ?? null,
+        check_bank: (c.check_bank as string | null) ?? null,
+        charge_type: (c.charge_type as string | null) ?? null,
+        charge_label: (c.charge_label as string | null) ?? null,
+        unit_number: unit?.unit_number ?? null,
+        remarks: (c.remarks as string | null) ?? null,
+      };
+    }),
   };
 }
 
