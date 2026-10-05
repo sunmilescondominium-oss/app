@@ -344,7 +344,7 @@ export function CollectionsPanel({
       </Modal>
 
       <Modal open={editing !== null} onClose={() => setEditing(null)} title={editing?.transmittal_id ? "Edit collection (authorized correction)" : "Edit collection"}>
-        {editing && <EditCollectionForm collection={editing} onDone={() => { setEditing(null); router.refresh(); }} />}
+        {editing && <EditCollectionForm collection={editing} itemTypes={itemTypes} onDone={() => { setEditing(null); router.refresh(); }} />}
       </Modal>
 
       <Modal open={clearing !== null} onClose={() => setClearing(null)} title="Clear check — issue final receipt">

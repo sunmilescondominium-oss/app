@@ -2,8 +2,9 @@
 
 import { useActionState, useEffect, useState } from "react";
 import { editCollection } from "@/app/(app)/collections/actions";
-import { COLLECTION_CATEGORIES, COLLECTION_CHARGE_TYPES, PAYMENT_TYPES } from "@/lib/config";
+import { COLLECTION_CATEGORIES, PAYMENT_TYPES } from "@/lib/config";
 import type { Collection } from "@/lib/collections/types";
+import type { CollectionItemType } from "@/lib/collections/item-types-shared";
 
 const RECEIPT_TYPES = [
   { key: "OR", label: "OR — Official Receipt" },
@@ -18,7 +19,7 @@ const inputCls =
   "w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
 const labelCls = "mb-1 block text-xs font-medium text-stone-600";
 
-export function EditCollectionForm({ collection, onDone }: { collection: Collection; onDone: () => void }) {
+export function EditCollectionForm({ collection, itemTypes = [], onDone }: { collection: Collection; itemTypes?: CollectionItemType[]; onDone: () => void }) {
   const action = editCollection.bind(null, collection.id);
   const [state, formAction, pending] = useActionState<ActionResult | undefined, FormData>(action, undefined);
   const [paymentType, setPaymentType] = useState(collection.payment_type ?? "cash");
@@ -104,7 +105,7 @@ export function EditCollectionForm({ collection, onDone }: { collection: Collect
             <label className={labelCls}>Charge type</label>
             <select name="charge_type" defaultValue={collection.charge_type ?? ""} className={inputCls}>
               <option value="">— select charge —</option>
-              {COLLECTION_CHARGE_TYPES.map((ct) => (
+              {itemTypes.map((ct) => (
                 <option key={ct.key} value={ct.key}>{ct.label}</option>
               ))}
             </select>
