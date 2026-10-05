@@ -25,6 +25,7 @@ export interface Collection {
   business_line: string;
   unit_id: string | null;
   charge_type: string | null;
+  charge_label: string | null;
   amount: number;
   or_number: string | null;
   receipt_type: string | null;

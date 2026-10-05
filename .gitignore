@@ -38,6 +38,11 @@ yarn-error.log*
 # vercel
 .vercel
 
+# local audit/analysis reports (sensitive financial data — never commit)
+/docs/
+hotel_redflags_report.md
+*_report.md
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

@@ -7,7 +7,7 @@ import { CollectionForm } from "./collection-form";
 import { EditCollectionForm } from "./edit-collection-form";
 import { deleteCollection, bulkDeleteCollections, clearCheck } from "@/app/(app)/collections/actions";
 import { peso } from "@/lib/collections/summary";
-import { COLLECTION_CATEGORIES, PAYMENT_TYPES } from "@/lib/config";
+import { COLLECTION_CATEGORIES, COLLECTING_ROLES, PAYMENT_TYPES } from "@/lib/config";
 import type { CollectionItemType } from "@/lib/collections/item-types-shared";
 import type { Collection, UnitOption } from "@/lib/collections/types";
 
@@ -23,10 +23,13 @@ const CAT_LABEL: Record<string, string> = Object.fromEntries(
 const PAY_LABEL: Record<string, string> = Object.fromEntries(
   PAYMENT_TYPES.map((p) => [p.key, p.label]),
 );
+const ROLE_LABEL: Record<string, string> = Object.fromEntries(
+  COLLECTING_ROLES.map((r) => [r.key, r.label]),
+);
 
 function roleLabel(rk: string | null): string {
   if (!rk) return "—";
-  return rk.charAt(0).toUpperCase() + rk.slice(1).replace(/_/g, " ");
+  return ROLE_LABEL[rk] ?? (rk.charAt(0).toUpperCase() + rk.slice(1).replace(/_/g, " "));
 }
 
 export function CollectionsPanel({
@@ -231,6 +234,8 @@ export function CollectionsPanel({
                       </div>
                     ) : c.charge_type ? (
                       itemTypes.find((t) => t.key === c.charge_type)?.label ?? c.charge_type
+                    ) : c.charge_label ? (
+                      <span className="text-stone-500">{c.charge_label}</span>
                     ) : (
                       c.unit_id ? <span className="text-stone-400">—</span> : null
                     )}

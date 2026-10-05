@@ -7,7 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit";
 import { verifyStepUp } from "@/lib/auth/step-up";
 import { COLLECTION_EDIT_ROLES } from "@/lib/rbac/modules";
-import { COLLECTION_CATEGORIES, COLLECTION_CHARGE_TYPES, PAYMENT_TYPES } from "@/lib/config";
+import { COLLECTION_CATEGORIES, PAYMENT_TYPES } from "@/lib/config";
 import { bankForLine, getUnitBillSuggestions, payBill } from "@/lib/collections/billing";
 import { todayManila } from "@/lib/collections/summary";
 import type { BulkResult } from "@/lib/data/bulk";
@@ -263,7 +263,6 @@ export type ActionResult = { ok: true; pendingId?: string } | { ok: false; error
 
 const CATS: readonly string[] = COLLECTION_CATEGORIES.map((c) => c.key);
 const PAYS: readonly string[] = PAYMENT_TYPES.map((p) => p.key);
-const CHARGES: readonly string[] = COLLECTION_CHARGE_TYPES.map((c) => c.key);
 const RECEIPT_TYPES = ["OR", "SI", "AR", "PR"] as const;
 const COLLECTING_ROLES = ["hotel_rental_monitoring", "accounting", "hotel_cashier"];
 
@@ -418,7 +417,8 @@ export async function createCollectionBatch(
   const inserts = rows.map((r) => ({
     business_line,
     unit_id,
-    charge_type: unit_id ? (CHARGES.includes(r.charge_type) ? r.charge_type : null) : null,
+    charge_type: unit_id ? (r.charge_type?.trim() || null) : null,
+    charge_label: unit_id ? (r.label?.trim() || null) : null,
     amount: Number(r.amount),
     or_number: (r.or_number ?? "").trim() || null,
     receipt_type,
@@ -478,8 +478,7 @@ export async function createCollection(
   const unit_id = String(formData.get("unit_id") ?? "").trim() || null;
   const collected_on = String(formData.get("collected_on") ?? "").trim();
   const remarks = String(formData.get("remarks") ?? "").trim() || null;
-  const charge_type_raw = String(formData.get("charge_type") ?? "").trim();
-  const charge_type = CHARGES.includes(charge_type_raw) ? charge_type_raw : null;
+  const charge_type = String(formData.get("charge_type") ?? "").trim() || null;
   const reference_no = String(formData.get("reference_no") ?? "").trim() || null;
   const coupon_code = String(formData.get("coupon_code") ?? "").trim() || null;
   const discount_amount = Number(String(formData.get("discount_amount") ?? "0")) || 0;
@@ -580,8 +579,7 @@ export async function editCollection(
   const or_number = String(formData.get("or_number") ?? "").trim() || null;
   const collected_on = String(formData.get("collected_on") ?? "").trim();
   const remarks = String(formData.get("remarks") ?? "").trim() || null;
-  const charge_type_raw = String(formData.get("charge_type") ?? "").trim();
-  const charge_type = CHARGES.includes(charge_type_raw) ? charge_type_raw : null;
+  const charge_type = String(formData.get("charge_type") ?? "").trim() || null;
   const receipt_type_raw = String(formData.get("receipt_type") ?? "").trim();
   const receipt_type = (RECEIPT_TYPES as readonly string[]).includes(receipt_type_raw) ? receipt_type_raw : null;
   const check_number = String(formData.get("check_number") ?? "").trim() || null;

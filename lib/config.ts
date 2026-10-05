@@ -78,6 +78,15 @@ export const COLLECTION_CHARGE_TYPES = [
 
 export type CollectionChargeType = (typeof COLLECTION_CHARGE_TYPES)[number]["key"];
 
+/** Roles that can record a collection (shown in "Collected by" column). */
+export const COLLECTING_ROLES = [
+  { key: "hotel_rental_monitoring", label: "Hotel & Rental Monitoring" },
+  { key: "hotel_cashier",           label: "Hotel Cashier" },
+  { key: "accounting",              label: "Accounting" },
+  { key: "guard",                   label: "Guard" },
+  { key: "errand_liaison",          label: "Errand & Liaison" },
+] as const;
+
 /**
  * Unified item types for the rate-card & billing ledger system.
  * Each item_key maps to a label and which business lines it applies to.

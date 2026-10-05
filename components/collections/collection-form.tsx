@@ -9,6 +9,7 @@ import {
 } from "@/app/(app)/collections/actions";
 import {
   COLLECTION_CATEGORIES,
+  COLLECTING_ROLES,
   PAYMENT_TYPES,
 } from "@/lib/config";
 import type { UnitOption } from "@/lib/collections/types";
@@ -26,13 +27,6 @@ const RECEIPT_TYPES = [
   { key: "PR", label: "PR — Provisional Receipt (postdated check)" },
 ] as const;
 
-const COLLECTED_BY = [
-  { key: "hotel_rental_monitoring", label: "Hotel & Rental Monitoring" },
-  { key: "hotel_cashier", label: "Hotel Cashier" },
-  { key: "accounting", label: "Accounting" },
-  { key: "guard", label: "Guard" },
-  { key: "errand_liaison", label: "Errand & Liaison" },
-];
 
 // Categories where a unit/room picker is shown
 const UNIT_CATS = new Set(["rental", "hotel", "airbnb", "condo_sales"]);
@@ -545,8 +539,8 @@ export function CollectionForm({
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label className={labelCls}>Collected by (role)</label>
-          <select name="collected_by_role" defaultValue={COLLECTED_BY[0].key} className={inputCls}>
-            {COLLECTED_BY.map((r) => (
+          <select name="collected_by_role" defaultValue={COLLECTING_ROLES[0].key} className={inputCls}>
+            {COLLECTING_ROLES.map((r) => (
               <option key={r.key} value={r.key}>{r.label}</option>
             ))}
           </select>
