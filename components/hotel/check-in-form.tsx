@@ -19,6 +19,8 @@ export function CheckInForm({
   promos,
   suggestedArNo,
   extraPersonRate = 0,
+  defaultRatePlanId,
+  ratePlanLockActive = false,
   onDone,
 }: {
   unitId: string;
@@ -26,6 +28,8 @@ export function CheckInForm({
   promos: Promo[];
   suggestedArNo?: string;
   extraPersonRate?: number;
+  defaultRatePlanId?: string | null;
+  ratePlanLockActive?: boolean;
   onDone: () => void;
 }) {
   const router = useRouter();
@@ -34,9 +38,12 @@ export function CheckInForm({
     undefined,
   );
 
-  const [planId, setPlanId] = useState(ratePlans[0]?.id ?? "");
+  const defaultPlan = defaultRatePlanId ? ratePlans.find((p) => p.id === defaultRatePlanId) : null;
+  // Lock only when both: the room has a default plan AND the global lock flag is active
+  const lockedPlan = ratePlanLockActive ? defaultPlan : null;
+  const [planId, setPlanId] = useState(defaultPlan?.id ?? ratePlans[0]?.id ?? "");
   const plan = ratePlans.find((p) => p.id === planId);
-  const [hours, setHours] = useState<number>(ratePlans[0]?.base_hours ?? 3);
+  const [hours, setHours] = useState<number>(defaultPlan?.base_hours ?? ratePlans[0]?.base_hours ?? 3);
   const [promoId, setPromoId] = useState("");
   const today = new Date().toISOString().slice(0, 10);
   const validPromos = promos.filter(
@@ -109,23 +116,38 @@ export function CheckInForm({
           <input name="guest_contact" className={inputCls} />
         </div>
         <div>
-          <label className={labelCls}>Rate plan *</label>
-          <select
-            name="rate_plan_id"
-            value={planId}
-            onChange={(e) => {
-              setPlanId(e.target.value);
-              const p = ratePlans.find((x) => x.id === e.target.value);
-              if (p) setHours(p.base_hours);
-            }}
-            className={inputCls}
-          >
-            {ratePlans.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name} — {peso(p.base_rate)} / {p.base_hours}h
-              </option>
-            ))}
-          </select>
+          <label className={labelCls}>
+            Rate plan *
+            {defaultPlan && !ratePlanLockActive && (
+              <span className="ml-1.5 text-[10px] font-normal text-stone-400">(room default pre-selected — lock is off)</span>
+            )}
+          </label>
+          {lockedPlan ? (
+            <>
+              <input type="hidden" name="rate_plan_id" value={lockedPlan.id} />
+              <p className={`${inputCls} bg-stone-50 text-stone-700 flex items-center gap-2`}>
+                <span className="text-amber-600 text-xs font-semibold uppercase tracking-wide">Locked</span>
+                {lockedPlan.name} — {peso(lockedPlan.base_rate)} / {lockedPlan.base_hours}h
+              </p>
+            </>
+          ) : (
+            <select
+              name="rate_plan_id"
+              value={planId}
+              onChange={(e) => {
+                setPlanId(e.target.value);
+                const p = ratePlans.find((x) => x.id === e.target.value);
+                if (p) setHours(p.base_hours);
+              }}
+              className={inputCls}
+            >
+              {ratePlans.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name} — {peso(p.base_rate)} / {p.base_hours}h
+                </option>
+              ))}
+            </select>
+          )}
         </div>
         <div>
           <label className={labelCls}>Hours (min {plan?.base_hours ?? 3})</label>
@@ -203,6 +225,7 @@ export function CheckInForm({
             min={0}
             value={extraPersons}
             onChange={(e) => { setExtraPersons(Math.max(0, parseInt(e.target.value, 10) || 0)); }}
+            onWheel={(e) => e.currentTarget.blur()}
             className={inputCls}
           />
         </div>

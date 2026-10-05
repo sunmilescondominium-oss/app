@@ -9,6 +9,7 @@ import { FieldDefManager } from "@/components/inventory/field-def-manager";
 import { setUnitActive, bulkSetUnitsActive, bulkDeleteUnits } from "@/app/(app)/inventory/actions";
 import { BUSINESS_LINES } from "@/lib/config";
 import type { Unit, FieldDefinition } from "@/lib/inventory/types";
+import type { RatePlan } from "@/lib/hotel/types";
 
 const BL_LABEL: Record<string, string> = Object.fromEntries(
   BUSINESS_LINES.map((b) => [b.key, b.label]),
@@ -46,16 +47,20 @@ export function InventoryTable({
   units,
   properties,
   fieldDefs,
+  ratePlans = [],
   canWrite,
   canManageFields,
   canHardDelete,
+  canManageRatePlan = false,
 }: {
   units: Unit[];
   properties: { id: string; name: string }[];
   fieldDefs: FieldDefinition[];
+  ratePlans?: RatePlan[];
   canWrite: boolean;
   canManageFields: boolean;
   canHardDelete: boolean;
+  canManageRatePlan?: boolean;
 }) {
   const router = useRouter();
   const [modal, setModal] = useState<ModalState>(null);
@@ -272,6 +277,8 @@ export function InventoryTable({
           mode="create"
           properties={properties}
           fieldDefs={fieldDefs}
+          ratePlans={ratePlans}
+          canManageRatePlan={canManageRatePlan}
           onDone={done}
         />
       </Modal>
@@ -287,6 +294,8 @@ export function InventoryTable({
             unit={modal.unit}
             properties={properties}
             fieldDefs={fieldDefs}
+            ratePlans={ratePlans}
+            canManageRatePlan={canManageRatePlan}
             onDone={done}
           />
         )}

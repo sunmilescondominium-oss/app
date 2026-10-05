@@ -7,6 +7,7 @@ import {
   inventorySummary,
   listFieldDefinitions,
 } from "@/lib/inventory/queries";
+import { listRatePlans } from "@/lib/hotel/queries";
 import { BUSINESS_LINES, UNIT_STATUSES } from "@/lib/config";
 import { PageHeader, Badge } from "@/components/ui";
 import { InventoryTable } from "@/components/inventory/inventory-table";
@@ -26,6 +27,7 @@ export default async function InventoryPage({
 }) {
   const user = await requireModule("inventory");
   const canWrite = canWriteModule(user.roleKeys, "inventory");
+  const canManageRatePlan = user.roleKeys.some((r) => ["admin", "accounting", "hotel_rental_monitoring"].includes(r));
 
   const sp = await searchParams;
   const pick = (k: string) => (typeof sp[k] === "string" ? (sp[k] as string) : undefined);
@@ -44,11 +46,12 @@ export default async function InventoryPage({
     includeInactive: pick("inactive") === "1",
   };
 
-  const [units, properties, summary, fieldDefs] = await Promise.all([
+  const [units, properties, summary, fieldDefs, ratePlans] = await Promise.all([
     listUnits(filters),
     listProperties(true),
     inventorySummary(scopeLines),
     listFieldDefinitions(),
+    canManageRatePlan ? listRatePlans() : Promise.resolve([]),
   ]);
 
   const propOptions = properties.map((p) => ({ id: p.id, name: p.name }));
@@ -177,9 +180,11 @@ export default async function InventoryPage({
           units={units}
           properties={propOptions}
           fieldDefs={fieldDefs}
+          ratePlans={ratePlans}
           canWrite={canWrite}
           canManageFields={canManageFields}
           canHardDelete={canHardDelete}
+          canManageRatePlan={canManageRatePlan}
         />
       </AdjustableColumns>
 

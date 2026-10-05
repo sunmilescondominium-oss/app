@@ -133,6 +133,8 @@ export async function createUnit(
     property_id = r.id;
   }
 
+  const defaultRatePlanId = orNull(formData.get("default_rate_plan_id"));
+
   const { data, error } = await supabase
     .from("units")
     .insert({
@@ -145,6 +147,7 @@ export async function createUnit(
       status,
       business_line,
       custom_fields: cf.value,
+      ...(business_line === "hotel" ? { default_rate_plan_id: defaultRatePlanId } : {}),
     })
     .select("id")
     .single();
@@ -184,7 +187,7 @@ export async function updateUnit(
   const cf = customFieldsFromForm(formData, defs);
   if (!cf.ok) return cf;
 
-  const patch = {
+  const patch: Record<string, unknown> = {
     unit_number,
     unit_type: orNull(formData.get("unit_type")),
     floor: orNull(formData.get("floor")),
@@ -193,6 +196,7 @@ export async function updateUnit(
     status,
     business_line,
     custom_fields: cf.value,
+    ...(business_line === "hotel" ? { default_rate_plan_id: orNull(formData.get("default_rate_plan_id")) } : {}),
   };
 
   const { error } = await supabase.from("units").update(patch).eq("id", id);

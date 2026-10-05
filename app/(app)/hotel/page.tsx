@@ -11,12 +11,14 @@ import {
   listPendingGateEntries,
   notifyAnomalousHotelStays,
 } from "@/lib/hotel/queries";
+import { isFeatureEnabled } from "@/lib/settings/flags";
 import { listSupplies } from "@/lib/housekeeping/queries";
 import { countOpenDiscrepancies } from "@/lib/hotel/discrepancy-queries";
 import { getActiveSession, getSuggestedNextArNo } from "@/lib/hotel/session";
 import { PageHeader, Badge } from "@/components/ui";
 import { HotelBoard } from "@/components/hotel/hotel-board";
 import { DemoModeBar } from "@/components/hotel/demo-mode-bar";
+import { RateLockToggle } from "@/components/hotel/rate-lock-toggle";
 import { PushSubscribeButton } from "@/components/push-subscribe-button";
 import { CsvImporter } from "@/components/data/csv-importer";
 import { RATE_PLAN_TEMPLATE, MENU_TEMPLATE } from "@/lib/imports/config";
@@ -32,11 +34,12 @@ export default async function HotelPage() {
   const canManageConfig = user.roleKeys.some((r) => ["admin", "consultant"].includes(r));
   const canManageTax = user.roleKeys.some((r) => ["admin", "accounting", "consultant"].includes(r));
   const canManageExtraRates = user.roleKeys.some((r) => ["admin", "accounting", "hotel_rental_monitoring", "managing_officer", "consultant"].includes(r));
+  const canManageRateLock = user.roleKeys.some((r) => ["admin", "accounting", "hotel_rental_monitoring"].includes(r));
 
   const isDemoMode = Boolean(user.demoMode);
   const isCashier    = userHasAnyRole(user, ["hotel_cashier"]);
   const isSupervisor = userHasAnyRole(user, ["hotel_rental_monitoring", "admin", "managing_officer", "consultant", "accounting"]);
-  const [board, ratePlans, promos, menu, globalTax, roomTax, activeSession, suggestedArNo, pendingGateEntries, openDiscrepancies, supplies] = await Promise.all([
+  const [board, ratePlans, promos, menu, globalTax, roomTax, activeSession, suggestedArNo, pendingGateEntries, openDiscrepancies, supplies, ratePlanLockActive] = await Promise.all([
     listRoomBoard(isDemoMode).catch((err: unknown) => {
       console.error("[Hotel] Room board query failed:", err instanceof Error ? err.message : err);
       throw err; // Let Next.js show the error boundary — better than an empty board with no warning
@@ -51,6 +54,7 @@ export default async function HotelPage() {
     listPendingGateEntries(),
     isSupervisor ? countOpenDiscrepancies() : Promise.resolve(0),
     (isCashier || isSupervisor) ? listSupplies().catch(() => []) : Promise.resolve([]),
+    isFeatureEnabled("hotel_rate_plan_lock"),
   ]);
   // Fire-and-forget anomaly scan — notifies hotel_rental_monitoring + admin
   // if any active stay has a corrupt check_in_at, impossible timer, or is a ghost stay.
@@ -217,6 +221,8 @@ export default async function HotelPage() {
 
       {user.demoMode && <DemoModeBar actingAs={user.actingAs} />}
 
+      {canManageRateLock && <RateLockToggle enabled={ratePlanLockActive} />}
+
 
       {/* Supplies stock — visible to cashier and supervisor */}
       {(isCashier || isSupervisor) && supplies.length > 0 && (
@@ -275,6 +281,7 @@ export default async function HotelPage() {
           canManageExtraRates={canManageExtraRates}
           isSupervisor={isSupervisor}
           suggestedArNo={suggestedArNo}
+          ratePlanLockActive={ratePlanLockActive}
         />
       )}
     </>

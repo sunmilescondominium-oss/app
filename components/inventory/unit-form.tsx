@@ -8,6 +8,7 @@ import {
 } from "@/app/(app)/inventory/actions";
 import { BUSINESS_LINES, UNIT_STATUSES } from "@/lib/config";
 import type { Unit, FieldDefinition } from "@/lib/inventory/types";
+import type { RatePlan } from "@/lib/hotel/types";
 
 const inputCls =
   "w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
@@ -74,12 +75,16 @@ export function UnitForm({
   unit,
   properties,
   fieldDefs,
+  ratePlans = [],
+  canManageRatePlan = false,
   onDone,
 }: {
   mode: "create" | "edit";
   unit?: Unit;
   properties: { id: string; name: string }[];
   fieldDefs: FieldDefinition[];
+  ratePlans?: RatePlan[];
+  canManageRatePlan?: boolean;
   onDone: () => void;
 }) {
   const action =
@@ -223,6 +228,17 @@ export function UnitForm({
             placeholder="Leave blank for rentals / hotel"
           />
         </div>
+        {businessLine === "hotel" && canManageRatePlan && ratePlans.length > 0 && (
+          <div className="sm:col-span-2">
+            <label className={labelCls}>Default rate plan (locked — cashier cannot override)</label>
+            <select name="default_rate_plan_id" defaultValue={unit?.default_rate_plan_id ?? ""} className={inputCls}>
+              <option value="">— no lock, cashier selects at check-in —</option>
+              {ratePlans.map((p) => (
+                <option key={p.id} value={p.id}>{p.name} — ₱{p.base_rate.toLocaleString("en-PH")} / {p.base_hours}h</option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {/* Admin-defined custom fields for the selected business line */}

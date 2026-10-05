@@ -21,6 +21,8 @@ export interface Unit {
   is_active: boolean;
   /** Values for admin-defined custom fields, keyed by field definition key. */
   custom_fields: Record<string, unknown>;
+  /** Locked rate plan for hotel rooms — cashier cannot override at check-in. */
+  default_rate_plan_id?: string | null;
   /** Joined for display. */
   property?: { name: string } | null;
 }

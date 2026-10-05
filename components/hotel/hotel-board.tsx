@@ -152,6 +152,7 @@ export function HotelBoard({
   canManageExtraRates,
   isSupervisor,
   suggestedArNo,
+  ratePlanLockActive = false,
 }: {
   board: RoomBoardItem[];
   ratePlans: RatePlan[];
@@ -165,6 +166,7 @@ export function HotelBoard({
   canManageExtraRates: boolean;
   isSupervisor: boolean;
   suggestedArNo?: string;
+  ratePlanLockActive?: boolean;
 }) {
   const router = useRouter();
   const [modal, setModal] = useState<ModalState>(null);
@@ -218,6 +220,8 @@ export function HotelBoard({
             promos={promos}
             suggestedArNo={suggestedArNo}
             extraPersonRate={modal.unit.extra_person_rate}
+            defaultRatePlanId={modal.unit.default_rate_plan_id}
+            ratePlanLockActive={ratePlanLockActive}
             onDone={done}
           />
         )}
