@@ -137,7 +137,8 @@ export function InventoryTable({
   }
 
   const hasHotelRooms = canManageRatePlan && units.some((u) => u.business_line === "hotel");
-  const cols = (canWrite ? 9 : 8) + (canWrite ? 1 : 0) + (hasHotelRooms ? 2 : 0);
+  const hasTcpUnits = units.some((u) => u.business_line !== "hotel");
+  const cols = (canWrite ? 9 : 8) + (canWrite ? 1 : 0) + (hasHotelRooms ? 2 : 0) - (hasTcpUnits ? 0 : 1);
 
   return (
     <div>
@@ -204,7 +205,7 @@ export function InventoryTable({
               <th className="px-4 py-3">Line</th>
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3 text-right">Area</th>
-              <th className="px-4 py-3 text-right">TCP</th>
+              {!units.every((u) => u.business_line === "hotel") && <th className="px-4 py-3 text-right">TCP</th>}
               {hasHotelRooms && <th className="px-4 py-3">Rate Plan</th>}
               {hasHotelRooms && <th className="px-4 py-3 text-center">Rate Lock</th>}
               {canWrite && <th className="px-4 py-3 text-right">Actions</th>}
@@ -253,9 +254,11 @@ export function InventoryTable({
                   <td className="px-4 py-3 text-right tabular-nums">
                     {u.area_sqm != null ? `${u.area_sqm} m²` : "—"}
                   </td>
-                  <td className="px-4 py-3 text-right tabular-nums">
-                    {u.tcp != null ? `₱${Number(u.tcp).toLocaleString()}` : "—"}
-                  </td>
+                  {hasTcpUnits && (
+                    <td className="px-4 py-3 text-right tabular-nums">
+                      {u.business_line !== "hotel" && u.tcp != null ? `₱${Number(u.tcp).toLocaleString()}` : "—"}
+                    </td>
+                  )}
                   {hasHotelRooms && (() => {
                     const plan = u.business_line === "hotel" && u.default_rate_plan_id
                       ? ratePlans.find((p) => p.id === u.default_rate_plan_id)

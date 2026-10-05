@@ -217,17 +217,19 @@ export function UnitForm({
             className={inputCls}
           />
         </div>
-        <div className="sm:col-span-2">
-          <label className={labelCls}>TCP — total contract price (condo sales)</label>
-          <input
-            name="tcp"
-            type="number"
-            step="0.01"
-            defaultValue={unit?.tcp ?? ""}
-            className={inputCls}
-            placeholder="Leave blank for rentals / hotel"
-          />
-        </div>
+        {businessLine !== "hotel" && (
+          <div className="sm:col-span-2">
+            <label className={labelCls}>TCP — total contract price (condo sales)</label>
+            <input
+              name="tcp"
+              type="number"
+              step="0.01"
+              defaultValue={unit?.tcp ?? ""}
+              className={inputCls}
+              placeholder="Leave blank for rentals"
+            />
+          </div>
+        )}
         {businessLine === "hotel" && canManageRatePlan && ratePlans.length > 0 && (
           <div className="sm:col-span-2">
             <label className={labelCls}>Default rate plan (locked — cashier cannot override)</label>
