@@ -177,7 +177,7 @@ export async function listRoomBoard(isDemoMode = false): Promise<RoomBoardItem[]
   const supabase = createAdminClient();
   // In demo mode show only demo rooms. In normal mode show ALL active hotel rooms
   // regardless of is_demo — live rooms may have is_demo = true from initial seeding.
-  const unitBase = supabase.from("units").select("id, unit_number, unit_type, extra_person_rate, default_rate_plan_id").eq("business_line", "hotel").eq("is_active", true);
+  const unitBase = supabase.from("units").select("id, unit_number, unit_type, extra_person_rate, default_rate_plan_id, rate_plan_locked").eq("business_line", "hotel").eq("is_active", true);
   const stayBase = supabase.from("stays").select("*, units(unit_number), rate_plans(name)").eq("status", "active");
   const [{ data: units, error: unitsErr }, { data: stays }, { data: hk }] = await Promise.all([
     (isDemoMode ? unitBase.eq("is_demo", true) : unitBase).order("unit_number", { ascending: true }),
@@ -271,7 +271,7 @@ export async function listRoomBoard(isDemoMode = false): Promise<RoomBoardItem[]
     const t = stay ? totalsByStay.get(stay.id) : undefined;
     const lastCoAt = lastCheckoutByUnit.get(unitId);
     return {
-      unit: { id: unitId, unit_number: u.unit_number as string, unit_type: (u.unit_type as string) ?? null, extra_person_rate: Number(u.extra_person_rate ?? 0), default_rate_plan_id: (u.default_rate_plan_id as string) ?? null },
+      unit: { id: unitId, unit_number: u.unit_number as string, unit_type: (u.unit_type as string) ?? null, extra_person_rate: Number(u.extra_person_rate ?? 0), default_rate_plan_id: (u.default_rate_plan_id as string) ?? null, rate_plan_locked: Boolean(u.rate_plan_locked) },
       stay,
       needsHousekeeping: dirty.has(unitId),
       paid: t?.paid, ordersTotal: t?.ordersTotal, balance: t?.balance,

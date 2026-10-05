@@ -23,6 +23,8 @@ export interface Unit {
   custom_fields: Record<string, unknown>;
   /** Locked rate plan for hotel rooms — cashier cannot override at check-in. */
   default_rate_plan_id?: string | null;
+  /** Individual room lock — must also have master flag on to enforce at check-in. */
+  rate_plan_locked?: boolean;
   /** Joined for display. */
   property?: { name: string } | null;
 }

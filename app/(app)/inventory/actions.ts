@@ -237,6 +237,20 @@ export async function setUnitActive(
   return { ok: true };
 }
 
+// ---- per-room rate plan lock toggle --------------------------------------
+export async function toggleRoomRateLock(id: string, locked: boolean): Promise<ActionResult> {
+  const user = await requireAuth();
+  const allowed = user.allRoleKeys.some((r) =>
+    ["admin", "accounting", "hotel_rental_monitoring", "consultant"].includes(r),
+  );
+  if (!allowed) return { ok: false, error: "Access denied." };
+  const supabase = createAdminClient();
+  const { error } = await supabase.from("units").update({ rate_plan_locked: locked }).eq("id", id);
+  if (error) return { ok: false, error: friendly(error.message) };
+  revalidatePath("/inventory");
+  return { ok: true };
+}
+
 // ---- bulk operations -----------------------------------------------------
 export type BulkResult =
   | { ok: true; affected: number; skipped: { id: string; reason: string }[] }

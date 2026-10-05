@@ -221,6 +221,7 @@ export function HotelBoard({
             suggestedArNo={suggestedArNo}
             extraPersonRate={modal.unit.extra_person_rate}
             defaultRatePlanId={modal.unit.default_rate_plan_id}
+            roomRateLocked={modal.unit.rate_plan_locked}
             ratePlanLockActive={ratePlanLockActive}
             onDone={done}
           />

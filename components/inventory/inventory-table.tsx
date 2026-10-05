@@ -6,7 +6,8 @@ import { Modal } from "@/components/modal";
 import { UnitForm } from "@/components/inventory/unit-form";
 import { CsvImport } from "@/components/inventory/csv-import";
 import { FieldDefManager } from "@/components/inventory/field-def-manager";
-import { setUnitActive, bulkSetUnitsActive, bulkDeleteUnits } from "@/app/(app)/inventory/actions";
+import { setUnitActive, bulkSetUnitsActive, bulkDeleteUnits, toggleRoomRateLock } from "@/app/(app)/inventory/actions";
+import { RateLockToggle } from "@/components/hotel/rate-lock-toggle";
 import { BUSINESS_LINES } from "@/lib/config";
 import type { Unit, FieldDefinition } from "@/lib/inventory/types";
 import type { RatePlan } from "@/lib/hotel/types";
@@ -48,6 +49,7 @@ export function InventoryTable({
   properties,
   fieldDefs,
   ratePlans = [],
+  ratePlanLockActive = false,
   canWrite,
   canManageFields,
   canHardDelete,
@@ -57,6 +59,7 @@ export function InventoryTable({
   properties: { id: string; name: string }[];
   fieldDefs: FieldDefinition[];
   ratePlans?: RatePlan[];
+  ratePlanLockActive?: boolean;
   canWrite: boolean;
   canManageFields: boolean;
   canHardDelete: boolean;
@@ -65,6 +68,7 @@ export function InventoryTable({
   const router = useRouter();
   const [modal, setModal] = useState<ModalState>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [lockPendingId, setLockPendingId] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
 
@@ -108,6 +112,14 @@ export function InventoryTable({
     router.refresh();
   };
 
+  async function toggleRateLock(u: Unit) {
+    setLockPendingId(u.id);
+    const res = await toggleRoomRateLock(u.id, !u.rate_plan_locked);
+    setLockPendingId(null);
+    if (!res.ok) window.alert(res.error);
+    else router.refresh();
+  }
+
   async function toggleActive(u: Unit) {
     if (
       u.is_active &&
@@ -124,7 +136,8 @@ export function InventoryTable({
     router.refresh();
   }
 
-  const cols = (canWrite ? 9 : 8) + (canWrite ? 1 : 0);
+  const hasHotelRooms = canManageRatePlan && units.some((u) => u.business_line === "hotel");
+  const cols = (canWrite ? 9 : 8) + (canWrite ? 1 : 0) + (hasHotelRooms ? 1 : 0);
 
   return (
     <div>
@@ -171,6 +184,12 @@ export function InventoryTable({
         </div>
       )}
 
+      {hasHotelRooms && (
+        <div className="mb-3">
+          <RateLockToggle enabled={ratePlanLockActive} />
+        </div>
+      )}
+
       <div className="table-wrap">
         <table className="w-full min-w-[820px] text-left text-sm">
           <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
@@ -186,6 +205,7 @@ export function InventoryTable({
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3 text-right">Area</th>
               <th className="px-4 py-3 text-right">TCP</th>
+              {hasHotelRooms && <th className="px-4 py-3 text-center">Rate Lock</th>}
               {canWrite && <th className="px-4 py-3 text-right">Actions</th>}
             </tr>
           </thead>
@@ -235,6 +255,31 @@ export function InventoryTable({
                   <td className="px-4 py-3 text-right tabular-nums">
                     {u.tcp != null ? `₱${Number(u.tcp).toLocaleString()}` : "—"}
                   </td>
+                  {hasHotelRooms && (
+                    <td className="px-4 py-3 text-center">
+                      {u.business_line === "hotel" ? (
+                        u.default_rate_plan_id ? (
+                          <button
+                            type="button"
+                            disabled={lockPendingId === u.id}
+                            onClick={() => toggleRateLock(u)}
+                            title={u.rate_plan_locked ? "Locked — click to unlock this room" : "Unlocked — click to lock this room"}
+                            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors disabled:opacity-50 ${
+                              u.rate_plan_locked ? "bg-amber-500" : "bg-stone-300"
+                            }`}
+                            aria-checked={!!u.rate_plan_locked}
+                            role="switch"
+                          >
+                            <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${u.rate_plan_locked ? "translate-x-4" : "translate-x-0"}`} />
+                          </button>
+                        ) : (
+                          <span className="text-[10px] text-stone-400">set plan first</span>
+                        )
+                      ) : (
+                        <span className="text-stone-300">—</span>
+                      )}
+                    </td>
+                  )}
                   {canWrite && (
                     <td className="px-4 py-3">
                       <div className="flex justify-end gap-2">

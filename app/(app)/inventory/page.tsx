@@ -8,6 +8,7 @@ import {
   listFieldDefinitions,
 } from "@/lib/inventory/queries";
 import { listRatePlans } from "@/lib/hotel/queries";
+import { isFeatureEnabled } from "@/lib/settings/flags";
 import { BUSINESS_LINES, UNIT_STATUSES } from "@/lib/config";
 import { PageHeader, Badge } from "@/components/ui";
 import { InventoryTable } from "@/components/inventory/inventory-table";
@@ -181,6 +182,7 @@ export default async function InventoryPage({
           properties={propOptions}
           fieldDefs={fieldDefs}
           ratePlans={ratePlans}
+          ratePlanLockActive={await isFeatureEnabled("hotel_rate_plan_lock")}
           canWrite={canWrite}
           canManageFields={canManageFields}
           canHardDelete={canHardDelete}

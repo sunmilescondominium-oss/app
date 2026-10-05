@@ -20,6 +20,7 @@ export function CheckInForm({
   suggestedArNo,
   extraPersonRate = 0,
   defaultRatePlanId,
+  roomRateLocked = false,
   ratePlanLockActive = false,
   onDone,
 }: {
@@ -29,6 +30,7 @@ export function CheckInForm({
   suggestedArNo?: string;
   extraPersonRate?: number;
   defaultRatePlanId?: string | null;
+  roomRateLocked?: boolean;
   ratePlanLockActive?: boolean;
   onDone: () => void;
 }) {
@@ -39,8 +41,8 @@ export function CheckInForm({
   );
 
   const defaultPlan = defaultRatePlanId ? ratePlans.find((p) => p.id === defaultRatePlanId) : null;
-  // Lock only when both: the room has a default plan AND the global lock flag is active
-  const lockedPlan = ratePlanLockActive ? defaultPlan : null;
+  // Lock only when: master flag ON + this room's individual lock ON + room has a default plan
+  const lockedPlan = (ratePlanLockActive && roomRateLocked) ? defaultPlan : null;
   const [planId, setPlanId] = useState(defaultPlan?.id ?? ratePlans[0]?.id ?? "");
   const plan = ratePlans.find((p) => p.id === planId);
   const [hours, setHours] = useState<number>(defaultPlan?.base_hours ?? ratePlans[0]?.base_hours ?? 3);
@@ -118,8 +120,10 @@ export function CheckInForm({
         <div>
           <label className={labelCls}>
             Rate plan *
-            {defaultPlan && !ratePlanLockActive && (
-              <span className="ml-1.5 text-[10px] font-normal text-stone-400">(room default pre-selected — lock is off)</span>
+            {defaultPlan && !(ratePlanLockActive && roomRateLocked) && (
+              <span className="ml-1.5 text-[10px] font-normal text-stone-400">
+                {!ratePlanLockActive ? "(room default pre-selected — master lock is off)" : "(room default pre-selected — room lock is off)"}
+              </span>
             )}
           </label>
           {lockedPlan ? (
