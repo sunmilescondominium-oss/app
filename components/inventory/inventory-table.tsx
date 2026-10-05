@@ -137,7 +137,7 @@ export function InventoryTable({
   }
 
   const hasHotelRooms = canManageRatePlan && units.some((u) => u.business_line === "hotel");
-  const cols = (canWrite ? 9 : 8) + (canWrite ? 1 : 0) + (hasHotelRooms ? 1 : 0);
+  const cols = (canWrite ? 9 : 8) + (canWrite ? 1 : 0) + (hasHotelRooms ? 2 : 0);
 
   return (
     <div>
@@ -205,6 +205,7 @@ export function InventoryTable({
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3 text-right">Area</th>
               <th className="px-4 py-3 text-right">TCP</th>
+              {hasHotelRooms && <th className="px-4 py-3">Rate Plan</th>}
               {hasHotelRooms && <th className="px-4 py-3 text-center">Rate Lock</th>}
               {canWrite && <th className="px-4 py-3 text-right">Actions</th>}
             </tr>
@@ -255,6 +256,27 @@ export function InventoryTable({
                   <td className="px-4 py-3 text-right tabular-nums">
                     {u.tcp != null ? `₱${Number(u.tcp).toLocaleString()}` : "—"}
                   </td>
+                  {hasHotelRooms && (() => {
+                    const plan = u.business_line === "hotel" && u.default_rate_plan_id
+                      ? ratePlans.find((p) => p.id === u.default_rate_plan_id)
+                      : null;
+                    return (
+                      <td className="px-4 py-3">
+                        {u.business_line === "hotel" ? (
+                          plan ? (
+                            <div>
+                              <p className="text-xs font-medium text-stone-800">{plan.name}</p>
+                              <p className="text-[11px] text-stone-500 tabular-nums">₱{plan.base_rate.toLocaleString("en-PH")} / {plan.base_hours}h</p>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-stone-400">— not set —</span>
+                          )
+                        ) : (
+                          <span className="text-stone-300">—</span>
+                        )}
+                      </td>
+                    );
+                  })()}
                   {hasHotelRooms && (
                     <td className="px-4 py-3 text-center">
                       {u.business_line === "hotel" ? (
