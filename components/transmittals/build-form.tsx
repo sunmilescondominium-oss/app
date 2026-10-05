@@ -64,6 +64,10 @@ export function BuildTransmittalForm({
     }
     setCols(res.collections);
     setSelectedIds(new Set(res.collections.map((c) => c.id)));
+    // Collapse all date groups by default except today — user expands what they need
+    const today = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD
+    const dates = new Set(res.collections.map((c) => c.collected_on).filter((d) => d !== today));
+    setCollapsedDates(dates);
     setLoadState(res.collections.length === 0 ? "empty" : "done");
   }
 
