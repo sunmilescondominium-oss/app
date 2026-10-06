@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { addItemType, updateItemType, toggleItemActive } from "@/app/(app)/admin/collection-items/actions";
+import { addItemType, updateItemType, toggleItemActive, checkItemUsage, deleteItemType } from "@/app/(app)/admin/collection-items/actions";
 import type { CollectionItemType } from "@/lib/collections/item-types-shared";
 import { ITEM_GROUP_LABELS, ITEM_GROUPS, toItemKey } from "@/lib/collections/item-types-shared";
 
@@ -18,10 +18,16 @@ const GRP_COLORS: Record<string, string> = {
   other:       "bg-stone-100 text-stone-600",
 };
 
+type DeleteState =
+  | { stage: "confirm"; item: CollectionItemType; collections: number; billingRates: number; billingRecords: number }
+  | null;
+
 export function CollectionItemManager({
   items: initItems,
+  canDelete = false,
 }: {
   items: CollectionItemType[];
+  canDelete?: boolean;
 }) {
   const [items, setItems] = useState(initItems);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -32,6 +38,7 @@ export function CollectionItemManager({
   const [addGrp, setAddGrp] = useState("other");
   const [addSort, setAddSort] = useState(100);
   const [err, setErr] = useState("");
+  const [deleteState, setDeleteState] = useState<DeleteState>(null);
   const [isPending, startTransition] = useTransition();
 
   const previewKey = toItemKey(addLabel);
@@ -86,6 +93,36 @@ export function CollectionItemManager({
       const res = await toggleItemActive(id, !current);
       if (res.ok) {
         setItems((prev) => prev.map((t) => t.id === id ? { ...t, is_active: !current } : t));
+      }
+    });
+  }
+
+  function handleDeleteClick(item: CollectionItemType) {
+    setErr("");
+    startTransition(async () => {
+      const res = await checkItemUsage(item.id);
+      if (!res.ok) { setErr(res.error ?? "Failed."); return; }
+      setDeleteState({
+        stage: "confirm",
+        item,
+        collections: res.collections ?? 0,
+        billingRates: res.billingRates ?? 0,
+        billingRecords: res.billingRecords ?? 0,
+      });
+    });
+  }
+
+  function handleDeleteConfirm() {
+    if (!deleteState) return;
+    const id = deleteState.item.id;
+    startTransition(async () => {
+      const res = await deleteItemType(id);
+      if (res.ok) {
+        setItems((prev) => prev.filter((t) => t.id !== id));
+        setDeleteState(null);
+      } else {
+        setErr(res.error ?? "Failed.");
+        setDeleteState(null);
       }
     });
   }
@@ -221,9 +258,21 @@ export function CollectionItemManager({
                         </button>
                       </td>
                       <td className="px-4 py-2 text-right">
-                        <button type="button" onClick={() => startEdit(item)} className="text-xs font-medium text-stone-500 hover:text-stone-800">
-                          Edit
-                        </button>
+                        <div className="flex items-center justify-end gap-3">
+                          <button type="button" onClick={() => startEdit(item)} className="text-xs font-medium text-stone-500 hover:text-stone-800">
+                            Edit
+                          </button>
+                          {canDelete && !item.is_system && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteClick(item)}
+                              disabled={isPending}
+                              className="text-xs font-medium text-rose-500 hover:text-rose-700 disabled:opacity-40"
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </>
                   )}
@@ -233,6 +282,51 @@ export function CollectionItemManager({
           </table>
         </div>
       ))}
+
+      {/* ── Delete confirmation overlay ── */}
+      {deleteState && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <h3 className="mb-1 text-base font-semibold text-stone-900">Delete &ldquo;{deleteState.item.label}&rdquo;?</h3>
+            <p className="mb-4 text-xs text-stone-500 font-mono">key: {deleteState.item.key}</p>
+
+            {(deleteState.collections > 0 || deleteState.billingRates > 0 || deleteState.billingRecords > 0) ? (
+              <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm">
+                <p className="font-semibold text-amber-900 mb-1">⚠ Existing records use this item type:</p>
+                <ul className="space-y-0.5 text-amber-800 text-xs">
+                  {deleteState.collections > 0 && <li>• {deleteState.collections} collection record{deleteState.collections !== 1 ? "s" : ""}</li>}
+                  {deleteState.billingRates > 0 && <li>• {deleteState.billingRates} billing rate{deleteState.billingRates !== 1 ? "s" : ""}</li>}
+                  {deleteState.billingRecords > 0 && <li>• {deleteState.billingRecords} billing record{deleteState.billingRecords !== 1 ? "s" : ""}</li>}
+                </ul>
+                <p className="mt-2 text-amber-700 text-xs">Those records will <strong>not</strong> be deleted — they keep their data. This item type will only be removed from the selection list.</p>
+              </div>
+            ) : (
+              <div className="mb-4 rounded-lg border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-600">
+                No existing records use this item type. Safe to delete.
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setDeleteState(null)}
+                disabled={isPending}
+                className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteConfirm}
+                disabled={isPending}
+                className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-50"
+              >
+                {isPending ? "Deleting…" : "Delete permanently"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

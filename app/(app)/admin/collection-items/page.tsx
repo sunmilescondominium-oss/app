@@ -10,6 +10,7 @@ export default async function CollectionItemsPage() {
   const user = await requireAuth();
   const canEdit = userHasAnyRole(user, ["accounting", "admin", "managing_officer", "consultant"]);
   if (!canEdit) throw new Error("Access denied.");
+  const canDelete = userHasAnyRole(user, ["admin", "accounting", "consultant"]);
 
   const items = await getAllItemTypes();
 
@@ -36,7 +37,7 @@ export default async function CollectionItemsPage() {
         </ul>
       </div>
 
-      <CollectionItemManager items={items} />
+      <CollectionItemManager items={items} canDelete={canDelete} />
     </>
   );
 }
