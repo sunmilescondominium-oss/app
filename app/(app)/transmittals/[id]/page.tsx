@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { requireModule } from "@/lib/auth/dal";
 import { canWriteModule, canReadModule, canEditCollections } from "@/lib/rbac/modules";
 import { getTransmittal, listCustody } from "@/lib/collections/queries";
+import { getAllItemTypes } from "@/lib/collections/item-types";
 import { summarizeCollections, peso, fmtDateTime } from "@/lib/collections/summary";
 import { getAppTimezone } from "@/lib/settings/app-settings";
 import { canActOnStage, nextStage, type CustodyStage } from "@/lib/collections/custody";
@@ -37,9 +38,14 @@ export default async function TransmittalDetailPage({
 }) {
   const { id } = await params;
   const user = await requireModule("transmittals");
-  const [t, tz] = await Promise.all([getTransmittal(id), getAppTimezone()]);
+  const [t, tz, allItemTypes] = await Promise.all([getTransmittal(id), getAppTimezone(), getAllItemTypes()]);
   if (!t) notFound();
 
+  // Lookup map: charge_type key → current label (fallback when stored charge_label is stale)
+  const chargeTypeMap = new Map(allItemTypes.map((it) => [it.key, it.label]));
+  function chargeLabel(c: { charge_type: string | null; charge_label: string | null }): string {
+    return chargeTypeMap.get(c.charge_type ?? "") || c.charge_label || c.charge_type || "";
+  }
 
   const summary = summarizeCollections(t.transmittal_date, t.collections);
   const canWrite = canWriteModule(user.roleKeys, "transmittals");
@@ -75,11 +81,14 @@ export default async function TransmittalDetailPage({
   const blSet = new Set(t.collections.map((c) => c.business_line));
   const blChecks: Record<string, boolean> = {
     Hotel: blSet.has("hotel"),
-    "Rental/Condo": blSet.has("rental") || blSet.has("condo_sales"),
+    Rental: blSet.has("rental"),
+    Condo: blSet.has("condo_sales"),
     Parking: blSet.has("parking"),
     Utilities: blSet.has("utility"),
     Other: [...blSet].some((bl) => !["hotel", "rental", "condo_sales", "parking", "utility"].includes(bl)),
   };
+  // Receipt types used (AR / SI / OR / PR)
+  const receiptTypeSet = new Set(t.collections.map((c) => c.receipt_type).filter(Boolean) as string[]);
   const depositVariance = t.deposited_amount != null
     ? Math.round((Number(t.deposited_amount) - summary.grandTotal) * 100) / 100
     : null;
@@ -126,7 +135,7 @@ export default async function TransmittalDetailPage({
             <table className="w-full border-collapse border border-stone-700 text-[11px]">
               <thead>
                 <tr className="border-b border-stone-700 bg-stone-50">
-                  <th className="w-28 border-r border-stone-400 px-2 py-1 text-left font-semibold">OR Number</th>
+                  <th className="w-28 border-r border-stone-400 px-2 py-1 text-left font-semibold">Reference Number</th>
                   <th className="w-24 border-r border-stone-400 px-2 py-1 text-left font-semibold">Unit / Room</th>
                   <th className="border-r border-stone-400 px-2 py-1 text-left font-semibold">Type of Collection</th>
                   <th className="w-28 px-2 py-1 text-right font-semibold">Amount (₱)</th>
@@ -137,7 +146,7 @@ export default async function TransmittalDetailPage({
                   <tr key={c.id} className="border-b border-stone-200">
                     <td className="border-r border-stone-400 px-2 py-0.5 tabular-nums">{c.or_number ?? ""}</td>
                     <td className="border-r border-stone-400 px-2 py-0.5">{c.unit?.unit_number ?? ""}</td>
-                    <td className="border-r border-stone-400 px-2 py-0.5">{c.charge_label ?? c.charge_type ?? ""}</td>
+                    <td className="border-r border-stone-400 px-2 py-0.5">{chargeLabel(c)}</td>
                     <td className="px-2 py-0.5 text-right tabular-nums">{peso(c.amount)}</td>
                   </tr>
                 ))}
@@ -157,7 +166,7 @@ export default async function TransmittalDetailPage({
                 <table className="w-full border-collapse border border-stone-700 text-[11px]">
                   <thead>
                     <tr className="border-b border-stone-700 bg-stone-50">
-                      <th className="w-28 border-r border-stone-400 px-2 py-1 text-left font-semibold">OR Number</th>
+                      <th className="w-28 border-r border-stone-400 px-2 py-1 text-left font-semibold">Reference Number</th>
                       <th className="border-r border-stone-400 px-2 py-1 text-left font-semibold">Bank</th>
                       <th className="w-28 border-r border-stone-400 px-2 py-1 text-left font-semibold">Check Number</th>
                       <th className="w-24 border-r border-stone-400 px-2 py-1 text-left font-semibold">Check Date</th>
@@ -201,7 +210,7 @@ export default async function TransmittalDetailPage({
                 <table className="w-full border-collapse border border-stone-700 text-[11px]">
                   <thead>
                     <tr className="border-b border-stone-700 bg-stone-50">
-                      <th className="w-28 border-r border-stone-400 px-2 py-1 text-left font-semibold">OR Number</th>
+                      <th className="w-28 border-r border-stone-400 px-2 py-1 text-left font-semibold">Reference Number</th>
                       <th className="w-24 border-r border-stone-400 px-2 py-1 text-left font-semibold">Unit / Room</th>
                       <th className="border-r border-stone-400 px-2 py-1 text-left font-semibold">Type of Collection</th>
                       <th className="w-28 border-r border-stone-400 px-2 py-1 text-left font-semibold">Reference / AR No.</th>
@@ -213,7 +222,7 @@ export default async function TransmittalDetailPage({
                       <tr key={c.id} className="border-b border-stone-200">
                         <td className="border-r border-stone-400 px-2 py-0.5 tabular-nums">{c.or_number ?? ""}</td>
                         <td className="border-r border-stone-400 px-2 py-0.5">{c.unit?.unit_number ?? ""}</td>
-                        <td className="border-r border-stone-400 px-2 py-0.5">{c.charge_label ?? c.charge_type ?? ""}</td>
+                        <td className="border-r border-stone-400 px-2 py-0.5">{chargeLabel(c)}</td>
                         <td className="border-r border-stone-400 px-2 py-0.5 tabular-nums">{c.reference_no ?? c.ar_no ?? ""}</td>
                         <td className="px-2 py-0.5 text-right tabular-nums">{peso(c.amount)}</td>
                       </tr>
@@ -293,15 +302,26 @@ export default async function TransmittalDetailPage({
           </div>
         )}
 
-        {/* ── PART C — OR SERIES ── hidden if no OR numbers */}
+        {/* ── PART C — RECEIPTS USED ── hidden if no receipt numbers */}
         {orNumbers.length > 0 && (
           <div className="mt-4">
-            <p className="mb-1 text-[11px] font-bold uppercase tracking-wide">Part C — Official Receipts Used</p>
-            <div className="flex flex-wrap gap-x-6 gap-y-0.5 text-[11px]">
-              <span>OR series from: <span className="border-b border-stone-400 px-3 font-medium">{orMin}</span></span>
+            <p className="mb-1 text-[11px] font-bold uppercase tracking-wide">Part C — Receipts Used</p>
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-[11px]">
+              <span className="font-semibold">Type:</span>
+              {(["AR", "SI", "OR", "PR"] as const).map((rt) => (
+                <label key={rt} className="flex items-center gap-1 cursor-default select-none">
+                  <span className="inline-flex h-3.5 w-3.5 items-center justify-center border border-stone-600 text-[10px] font-bold">
+                    {receiptTypeSet.has(rt) ? "✓" : ""}
+                  </span>
+                  {rt === "AR" ? "AR (Acknowledgement Receipt)" : rt === "SI" ? "SI (Sales Invoice)" : rt === "OR" ? "OR (Official Receipt)" : "PR (Payment Receipt)"}
+                </label>
+              ))}
+            </div>
+            <div className="mt-1 flex flex-wrap gap-x-6 gap-y-0.5 text-[11px]">
+              <span>Series from: <span className="border-b border-stone-400 px-3 font-medium">{orMin}</span></span>
               <span>to: <span className="border-b border-stone-400 px-3 font-medium">{orMax}</span></span>
-              <span>Total ORs issued: <span className="font-medium">{orNumbers.length}</span></span>
-              <span>Voided ORs: <span className="inline-block min-w-28 border-b border-stone-400" /></span>
+              <span>Total issued: <span className="font-medium">{orNumbers.length}</span></span>
+              <span>Voided: <span className="inline-block min-w-28 border-b border-stone-400" /></span>
             </div>
           </div>
         )}
