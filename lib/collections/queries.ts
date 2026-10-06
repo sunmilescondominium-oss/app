@@ -70,6 +70,7 @@ function mapCollection(r: Record<string, unknown>): Collection {
     collected_by_role: (r.collected_by_role as string) ?? null,
     collector_name: (r.collector_name as string) ?? null,
     ar_no: (r.ar_no as string) ?? null,
+    reference_no: (r.reference_no as string) ?? null,
     collected_on: r.collected_on as string,
     transmittal_id: (r.transmittal_id as string) ?? null,
     remarks: (r.remarks as string) ?? null,

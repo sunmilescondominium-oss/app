@@ -2,11 +2,11 @@ import { notFound } from "next/navigation";
 import { requireModule } from "@/lib/auth/dal";
 import { canWriteModule, canReadModule, canEditCollections } from "@/lib/rbac/modules";
 import { getTransmittal, listCustody } from "@/lib/collections/queries";
-import { summarizeCollections, summarizeByUnit, peso, fmtDateTime } from "@/lib/collections/summary";
+import { summarizeCollections, peso, fmtDateTime } from "@/lib/collections/summary";
 import { getAppTimezone } from "@/lib/settings/app-settings";
 import { canActOnStage, nextStage, type CustodyStage } from "@/lib/collections/custody";
 import { listAccountOptions } from "@/lib/banking/queries";
-import { APP_BRAND, APP_BRAND_SHORT, PHP_DENOMINATIONS } from "@/lib/config";
+import { APP_BRAND, PHP_DENOMINATIONS } from "@/lib/config";
 import { TransmittalActions } from "@/components/transmittals/transmittal-actions";
 import { RevertTransmittal } from "@/components/transmittals/revert-transmittal";
 import { ReturnForCorrection } from "@/components/transmittals/return-for-correction";
@@ -42,7 +42,6 @@ export default async function TransmittalDetailPage({
 
 
   const summary = summarizeCollections(t.transmittal_date, t.collections);
-  const unitBreakdown = summarizeByUnit(t.collections);
   const canWrite = canWriteModule(user.roleKeys, "transmittals");
 
   const currentStage = (t.custody_stage as CustodyStage) ?? "cashier_count";
@@ -61,93 +60,185 @@ export default async function TransmittalDetailPage({
   const isConsultant = user.roleKeys.some((r) => ["consultant", "admin", "managing_officer"].includes(r));
   const totalMismatch = Math.round((summary.grandTotal - Number(t.total_amount)) * 100) !== 0;
 
-  const signatures = [
-    { title: "Counted by", role: t.counted_by_role },
-    { title: "Bank deposit confirmed by", role: t.confirmed_by_role },
-    { title: "Reconciled by", role: t.reconciled_by_role },
-  ];
+  // Derived values for the print form
+  const companyName = APP_BRAND.split("—")[0].trim();
+  const cashRows = t.collections.filter((c) => c.payment_type === "cash");
+  const checkRows = t.collections.filter((c) => c.payment_type === "check");
+  const onlineRows = t.collections.filter((c) => c.payment_type !== "cash" && c.payment_type !== "check");
+  const cashTotal = cashRows.reduce((s, c) => s + c.amount, 0);
+  const checkTotal = checkRows.reduce((s, c) => s + c.amount, 0);
+  const onlineTotal = onlineRows.reduce((s, c) => s + c.amount, 0);
+  const orNumbers = t.collections.map((c) => c.or_number).filter((n): n is string => n != null && n.trim() !== "").sort();
+  const orMin = orNumbers[0] ?? null;
+  const orMax = orNumbers[orNumbers.length - 1] ?? null;
+  const hasDenominations = t.denomination_counts != null && Object.values(t.denomination_counts).some((n) => Number(n) > 0);
+  const blSet = new Set(t.collections.map((c) => c.business_line));
+  const blChecks: Record<string, boolean> = {
+    Hotel: blSet.has("hotel"),
+    "Rental/Condo": blSet.has("rental") || blSet.has("condo_sales"),
+    Parking: blSet.has("parking"),
+    Utilities: blSet.has("utility"),
+    Other: [...blSet].some((bl) => !["hotel", "rental", "condo_sales", "parking", "utility"].includes(bl)),
+  };
+  const depositVariance = t.deposited_amount != null
+    ? Math.round((Number(t.deposited_amount) - summary.grandTotal) * 100) / 100
+    : null;
 
   return (
     <>
       <Breadcrumb items={[{ label: "Transmittals", href: "/transmittals" }, { label: `Ref ${t.id.slice(0, 8).toUpperCase()}` }]} />
 
-      {/* Printable document */}
-      <div className="rounded-2xl border border-stone-200 bg-white p-6 print:rounded-none print:border-0 print:p-0">
-        <div className="flex items-start justify-between border-b border-stone-200 pb-4">
-          <div>
-            <p className="text-lg font-bold text-stone-900">{APP_BRAND_SHORT}</p>
-            <p className="text-sm text-stone-500">Cash Transmittal</p>
+      {/* Printable formal document — Cash Collections Transmittal Report */}
+      <div className="rounded-2xl border border-stone-200 bg-white p-6 text-stone-900 print:rounded-none print:border-0 print:p-0">
+
+        {/* ── HEADER ── */}
+        <div className="border-b-2 border-stone-800 pb-2 text-center">
+          <p className="text-sm font-bold uppercase tracking-wide">{companyName}</p>
+          <p className="mt-0.5 text-base font-bold uppercase tracking-widest">Cash Collections Transmittal Report</p>
+          <p className="mt-0.5 text-[10px] italic text-stone-500">Rosal St., Brgy. Uno, Calamba City, Laguna 4027</p>
+        </div>
+
+        <div className="mt-2 flex flex-wrap gap-x-6 gap-y-0.5 text-[11px]">
+          <span>Date: <span className="font-medium">{t.transmittal_date}</span></span>
+          <span>Ref: <span className="font-medium">{t.id.slice(0, 8).toUpperCase()}</span></span>
+          <span>Status: <span className="font-medium">{STATUS_LABEL[t.status] ?? t.status}</span></span>
+          <span>Prepared by: <span className="border-b border-stone-400 inline-block min-w-28" /></span>
+          <span>Position: <span className="border-b border-stone-400 inline-block min-w-20" /></span>
+        </div>
+        <div className="mt-0.5 flex flex-wrap items-center gap-x-4 gap-y-0.5 text-[11px]">
+          <span>Shift / Period covered: <span className="border-b border-stone-400 inline-block min-w-36" /></span>
+          <span className="flex flex-wrap gap-x-3">
+            <span className="font-medium">Business line:</span>
+            {Object.entries(blChecks).map(([label, checked]) => (
+              <span key={label}>[{checked ? "✓" : " "}] {label}</span>
+            ))}
+          </span>
+        </div>
+        <div className="mt-2 border-t border-stone-400" />
+
+        {/* ── PART A — COLLECTIONS SUMMARY ── */}
+        <div className="mt-3">
+          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide">Part A — Collections Summary</p>
+
+          {/* A1. Cash Received */}
+          <p className="mb-1 text-[11px] font-semibold">A1. Cash Received</p>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse border border-stone-700 text-[11px]">
+              <thead>
+                <tr className="border-b border-stone-700 bg-stone-50">
+                  <th className="w-28 border-r border-stone-400 px-2 py-1 text-left font-semibold">OR Number</th>
+                  <th className="w-24 border-r border-stone-400 px-2 py-1 text-left font-semibold">Unit / Room</th>
+                  <th className="border-r border-stone-400 px-2 py-1 text-left font-semibold">Type of Collection</th>
+                  <th className="w-28 px-2 py-1 text-right font-semibold">Amount (₱)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cashRows.map((c) => (
+                  <tr key={c.id} className="border-b border-stone-200">
+                    <td className="border-r border-stone-400 px-2 py-0.5 tabular-nums">{c.or_number ?? ""}</td>
+                    <td className="border-r border-stone-400 px-2 py-0.5">{c.unit?.unit_number ?? ""}</td>
+                    <td className="border-r border-stone-400 px-2 py-0.5">{c.charge_label ?? c.charge_type ?? ""}</td>
+                    <td className="px-2 py-0.5 text-right tabular-nums">{peso(c.amount)}</td>
+                  </tr>
+                ))}
+                <tr className="border-t border-stone-700 font-bold">
+                  <td colSpan={3} className="border-r border-stone-400 px-2 py-1">TOTAL CASH</td>
+                  <td className="px-2 py-1 text-right tabular-nums">{peso(cashTotal)}</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
-          <div className="text-right text-sm text-stone-700">
-            <p>
-              Date: <strong>{t.transmittal_date}</strong>
-            </p>
-            <p className="text-stone-500">Ref: {t.id.slice(0, 8).toUpperCase()}</p>
-            <p>Status: {STATUS_LABEL[t.status] ?? t.status}</p>
+
+          {/* A2. Check Received — hidden if no checks */}
+          {checkRows.length > 0 && (
+            <>
+              <p className="mb-1 mt-3 text-[11px] font-semibold">A2. Check Received</p>
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse border border-stone-700 text-[11px]">
+                  <thead>
+                    <tr className="border-b border-stone-700 bg-stone-50">
+                      <th className="w-28 border-r border-stone-400 px-2 py-1 text-left font-semibold">OR Number</th>
+                      <th className="border-r border-stone-400 px-2 py-1 text-left font-semibold">Bank</th>
+                      <th className="w-28 border-r border-stone-400 px-2 py-1 text-left font-semibold">Check Number</th>
+                      <th className="w-24 border-r border-stone-400 px-2 py-1 text-left font-semibold">Check Date</th>
+                      <th className="w-28 px-2 py-1 text-right font-semibold">Amount (₱)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {checkRows.map((c) => (
+                      <tr key={c.id} className="border-b border-stone-200">
+                        <td className="border-r border-stone-400 px-2 py-0.5 tabular-nums">{c.or_number ?? ""}</td>
+                        <td className="border-r border-stone-400 px-2 py-0.5">{c.check_bank ?? ""}</td>
+                        <td className="border-r border-stone-400 px-2 py-0.5 tabular-nums">{c.check_number ?? ""}</td>
+                        <td className="border-r border-stone-400 px-2 py-0.5">{c.check_date ?? ""}</td>
+                        <td className="px-2 py-0.5 text-right tabular-nums">{peso(c.amount)}</td>
+                      </tr>
+                    ))}
+                    {/* Check cleared status — screen only */}
+                    <tr className="border-t border-stone-700 font-bold">
+                      <td colSpan={4} className="border-r border-stone-400 px-2 py-1">TOTAL CHECK</td>
+                      <td className="px-2 py-1 text-right tabular-nums">{peso(checkTotal)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              {/* Cleared status for screen readers */}
+              <div className="no-print mt-1 flex flex-wrap gap-2">
+                {checkRows.map((c) => c.check_number && (
+                  <span key={c.id} className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${c.cleared_at ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>
+                    {c.check_number}: {c.cleared_at ? "Cleared" : "Pending"}
+                  </span>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* A3. Online / Bank Transfer — hidden if none */}
+          {onlineRows.length > 0 && (
+            <>
+              <p className="mb-1 mt-3 text-[11px] font-semibold">A3. Bank Transfer / Online Payment</p>
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse border border-stone-700 text-[11px]">
+                  <thead>
+                    <tr className="border-b border-stone-700 bg-stone-50">
+                      <th className="w-28 border-r border-stone-400 px-2 py-1 text-left font-semibold">OR Number</th>
+                      <th className="w-24 border-r border-stone-400 px-2 py-1 text-left font-semibold">Unit / Room</th>
+                      <th className="border-r border-stone-400 px-2 py-1 text-left font-semibold">Type of Collection</th>
+                      <th className="w-28 border-r border-stone-400 px-2 py-1 text-left font-semibold">Reference / AR No.</th>
+                      <th className="w-28 px-2 py-1 text-right font-semibold">Amount (₱)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {onlineRows.map((c) => (
+                      <tr key={c.id} className="border-b border-stone-200">
+                        <td className="border-r border-stone-400 px-2 py-0.5 tabular-nums">{c.or_number ?? ""}</td>
+                        <td className="border-r border-stone-400 px-2 py-0.5">{c.unit?.unit_number ?? ""}</td>
+                        <td className="border-r border-stone-400 px-2 py-0.5">{c.charge_label ?? c.charge_type ?? ""}</td>
+                        <td className="border-r border-stone-400 px-2 py-0.5 tabular-nums">{c.reference_no ?? c.ar_no ?? ""}</td>
+                        <td className="px-2 py-0.5 text-right tabular-nums">{peso(c.amount)}</td>
+                      </tr>
+                    ))}
+                    <tr className="border-t border-stone-700 font-bold">
+                      <td colSpan={4} className="border-r border-stone-400 px-2 py-1">TOTAL ONLINE / TRANSFER</td>
+                      <td className="px-2 py-1 text-right tabular-nums">{peso(onlineTotal)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+
+          {/* Grand Total */}
+          <div className="mt-2 flex justify-end border-t-2 border-stone-700 pt-1.5">
+            <span className="mr-6 text-[11px] font-bold">GRAND TOTAL (A1{checkRows.length > 0 ? " + A2" : ""}{onlineRows.length > 0 ? " + A3" : ""}):</span>
+            <span className="min-w-28 text-right text-[11px] font-bold tabular-nums">{peso(summary.grandTotal)}</span>
           </div>
         </div>
 
-        <table className="mt-5 w-full text-sm">
-          <thead className="border-b border-stone-200 text-xs uppercase tracking-wide text-stone-500">
-            <tr>
-              <th className="py-2 text-left">Category</th>
-              <th className="py-2 text-right">Entries</th>
-              <th className="py-2 text-right">Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            {summary.rows.map((r) => (
-              <tr key={r.category} className="border-b border-stone-100">
-                <td className="py-2">{r.label}</td>
-                <td className="py-2 text-right tabular-nums">{r.count}</td>
-                <td className="py-2 text-right tabular-nums">{peso(r.total)}</td>
-              </tr>
-            ))}
-          </tbody>
-          <tfoot>
-            <tr className="font-semibold">
-              <td className="py-2.5">Grand total</td>
-              <td className="py-2.5 text-right tabular-nums">{summary.count}</td>
-              <td className="py-2.5 text-right tabular-nums">{peso(summary.grandTotal)}</td>
-            </tr>
-          </tfoot>
-        </table>
-
-        {/* Per-unit charge breakdown — only shown when room-linked collections exist */}
-        {unitBreakdown.length > 0 && (
-          <div className="mt-5">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">Room / unit charge breakdown</p>
-            <div className="space-y-3">
-              {unitBreakdown.map((u) => (
-                <div key={u.unit_id} className="rounded-xl border border-stone-200 bg-stone-50/50 p-3">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-semibold text-stone-800">
-                      Unit {u.unit_number}
-                      {u.property_name ? <span className="ml-1 font-normal text-stone-500 text-xs">— {u.property_name}</span> : null}
-                    </p>
-                    <p className="text-sm font-semibold tabular-nums text-stone-800">{peso(u.subtotal)}</p>
-                  </div>
-                  <table className="mt-2 w-full text-xs">
-                    <tbody>
-                      {u.charges.map((ch) => (
-                        <tr key={ch.charge_type} className="border-t border-stone-100">
-                          <td className="py-1 text-stone-600">{ch.label}</td>
-                          <td className="py-1 text-right text-stone-400">{ch.count}×</td>
-                          <td className="py-1 text-right tabular-nums text-stone-700">{peso(ch.total)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Warn if stored total differs from live collection sum (e.g. a collection was deleted after transmittal was built). */}
+        {/* Mismatch warning — screen only */}
         {totalMismatch && (
           <div className="no-print mt-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-            <p>⚠ The stored transmittal total ({peso(Number(t.total_amount))}) differs from the current collection sum ({peso(summary.grandTotal)}) — a collection was added or removed after this transmittal was built. The figures below reflect the current collection sum.</p>
+            <p>⚠ The stored transmittal total ({peso(Number(t.total_amount))}) differs from the current collection sum ({peso(summary.grandTotal)}) — a collection was added or removed after this transmittal was built.</p>
             {isConsultant && (
               <form action={fixTransmittalTotal.bind(null, t.id)} className="mt-2">
                 <button type="submit" className="rounded-md bg-amber-700 px-3 py-1 text-xs font-semibold text-white hover:bg-amber-800">
@@ -158,105 +249,140 @@ export default async function TransmittalDetailPage({
           </div>
         )}
 
-        {/* Reconciliation figures */}
-        {(() => {
-          const liveTotal = summary.grandTotal;
-          const compareTo = t.deposited_amount ?? t.counted_cash;
-          const variance = compareTo == null ? null : Math.round((Number(compareTo) - liveTotal) * 100) / 100;
-          return (
-            <div className="mt-4 rounded-xl border border-stone-200 p-3">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">Reconciliation</p>
-              <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-4">
-                <div><span className="text-stone-400">Collected (reported)</span><br /><span className="font-medium tabular-nums">{peso(liveTotal)}</span></div>
-                <div><span className="text-stone-400">Cash counted</span><br /><span className="tabular-nums">{t.counted_cash != null ? peso(Number(t.counted_cash)) : "—"}</span></div>
-                <div><span className="text-stone-400">Deposited</span><br /><span className="tabular-nums">{t.deposited_amount != null ? peso(Number(t.deposited_amount)) : "—"}</span></div>
-                <div>
-                  <span className="text-stone-400">Variance</span><br />
-                  <span className={`tabular-nums ${variance ? "text-amber-700" : "text-emerald-700"}`}>{variance == null ? "—" : peso(variance)}</span>
-                </div>
-              </div>
-              {t.counted_cash != null && liveTotal !== Number(t.counted_cash) && (
-                <p className="mt-1 text-[11px] text-stone-400">Total includes online payments; counted cash is physical bills &amp; coins only.</p>
-              )}
+        {/* ── PART B — CASH COUNT ── hidden if no denomination data */}
+        {hasDenominations && (
+          <div className="mt-4">
+            <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide">Part B — Cash Count Summary</p>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse border border-stone-700 text-[11px]">
+                <thead>
+                  <tr className="border-b border-stone-700 bg-stone-50">
+                    <th className="border-r border-stone-400 px-2 py-1 text-left font-semibold">Denomination</th>
+                    <th className="w-20 border-r border-stone-400 px-2 py-1 text-center font-semibold">Quantity</th>
+                    <th className="w-28 px-2 py-1 text-right font-semibold">Amount (₱)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {PHP_DENOMINATIONS.filter((d) => {
+                    const qty = t.denomination_counts![`${d.kind}-${d.value}`] ?? t.denomination_counts![String(d.value)] ?? 0;
+                    return Number(qty) > 0;
+                  }).map((d) => {
+                    const qty = Number(t.denomination_counts![`${d.kind}-${d.value}`] ?? t.denomination_counts![String(d.value)] ?? 0);
+                    return (
+                      <tr key={`${d.kind}-${d.value}`} className="border-b border-stone-200">
+                        <td className="border-r border-stone-400 px-2 py-0.5">
+                          {d.kind === "bill" ? `₱${d.value} bill` : d.value < 1 ? `¢${Math.round(d.value * 100)} coin` : `₱${d.value} coin`}
+                        </td>
+                        <td className="border-r border-stone-400 px-2 py-0.5 text-center tabular-nums">{qty}</td>
+                        <td className="px-2 py-0.5 text-right tabular-nums">{peso(d.value * qty)}</td>
+                      </tr>
+                    );
+                  })}
+                  <tr className="border-t border-stone-700 font-bold">
+                    <td colSpan={2} className="border-r border-stone-400 px-2 py-1">TOTAL CASH COUNT</td>
+                    <td className="px-2 py-1 text-right tabular-nums">{peso(t.counted_cash != null ? Number(t.counted_cash) : cashTotal)}</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
-          );
-        })()}
+            <p className="mt-1.5 text-[11px]">
+              Cash count agrees with OR total?&nbsp; [ ] Yes &nbsp; [ ] No
+              &nbsp;&nbsp; If No — Discrepancy: ₱ <span className="inline-block min-w-20 border-b border-stone-400" />
+              &nbsp; Explanation: <span className="inline-block min-w-44 border-b border-stone-400" />
+            </p>
+          </div>
+        )}
 
-        {/* Denomination breakdown — for the errand carrying the cash */}
-        {t.denomination_counts && Object.values(t.denomination_counts).some((n) => Number(n) > 0) && (
-          <div className="mt-3 rounded-xl border border-stone-200 p-3">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">Cash count (bills &amp; coins)</p>
-            <div className="grid grid-cols-2 gap-x-6 gap-y-0.5 text-sm sm:grid-cols-3">
-              {PHP_DENOMINATIONS.filter((d) => {
-                const qty = t.denomination_counts![`${d.kind}-${d.value}`] ?? t.denomination_counts![String(d.value)] ?? 0;
-                return Number(qty) > 0;
-              }).map((d) => {
-                const qty = Number(t.denomination_counts![`${d.kind}-${d.value}`] ?? t.denomination_counts![String(d.value)] ?? 0);
-                return (
-                  <div key={`${d.kind}-${d.value}`} className="flex justify-between tabular-nums">
-                    <span className="text-stone-500">{d.value < 1 ? `¢${d.value * 100}` : `₱${d.value}`} {d.kind} × {qty}</span>
-                    <span>{peso(d.value * qty)}</span>
-                  </div>
-                );
-              })}
+        {/* ── PART C — OR SERIES ── hidden if no OR numbers */}
+        {orNumbers.length > 0 && (
+          <div className="mt-4">
+            <p className="mb-1 text-[11px] font-bold uppercase tracking-wide">Part C — Official Receipts Used</p>
+            <div className="flex flex-wrap gap-x-6 gap-y-0.5 text-[11px]">
+              <span>OR series from: <span className="border-b border-stone-400 px-3 font-medium">{orMin}</span></span>
+              <span>to: <span className="border-b border-stone-400 px-3 font-medium">{orMax}</span></span>
+              <span>Total ORs issued: <span className="font-medium">{orNumbers.length}</span></span>
+              <span>Voided ORs: <span className="inline-block min-w-28 border-b border-stone-400" /></span>
             </div>
           </div>
         )}
 
-        {/* Checks for deposit */}
-        {(() => {
-          const checks = t.collections.filter((c) => c.payment_type === "check");
-          if (checks.length === 0) return null;
-          const checksTotal = checks.reduce((s, c) => s + c.amount, 0);
-          return (
-            <div className="mt-5">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">
-                Checks for deposit ({checks.length})
-              </p>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="border-b border-stone-200 text-xs uppercase tracking-wide text-stone-500">
-                    <tr>
-                      <th className="py-2 text-left">OR #</th>
-                      <th className="py-2 text-left">Check #</th>
-                      <th className="py-2 text-left">Bank</th>
-                      <th className="py-2 text-left">Due date</th>
-                      <th className="py-2 text-right">Amount</th>
-                      <th className="py-2 text-center print:hidden">Cleared</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {checks.map((c) => (
-                      <tr key={c.id} className="border-b border-stone-100">
-                        <td className="py-2 tabular-nums">{c.or_number ?? "—"}</td>
-                        <td className="py-2 tabular-nums">{c.check_number ?? "—"}</td>
-                        <td className="py-2">{c.check_bank ?? "—"}</td>
-                        <td className="py-2">{c.check_date ?? "—"}</td>
-                        <td className="py-2 text-right tabular-nums">{peso(c.amount)}</td>
-                        <td className="py-2 text-center print:hidden">
-                          {c.cleared_at ? (
-                            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">Cleared</span>
-                          ) : (
-                            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">Pending</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr className="font-semibold">
-                      <td colSpan={4} className="py-2">Checks subtotal</td>
-                      <td className="py-2 text-right tabular-nums">{peso(checksTotal)}</td>
-                      <td className="print:hidden" />
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
+        {/* ── PART D — TURNOVER RECORD ── */}
+        <div className="mt-4">
+          <p className="mb-1 text-[11px] font-bold uppercase tracking-wide">Part D — Turnover Record</p>
+          <div className="text-[11px] space-y-1">
+            <div>
+              Total amount turned over: ₱&nbsp;<span className="font-bold tabular-nums">{peso(summary.grandTotal)}</span>
             </div>
-          );
-        })()}
+            <div className="flex flex-wrap gap-x-6 gap-y-0.5">
+              <span>Turned over to: <span className="inline-block min-w-32 border-b border-stone-400" /></span>
+              <span>Position: <span className="inline-block min-w-20 border-b border-stone-400" /></span>
+              <span>Date &amp; Time: <span className="border-b border-stone-400 px-2">{t.transmittal_date}</span> <span className="inline-block min-w-16 border-b border-stone-400" /></span>
+            </div>
+            <div>
+              Bank Booklet / Deposit Slip Ref.: <span className={`border-b border-stone-400 px-2 ${t.deposit_slip_ref ? "font-medium" : ""}`}>{t.deposit_slip_ref ?? ""}</span>
+              {!t.deposit_slip_ref && <span className="inline-block min-w-28 border-b border-stone-400" />}
+            </div>
+          </div>
+        </div>
 
-        {/* Bank transfer proof */}
+        {/* ── PART E — CERTIFICATION ── */}
+        <div className="mt-6">
+          <p className="mb-3 text-[11px] font-bold uppercase tracking-wide">Part E — Certification</p>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-4">
+            {[
+              { title: "Prepared by", sub: "Cashier / Collector" },
+              { title: "Received by", sub: "Cash Count Verified" },
+              { title: "Received by", sub: "For Bank Deposit" },
+              { title: "Verified by", sub: "After Deposit Slip" },
+            ].map((s) => (
+              <div key={s.sub} className="min-w-0">
+                <div className="h-8 border-b border-stone-700" />
+                <p className="mt-1 text-[10px] font-semibold">{s.title}</p>
+                <p className="text-[9px] text-stone-500">({s.sub})</p>
+                <p className="mt-0.5 text-[9px] text-stone-400">Name / Signature / Date</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── PART F — ACCOUNTING USE ONLY ── */}
+        <div className="mt-6 rounded border border-stone-500 p-3">
+          <p className="mb-2 border-b border-stone-300 pb-1 text-[11px] font-bold uppercase tracking-wide">Part F — For Accounting Use Only</p>
+          <div className="space-y-1 text-[11px]">
+            <div className="flex flex-wrap gap-x-6 gap-y-0.5">
+              <span>Bank deposit confirmed: [ ] Yes &nbsp; [ ] No</span>
+              <span>
+                Deposit date: {t.deposited_amount != null
+                  ? <span className="border-b border-stone-400 px-2 font-medium">{t.transmittal_date}</span>
+                  : <span className="inline-block min-w-24 border-b border-stone-400" />}
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-x-6 gap-y-0.5">
+              <span>
+                Deposit slip number: <span className={`border-b border-stone-400 px-2 ${t.deposit_slip_ref ? "font-medium" : ""}`}>{t.deposit_slip_ref ?? ""}</span>
+                {!t.deposit_slip_ref && <span className="inline-block min-w-28 border-b border-stone-400" />}
+              </span>
+              <span>
+                Amount deposited: ₱&nbsp;
+                {t.deposited_amount != null
+                  ? <span className="border-b border-stone-400 px-2 font-medium tabular-nums">{peso(Number(t.deposited_amount))}</span>
+                  : <span className="inline-block min-w-24 border-b border-stone-400" />}
+              </span>
+            </div>
+            {depositVariance != null && depositVariance !== 0 && (
+              <div className="flex flex-wrap gap-x-6 gap-y-0.5">
+                <span>Variance: ₱&nbsp;<span className="font-medium tabular-nums text-amber-700">{peso(Math.abs(depositVariance))} {depositVariance > 0 ? "over" : "short"}</span></span>
+                <span>Explanation: <span className="inline-block min-w-44 border-b border-stone-400" /></span>
+              </div>
+            )}
+            <div className="mt-2 flex flex-wrap gap-x-6 gap-y-0.5">
+              <span>Filed by: <span className="inline-block min-w-32 border-b border-stone-400" /></span>
+              <span>Date filed: <span className="inline-block min-w-24 border-b border-stone-400" /></span>
+            </div>
+          </div>
+        </div>
+
+        {/* Bank transfer proof — screen only */}
         {t.payment_mode === "bank_transfer" && t.transfer_proof_path && (
           <div className="no-print mt-4 rounded-xl border border-stone-200 p-3">
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">Bank transfer proof</p>
@@ -271,38 +397,12 @@ export default async function TransmittalDetailPage({
           </div>
         )}
 
-        <p className="mt-4 text-sm text-stone-700">
-          Bank deposit slip ref:{" "}
-          <strong>{t.deposit_slip_ref ?? "________________"}</strong>
+        <p className="mt-6 text-[9px] italic text-stone-400">
+          This form must be completed for every cash turnover without exception. File original with Accounting; keep a copy at the collection point.
         </p>
-        <p className="mt-1 text-sm text-stone-700">
-          Passbook:{" "}
-          {t.passbook_returned_on ? (
-            <strong className="text-emerald-700">returned to accounting {t.passbook_returned_on} ({roleLabel(t.passbook_returned_by_role)})</strong>
-          ) : (
-            <span className="text-amber-700">pending return to accounting</span>
-          )}
-        </p>
-
-        {/* Role-based signature lines (never person names) */}
-        <div className="mt-10 grid grid-cols-1 gap-8 sm:grid-cols-3">
-          {signatures.map((s) => (
-            <div key={s.title}>
-              <div className="h-10 border-b border-stone-400" />
-              <p className="mt-1 text-xs font-semibold text-stone-700">{s.title}</p>
-              <p className="text-xs text-stone-500">Role: {roleLabel(s.role)}</p>
-              <p className="mt-1 text-[10px] text-stone-400">
-                Signature over printed name / date
-              </p>
-            </div>
-          ))}
-        </div>
-
-        <p className="mt-8 text-[10px] text-stone-400">{APP_BRAND}</p>
+        <p className="mt-1 text-[9px] text-stone-400">{APP_BRAND}</p>
         {t.printed_at && (
-          <p className="text-[10px] text-stone-400">
-            Printed {fmtDateTime(t.printed_at, tz)}
-          </p>
+          <p className="text-[9px] text-stone-400">Printed {fmtDateTime(t.printed_at, tz)}</p>
         )}
       </div>
 
