@@ -3,28 +3,25 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { APP_BRAND_SHORT } from "@/lib/config";
 
-/**
- * Live in-app camera capture. Because the frame is grabbed from a getUserMedia
- * stream (never a file picker), a previously-saved / gallery photo cannot be
- * recycled. A timestamp (+ optional label) is burned into the image, and the
- * exact capture time is reported to the caller for the audit trail.
- */
 export function CameraCapture({
   onCapture,
   label,
   facingMode = "environment",
   buttonText = "Take photo",
   busy = false,
+  allowUpload = false,
 }: {
   onCapture: (file: File, capturedAt: string) => Promise<void> | void;
   label?: string;
   facingMode?: "environment" | "user";
   buttonText?: string;
   busy?: boolean;
+  allowUpload?: boolean;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [working, setWorking] = useState(false);
@@ -109,18 +106,50 @@ export function CameraCapture({
     }
   }
 
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const iso = new Date().toISOString();
+    setWorking(true);
+    try {
+      await onCapture(file, iso);
+    } finally {
+      setWorking(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
+
   if (!open) {
     return (
-      <div>
+      <div className="flex flex-wrap gap-2">
         <button
           type="button"
           onClick={start}
-          disabled={busy}
+          disabled={busy || working}
           className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-amber-700 disabled:opacity-60"
         >
           📷 {buttonText}
         </button>
-        {error && <p className="mt-1 text-xs text-red-700">{error}</p>}
+        {allowUpload && (
+          <>
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              disabled={busy || working}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-stone-400 bg-white px-3 py-2 text-sm font-semibold text-stone-700 transition hover:bg-stone-50 disabled:opacity-60"
+            >
+              📁 Upload file
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*,application/pdf"
+              className="hidden"
+              onChange={handleFileUpload}
+            />
+          </>
+        )}
+        {error && <p className="mt-1 w-full text-xs text-red-700">{error}</p>}
         <canvas ref={canvasRef} className="hidden" />
       </div>
     );

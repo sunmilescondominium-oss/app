@@ -520,11 +520,11 @@ export function CollectionForm({
               <label className={labelCls}>Proof photo</label>
               {proof ? (
                 <p className="text-sm text-emerald-700">
-                  ✓ Captured {new Date(proof.at).toLocaleTimeString("en-PH", { timeZone: "Asia/Manila", hour: "2-digit", minute: "2-digit" })}{" "}
-                  <button type="button" onClick={() => setProof(null)} className="text-amber-700 underline">retake</button>
+                  ✓ Proof attached {new Date(proof.at).toLocaleTimeString("en-PH", { timeZone: "Asia/Manila", hour: "2-digit", minute: "2-digit" })}{" "}
+                  <button type="button" onClick={() => setProof(null)} className="text-amber-700 underline">change</button>
                 </p>
               ) : (
-                <CameraCapture label="Payment proof" buttonText="Photo the payment screen" onCapture={(f, at) => setProof({ file: f, at })} />
+                <CameraCapture label="Payment proof" buttonText="Photo the payment screen" allowUpload onCapture={(f, at) => setProof({ file: f, at })} />
               )}
             </div>
           </div>
