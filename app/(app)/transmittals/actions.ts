@@ -105,50 +105,52 @@ export type CollectionOption = {
 };
 
 export type FetchCollectionsResult =
-  | { ok: true; collections: CollectionOption[] }
+  | { ok: true; collections: CollectionOption[]; truncated: boolean }
   | { ok: false; error: string };
 
+const FETCH_LIMIT = 5000;
+
 /**
- * Return ALL un-transmitted collections across all dates.
- * Collections from previous days that haven't been turned over yet are
- * included so they can be bundled into today's (or any) transmittal.
+ * Return un-transmitted collections. Pass from_date (YYYY-MM-DD) to narrow
+ * to a specific period; omit to load the most recent FETCH_LIMIT rows.
  */
-export async function fetchUntransmittedCollections(): Promise<FetchCollectionsResult> {
+export async function fetchUntransmittedCollections(from_date?: string): Promise<FetchCollectionsResult> {
   const user = await requireAuth();
   if (!userHasAnyRole(user, ["hotel_rental_monitoring", "accounting", "hotel_cashier", "consultant"]))
     return { ok: false, error: "Not authorized." };
 
   const admin = createAdminClient();
-  const { data, error } = await admin
+  let q = admin
     .from("collections")
     .select("id, or_number, amount, business_line, payment_type, collected_on, check_number, check_date, check_bank, charge_type, charge_label, remarks, units(unit_number)")
     .is("transmittal_id", null)
     .is("deleted_at", null)
     .order("collected_on", { ascending: false })
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: true })
+    .limit(FETCH_LIMIT);
+  if (from_date) q = q.gte("collected_on", from_date);
+  const { data, error } = await q;
   if (error) return { ok: false, error: error.message };
 
-  return {
-    ok: true,
-    collections: (data ?? []).map((c) => {
-      const unit = (Array.isArray(c.units) ? c.units[0] : c.units) as { unit_number: string } | null;
-      return {
-        id: c.id as string,
-        or_number: c.or_number as string | null,
-        amount: Number(c.amount),
-        business_line: c.business_line as string,
-        payment_type: c.payment_type as string,
-        collected_on: c.collected_on as string,
-        check_number: (c.check_number as string | null) ?? null,
-        check_date: (c.check_date as string | null) ?? null,
-        check_bank: (c.check_bank as string | null) ?? null,
-        charge_type: (c.charge_type as string | null) ?? null,
-        charge_label: (c.charge_label as string | null) ?? null,
-        unit_number: unit?.unit_number ?? null,
-        remarks: (c.remarks as string | null) ?? null,
-      };
-    }),
-  };
+  const collections = (data ?? []).map((c) => {
+    const unit = (Array.isArray(c.units) ? c.units[0] : c.units) as { unit_number: string } | null;
+    return {
+      id: c.id as string,
+      or_number: c.or_number as string | null,
+      amount: Number(c.amount),
+      business_line: c.business_line as string,
+      payment_type: c.payment_type as string,
+      collected_on: c.collected_on as string,
+      check_number: (c.check_number as string | null) ?? null,
+      check_date: (c.check_date as string | null) ?? null,
+      check_bank: (c.check_bank as string | null) ?? null,
+      charge_type: (c.charge_type as string | null) ?? null,
+      charge_label: (c.charge_label as string | null) ?? null,
+      unit_number: unit?.unit_number ?? null,
+      remarks: (c.remarks as string | null) ?? null,
+    };
+  });
+  return { ok: true, collections, truncated: collections.length === FETCH_LIMIT };
 }
 
 /** Bundle selected un-transmitted collections into a new transmittal. */

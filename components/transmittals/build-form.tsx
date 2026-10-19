@@ -43,20 +43,23 @@ export function BuildTransmittalForm({
   const [paymentMode, setPaymentMode] = useState<"cash" | "bank_transfer">("cash");
   const [loadState, setLoadState] = useState<"idle" | "loading" | "empty" | "done" | "error">("idle");
   const [loadErr, setLoadErr] = useState("");
+  const [truncated, setTruncated] = useState(false);
   const [submitErr, setSubmitErr] = useState("");
   const [pending, startSubmit] = useTransition();
   const [denomTotal, setDenomTotal] = useState(0);
+  const [fromDate, setFromDate] = useState("");
 
   // Confirm-step state
   const [confirming, setConfirming] = useState(false);
   const pendingFd = useRef<FormData | null>(null);
 
-  async function load() {
+  async function load(date?: string) {
     setLoadState("loading");
     setLoadErr("");
+    setTruncated(false);
     setCols([]);
     setSelectedIds(new Set());
-    const res = await fetchUntransmittedCollections();
+    const res = await fetchUntransmittedCollections(date || undefined);
     if (!res.ok) {
       setLoadState("error");
       setLoadErr(res.error);
@@ -64,6 +67,7 @@ export function BuildTransmittalForm({
     }
     setCols(res.collections);
     setSelectedIds(new Set(res.collections.map((c) => c.id)));
+    setTruncated(res.truncated);
     // Collapse all date groups by default except today — user expands what they need
     const today = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD
     const dates = new Set(res.collections.map((c) => c.collected_on).filter((d) => d !== today));
@@ -251,21 +255,50 @@ export function BuildTransmittalForm({
 
       {/* Collection checkboxes */}
       <div>
-        <div className="mb-2 flex items-center justify-between">
-          <p className="text-xs font-medium text-stone-600">
-            Collections to bundle
-            <span className="ml-1 font-normal text-stone-400">— select from any date</span>
-          </p>
-          <div className="flex items-center gap-3">
+        <div className="mb-2 space-y-2">
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="text-xs font-medium text-stone-600">Collections to bundle</p>
             {selectedIds.size > 0 && (
               <span className="text-xs text-stone-500">{selectedIds.size} selected · {peso(selectedTotal)}</span>
             )}
-            <button type="button" onClick={() => void load()} className="text-xs text-amber-700 hover:underline">Reload</button>
           </div>
+          <div className="flex flex-wrap items-end gap-2">
+            <div>
+              <label className="mb-0.5 block text-xs text-stone-500">Show collections from</label>
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                className="rounded-lg border border-stone-300 px-2 py-1.5 text-xs outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
+                placeholder="All dates"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => void load(fromDate)}
+              className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700"
+            >
+              Load
+            </button>
+            {fromDate && (
+              <button
+                type="button"
+                onClick={() => { setFromDate(""); void load(""); }}
+                className="text-xs text-stone-500 hover:text-stone-700 hover:underline"
+              >
+                Clear filter
+              </button>
+            )}
+          </div>
+          {truncated && (
+            <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-800">
+              ⚠ Only the most recent 5,000 collections are shown. Use "Show collections from" to load a specific date range (e.g. 2026-09-01).
+            </p>
+          )}
         </div>
         {loadState === "loading" && <p className="py-3 text-sm text-stone-400">Loading collections…</p>}
         {loadState === "error" && <p className="py-2 text-sm text-red-600">{loadErr}</p>}
-        {loadState === "empty" && <p className="py-3 text-sm text-stone-400">No un-transmitted collections pending.</p>}
+        {loadState === "empty" && <p className="py-3 text-sm text-stone-400">No un-transmitted collections{fromDate ? ` from ${fromDate}` : ""} pending.</p>}
 
         {loadState === "done" && cols.length > 0 && (
           <div className="overflow-hidden rounded-xl border border-stone-200">
