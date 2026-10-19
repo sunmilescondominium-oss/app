@@ -48,18 +48,19 @@ export function BuildTransmittalForm({
   const [pending, startSubmit] = useTransition();
   const [denomTotal, setDenomTotal] = useState(0);
   const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
 
   // Confirm-step state
   const [confirming, setConfirming] = useState(false);
   const pendingFd = useRef<FormData | null>(null);
 
-  async function load(date?: string) {
+  async function load(from?: string, to?: string) {
     setLoadState("loading");
     setLoadErr("");
     setTruncated(false);
     setCols([]);
     setSelectedIds(new Set());
-    const res = await fetchUntransmittedCollections(date || undefined);
+    const res = await fetchUntransmittedCollections(from || undefined, to || undefined);
     if (!res.ok) {
       setLoadState("error");
       setLoadErr(res.error);
@@ -76,6 +77,7 @@ export function BuildTransmittalForm({
   }
 
   useEffect(() => { void load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
 
   const grouped = cols.reduce<Record<string, CollectionOption[]>>((acc, c) => {
     (acc[c.collected_on] ??= []).push(c);
@@ -264,26 +266,34 @@ export function BuildTransmittalForm({
           </div>
           <div className="flex flex-wrap items-end gap-2">
             <div>
-              <label className="mb-0.5 block text-xs text-stone-500">Show collections from</label>
+              <label className="mb-0.5 block text-xs text-stone-500">From</label>
               <input
                 type="date"
                 value={fromDate}
                 onChange={(e) => setFromDate(e.target.value)}
                 className="rounded-lg border border-stone-300 px-2 py-1.5 text-xs outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
-                placeholder="All dates"
+              />
+            </div>
+            <div>
+              <label className="mb-0.5 block text-xs text-stone-500">To</label>
+              <input
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                className="rounded-lg border border-stone-300 px-2 py-1.5 text-xs outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
               />
             </div>
             <button
               type="button"
-              onClick={() => void load(fromDate)}
+              onClick={() => void load(fromDate, toDate)}
               className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700"
             >
               Load
             </button>
-            {fromDate && (
+            {(fromDate || toDate) && (
               <button
                 type="button"
-                onClick={() => { setFromDate(""); void load(""); }}
+                onClick={() => { setFromDate(""); setToDate(""); void load("", ""); }}
                 className="text-xs text-stone-500 hover:text-stone-700 hover:underline"
               >
                 Clear filter
@@ -298,7 +308,11 @@ export function BuildTransmittalForm({
         </div>
         {loadState === "loading" && <p className="py-3 text-sm text-stone-400">Loading collections…</p>}
         {loadState === "error" && <p className="py-2 text-sm text-red-600">{loadErr}</p>}
-        {loadState === "empty" && <p className="py-3 text-sm text-stone-400">No un-transmitted collections{fromDate ? ` from ${fromDate}` : ""} pending.</p>}
+        {loadState === "empty" && (
+          <p className="py-3 text-sm text-stone-400">
+            No un-transmitted collections{fromDate || toDate ? ` (${fromDate || "start"} → ${toDate || "today"})` : ""} pending.
+          </p>
+        )}
 
         {loadState === "done" && cols.length > 0 && (
           <div className="overflow-hidden rounded-xl border border-stone-200">

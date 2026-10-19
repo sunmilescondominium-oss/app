@@ -111,10 +111,10 @@ export type FetchCollectionsResult =
 const FETCH_LIMIT = 5000;
 
 /**
- * Return un-transmitted collections. Pass from_date (YYYY-MM-DD) to narrow
- * to a specific period; omit to load the most recent FETCH_LIMIT rows.
+ * Return un-transmitted collections. Pass from_date / to_date (YYYY-MM-DD)
+ * to narrow to a specific period; omit both to load the most recent FETCH_LIMIT rows.
  */
-export async function fetchUntransmittedCollections(from_date?: string): Promise<FetchCollectionsResult> {
+export async function fetchUntransmittedCollections(from_date?: string, to_date?: string): Promise<FetchCollectionsResult> {
   const user = await requireAuth();
   if (!userHasAnyRole(user, ["hotel_rental_monitoring", "accounting", "hotel_cashier", "consultant"]))
     return { ok: false, error: "Not authorized." };
@@ -129,6 +129,7 @@ export async function fetchUntransmittedCollections(from_date?: string): Promise
     .order("created_at", { ascending: true })
     .limit(FETCH_LIMIT);
   if (from_date) q = q.gte("collected_on", from_date);
+  if (to_date)   q = q.lte("collected_on", to_date);
   const { data, error } = await q;
   if (error) return { ok: false, error: error.message };
 
