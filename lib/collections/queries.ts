@@ -392,17 +392,20 @@ export async function getReceiptSeries(): Promise<{ context: string; prefix: str
   return (data ?? []).map((r) => ({ context: r.context as string, prefix: (r.prefix as string) ?? "AR-", next_no: Number(r.next_no) }));
 }
 
-export async function listTransmittals(limit = 60): Promise<Transmittal[]> {
+export async function listTransmittals(opts?: { from_date?: string; to_date?: string; limit?: number }): Promise<Transmittal[]> {
   // Service role: gated at the page by requireModule("transmittals"). Lets the
   // hotel cashier and other transmittal roles see rows regardless of table RLS.
   const supabase = createAdminClient();
-  const { data, error } = await supabase
+  let q = supabase
     .from("transmittals")
     .select("*")
     .is("deleted_at", null)
     .order("transmittal_date", { ascending: false })
-    .order("created_at", { ascending: false })
-    .limit(limit);
+    .order("created_at", { ascending: false });
+  if (opts?.from_date) q = q.gte("transmittal_date", opts.from_date);
+  if (opts?.to_date)   q = q.lte("transmittal_date", opts.to_date);
+  q = q.limit(opts?.limit ?? (opts?.from_date || opts?.to_date ? 500 : 60));
+  const { data, error } = await q;
   if (error) throw new Error(error.message);
   return (data ?? []).map((t: Record<string, unknown>) => ({
     ...(t as unknown as Transmittal),

@@ -7,6 +7,7 @@ import { PageHeader, Badge } from "@/components/ui";
 import { FloatingCalculator } from "@/components/ui/floating-calculator";
 import { BuildTransmittalForm } from "@/components/transmittals/build-form";
 import { ReceiptSeriesPanel } from "@/components/transmittals/receipt-series";
+import { TransmittalMonthFilter } from "@/components/transmittals/month-filter";
 import { HelpPanel } from "@/components/guide/help";
 import { DeletedTransmittalsPanel } from "@/components/collections/deleted-records-panel";
 import { restoreTransmittal, purgeTransmittal } from "@/app/(app)/collections/actions";
@@ -25,7 +26,17 @@ function roleLabel(rk: string | null): string {
   return rk.charAt(0).toUpperCase() + rk.slice(1).replace(/_/g, " ");
 }
 
-export default async function TransmittalsPage() {
+export default async function TransmittalsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string>>;
+}) {
+  const sp = await searchParams;
+  // month is "YYYY-MM" (from the month picker) or absent for recent 60 rows
+  const month = typeof sp.month === "string" && /^\d{4}-\d{2}$/.test(sp.month) ? sp.month : "";
+  const fromDate = month ? `${month}-01` : undefined;
+  const toDate   = month ? `${month}-31` : undefined; // DB clamps to last real day
+
   const user = await requireModule("transmittals");
   const canBuild = user.roleKeys.some((r) =>
     ["hotel_rental_monitoring", "accounting", "hotel_cashier"].includes(r),
@@ -41,7 +52,7 @@ export default async function TransmittalsPage() {
   );
 
   const [transmittals, series, bankAccounts, deletedTransmittals, pendingChecks] = await Promise.all([
-    listTransmittals(),
+    listTransmittals(fromDate || toDate ? { from_date: fromDate, to_date: toDate } : undefined),
     canSeries ? getReceiptSeries() : Promise.resolve([]),
     canBuild ? listAccountOptions() : Promise.resolve([]),
     canRestore ? listDeletedTransmittals() : Promise.resolve([]),
@@ -59,7 +70,7 @@ export default async function TransmittalsPage() {
     d.count += 1;
     byDate.set(t.transmittal_date, d);
   }
-  const tally = [...byDate.entries()].sort((a, b) => b[0].localeCompare(a[0])).slice(0, 10);
+  const tally = [...byDate.entries()].sort((a, b) => b[0].localeCompare(a[0])).slice(0, month ? 500 : 10);
 
   return (
     <>
@@ -180,8 +191,15 @@ export default async function TransmittalsPage() {
       {canBuild && <BuildTransmittalForm defaultDate={todayManila()} bankAccounts={bankAccounts} />}
       {canSeries && series.length > 0 && <ReceiptSeriesPanel series={series} />}
 
+      {/* Month filter */}
+      <div className="no-print mb-4">
+        <TransmittalMonthFilter current={month} />
+      </div>
+
       {/* Daily reconciliation tally — accounting, before the final owner report */}
-      <h2 className="mb-2 mt-2 text-sm font-semibold uppercase tracking-wide text-stone-500">Daily reconciliation</h2>
+      <h2 className="mb-2 mt-2 text-sm font-semibold uppercase tracking-wide text-stone-500">
+        Daily reconciliation{month ? ` — ${month}` : " (last 10 days)"}
+      </h2>
       <div className="mb-6 table-wrap">
         <table className="w-full min-w-[640px] text-left text-sm">
           <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
@@ -216,7 +234,9 @@ export default async function TransmittalsPage() {
       </div>
       <p className="mb-4 text-xs text-stone-400">Accounting tallies collected vs deposited and passbook returns here before the final report to the owner.</p>
 
-      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-stone-500">All transmittals</h2>
+      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-stone-500">
+        {month ? `Transmittals — ${month}` : "All transmittals (recent 60)"}
+      </h2>
       <div className="table-wrap">
         <table className="w-full min-w-[720px] text-left text-sm">
           <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">

@@ -7,7 +7,7 @@ export async function GET() {
   const user = await getSessionUser();
   if (!user || !canReadModule(user.roleKeys, "transmittals")) return new Response("Forbidden", { status: 403 });
 
-  const rows = await listTransmittals(200);
+  const rows = await listTransmittals({ limit: 200 });
   const csv = toCsv(
     ["Ref", "Date", "Business line", "Total", "Counted cash", "Deposited", "Status", "Custody stage", "Deposit slip"],
     rows.map((t) => [

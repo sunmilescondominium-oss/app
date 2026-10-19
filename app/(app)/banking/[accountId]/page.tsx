@@ -22,7 +22,7 @@ export default async function BankAccountPage({ params }: { params: Promise<{ ac
   const [txns, recons, transmittals, allAccounts] = await Promise.all([
     listTransactions(accountId),
     listReconciliations(accountId),
-    canWrite ? listTransmittals(40) : Promise.resolve([]),
+    canWrite ? listTransmittals({ limit: 40 }) : Promise.resolve([]),
     canWrite ? listAccountOptions() : Promise.resolve([]),
   ]);
   const balances = foldBalances(account.opening_balance, txns);
