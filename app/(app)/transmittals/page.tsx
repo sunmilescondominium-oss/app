@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { requireModule } from "@/lib/auth/dal";
 import { listTransmittals, getReceiptSeries, listDeletedTransmittals, listPendingCheckCollections } from "@/lib/collections/queries";
 import { listAccountOptions } from "@/lib/banking/queries";
@@ -193,7 +194,9 @@ export default async function TransmittalsPage({
 
       {/* Month filter */}
       <div className="no-print mb-4">
-        <TransmittalMonthFilter current={month} />
+        <Suspense fallback={null}>
+          <TransmittalMonthFilter current={month} />
+        </Suspense>
       </div>
 
       {/* Daily reconciliation tally — accounting, before the final owner report */}
