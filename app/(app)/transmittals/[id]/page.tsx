@@ -167,6 +167,7 @@ export default async function TransmittalDetailPage({
                   <thead>
                     <tr className="border-b border-stone-700 bg-stone-50">
                       <th className="w-28 border-r border-stone-400 px-2 py-1 text-left font-semibold">Reference Number</th>
+                      <th className="w-24 border-r border-stone-400 px-2 py-1 text-left font-semibold">Unit / Room</th>
                       <th className="border-r border-stone-400 px-2 py-1 text-left font-semibold">Bank</th>
                       <th className="w-28 border-r border-stone-400 px-2 py-1 text-left font-semibold">Check Number</th>
                       <th className="w-24 border-r border-stone-400 px-2 py-1 text-left font-semibold">Check Date</th>
@@ -177,6 +178,7 @@ export default async function TransmittalDetailPage({
                     {checkRows.map((c) => (
                       <tr key={c.id} className="border-b border-stone-200">
                         <td className="border-r border-stone-400 px-2 py-0.5 tabular-nums">{c.or_number ?? ""}</td>
+                        <td className="border-r border-stone-400 px-2 py-0.5">{c.unit?.unit_number ?? ""}</td>
                         <td className="border-r border-stone-400 px-2 py-0.5">{c.check_bank ?? ""}</td>
                         <td className="border-r border-stone-400 px-2 py-0.5 tabular-nums">{c.check_number ?? ""}</td>
                         <td className="border-r border-stone-400 px-2 py-0.5">{c.check_date ?? ""}</td>
@@ -185,7 +187,7 @@ export default async function TransmittalDetailPage({
                     ))}
                     {/* Check cleared status — screen only */}
                     <tr className="border-t border-stone-700 font-bold">
-                      <td colSpan={4} className="border-r border-stone-400 px-2 py-1">TOTAL CHECK</td>
+                      <td colSpan={5} className="border-r border-stone-400 px-2 py-1">TOTAL CHECK</td>
                       <td className="px-2 py-1 text-right tabular-nums">{peso(checkTotal)}</td>
                     </tr>
                   </tbody>
