@@ -147,7 +147,7 @@ export async function createUnit(
       status,
       business_line,
       custom_fields: cf.value,
-      ...(business_line === "hotel" ? { default_rate_plan_id: defaultRatePlanId } : {}),
+      ...(business_line === "hotel" ? { default_rate_plan_id: defaultRatePlanId, room_type_id: orNull(formData.get("room_type_id")) } : {}),
     })
     .select("id")
     .single();
@@ -196,7 +196,7 @@ export async function updateUnit(
     status,
     business_line,
     custom_fields: cf.value,
-    ...(business_line === "hotel" ? { default_rate_plan_id: orNull(formData.get("default_rate_plan_id")) } : {}),
+    ...(business_line === "hotel" ? { default_rate_plan_id: orNull(formData.get("default_rate_plan_id")), room_type_id: orNull(formData.get("room_type_id")) } : {}),
   };
 
   const { error } = await supabase.from("units").update(patch).eq("id", id);

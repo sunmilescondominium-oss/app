@@ -7,7 +7,7 @@ import {
   inventorySummary,
   listFieldDefinitions,
 } from "@/lib/inventory/queries";
-import { listRatePlans } from "@/lib/hotel/queries";
+import { listRatePlans, listRoomTypes } from "@/lib/hotel/queries";
 import { isFeatureEnabled } from "@/lib/settings/flags";
 import { BUSINESS_LINES, UNIT_STATUSES } from "@/lib/config";
 import { PageHeader, Badge } from "@/components/ui";
@@ -47,12 +47,13 @@ export default async function InventoryPage({
     includeInactive: pick("inactive") === "1",
   };
 
-  const [units, properties, summary, fieldDefs, ratePlans] = await Promise.all([
+  const [units, properties, summary, fieldDefs, ratePlans, roomTypes] = await Promise.all([
     listUnits(filters),
     listProperties(true),
     inventorySummary(scopeLines),
     listFieldDefinitions(),
     canManageRatePlan ? listRatePlans() : Promise.resolve([]),
+    canManageRatePlan ? listRoomTypes() : Promise.resolve([]),
   ]);
 
   const propOptions = properties.map((p) => ({ id: p.id, name: p.name }));
@@ -182,6 +183,7 @@ export default async function InventoryPage({
           properties={propOptions}
           fieldDefs={fieldDefs}
           ratePlans={ratePlans}
+          roomTypes={roomTypes}
           ratePlanLockActive={await isFeatureEnabled("hotel_rate_plan_lock")}
           canWrite={canWrite}
           canManageFields={canManageFields}

@@ -22,6 +22,7 @@ export function CheckInForm({
   defaultRatePlanId,
   roomRateLocked = false,
   ratePlanLockActive = false,
+  unitRoomTypeId,
   onDone,
 }: {
   unitId: string;
@@ -32,6 +33,7 @@ export function CheckInForm({
   defaultRatePlanId?: string | null;
   roomRateLocked?: boolean;
   ratePlanLockActive?: boolean;
+  unitRoomTypeId?: string | null;
   onDone: () => void;
 }) {
   const router = useRouter();
@@ -40,12 +42,14 @@ export function CheckInForm({
     undefined,
   );
 
-  const defaultPlan = defaultRatePlanId ? ratePlans.find((p) => p.id === defaultRatePlanId) : null;
+  // Filter to only the plans for this room's type (if assigned); fall back to all plans.
+  const visiblePlans = unitRoomTypeId ? ratePlans.filter((p) => p.room_type_id === unitRoomTypeId) : ratePlans;
+  const defaultPlan = defaultRatePlanId ? visiblePlans.find((p) => p.id === defaultRatePlanId) : null;
   // Lock only when: master flag ON + this room's individual lock ON + room has a default plan
   const lockedPlan = (ratePlanLockActive && roomRateLocked) ? defaultPlan : null;
-  const [planId, setPlanId] = useState(defaultPlan?.id ?? ratePlans[0]?.id ?? "");
-  const plan = ratePlans.find((p) => p.id === planId);
-  const [hours, setHours] = useState<number>(defaultPlan?.base_hours ?? ratePlans[0]?.base_hours ?? 3);
+  const [planId, setPlanId] = useState(defaultPlan?.id ?? visiblePlans[0]?.id ?? "");
+  const plan = visiblePlans.find((p) => p.id === planId);
+  const [hours, setHours] = useState<number>(defaultPlan?.base_hours ?? visiblePlans[0]?.base_hours ?? 3);
   const [promoId, setPromoId] = useState("");
   const today = new Date().toISOString().slice(0, 10);
   const validPromos = promos.filter(
@@ -140,12 +144,12 @@ export function CheckInForm({
               value={planId}
               onChange={(e) => {
                 setPlanId(e.target.value);
-                const p = ratePlans.find((x) => x.id === e.target.value);
+                const p = visiblePlans.find((x) => x.id === e.target.value);
                 if (p) setHours(p.base_hours);
               }}
               className={inputCls}
             >
-              {ratePlans.map((p) => (
+              {visiblePlans.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name} — {peso(p.base_rate)} / {p.base_hours}h
                 </option>

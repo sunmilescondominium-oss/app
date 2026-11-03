@@ -1,3 +1,9 @@
+export interface RoomType {
+  id: string;
+  name: string;
+  sort_order: number;
+}
+
 export interface RatePlan {
   id: string;
   name: string;
@@ -6,6 +12,7 @@ export interface RatePlan {
   extra_hour_rate: number;
   sort_order: number;
   is_active: boolean;
+  room_type_id?: string | null;
 }
 
 export interface Promo {
@@ -108,7 +115,7 @@ export interface MaintenanceIssue {
 }
 
 export interface RoomBoardItem {
-  unit: { id: string; unit_number: string; unit_type: string | null; extra_person_rate: number; default_rate_plan_id: string | null; rate_plan_locked: boolean };
+  unit: { id: string; unit_number: string; unit_type: string | null; extra_person_rate: number; default_rate_plan_id: string | null; rate_plan_locked: boolean; room_type_id: string | null };
   stay: Stay | null;
   /** Room was used and still has an open housekeeping task — not yet vacant. */
   needsHousekeeping: boolean;

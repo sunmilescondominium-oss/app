@@ -223,6 +223,7 @@ export function HotelBoard({
             defaultRatePlanId={modal.unit.default_rate_plan_id}
             roomRateLocked={modal.unit.rate_plan_locked}
             ratePlanLockActive={ratePlanLockActive}
+            unitRoomTypeId={modal.unit.room_type_id}
             onDone={done}
           />
         )}

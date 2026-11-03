@@ -25,6 +25,8 @@ export interface Unit {
   default_rate_plan_id?: string | null;
   /** Individual room lock — must also have master flag on to enforce at check-in. */
   rate_plan_locked?: boolean;
+  /** Which room type this unit belongs to — restricts rate plan choices at check-in. */
+  room_type_id?: string | null;
   /** Joined for display. */
   property?: { name: string } | null;
 }

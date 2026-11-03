@@ -10,7 +10,7 @@ import { setUnitActive, bulkSetUnitsActive, bulkDeleteUnits, toggleRoomRateLock 
 import { RateLockToggle } from "@/components/hotel/rate-lock-toggle";
 import { BUSINESS_LINES } from "@/lib/config";
 import type { Unit, FieldDefinition } from "@/lib/inventory/types";
-import type { RatePlan } from "@/lib/hotel/types";
+import type { RatePlan, RoomType } from "@/lib/hotel/types";
 
 const BL_LABEL: Record<string, string> = Object.fromEntries(
   BUSINESS_LINES.map((b) => [b.key, b.label]),
@@ -49,6 +49,7 @@ export function InventoryTable({
   properties,
   fieldDefs,
   ratePlans = [],
+  roomTypes = [],
   ratePlanLockActive = false,
   canWrite,
   canManageFields,
@@ -59,6 +60,7 @@ export function InventoryTable({
   properties: { id: string; name: string }[];
   fieldDefs: FieldDefinition[];
   ratePlans?: RatePlan[];
+  roomTypes?: RoomType[];
   ratePlanLockActive?: boolean;
   canWrite: boolean;
   canManageFields: boolean;
@@ -348,6 +350,7 @@ export function InventoryTable({
           properties={properties}
           fieldDefs={fieldDefs}
           ratePlans={ratePlans}
+          roomTypes={roomTypes}
           canManageRatePlan={canManageRatePlan}
           onDone={done}
         />
@@ -365,6 +368,7 @@ export function InventoryTable({
             properties={properties}
             fieldDefs={fieldDefs}
             ratePlans={ratePlans}
+            roomTypes={roomTypes}
             canManageRatePlan={canManageRatePlan}
             onDone={done}
           />

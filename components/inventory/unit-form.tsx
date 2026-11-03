@@ -8,7 +8,7 @@ import {
 } from "@/app/(app)/inventory/actions";
 import { BUSINESS_LINES, UNIT_STATUSES } from "@/lib/config";
 import type { Unit, FieldDefinition } from "@/lib/inventory/types";
-import type { RatePlan } from "@/lib/hotel/types";
+import type { RatePlan, RoomType } from "@/lib/hotel/types";
 
 const inputCls =
   "w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
@@ -76,6 +76,7 @@ export function UnitForm({
   properties,
   fieldDefs,
   ratePlans = [],
+  roomTypes = [],
   canManageRatePlan = false,
   onDone,
 }: {
@@ -84,6 +85,7 @@ export function UnitForm({
   properties: { id: string; name: string }[];
   fieldDefs: FieldDefinition[];
   ratePlans?: RatePlan[];
+  roomTypes?: RoomType[];
   canManageRatePlan?: boolean;
   onDone: () => void;
 }) {
@@ -230,11 +232,22 @@ export function UnitForm({
             />
           </div>
         )}
+        {businessLine === "hotel" && canManageRatePlan && roomTypes.length > 0 && (
+          <div className="sm:col-span-2">
+            <label className={labelCls}>Room type (restricts rate plan choices at check-in)</label>
+            <select name="room_type_id" defaultValue={unit?.room_type_id ?? ""} className={inputCls}>
+              <option value="">— unassigned, cashier sees all plans —</option>
+              {roomTypes.map((t) => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
         {businessLine === "hotel" && canManageRatePlan && ratePlans.length > 0 && (
           <div className="sm:col-span-2">
-            <label className={labelCls}>Default rate plan (locked — cashier cannot override)</label>
+            <label className={labelCls}>Default rate plan (optional — pre-selects a plan at check-in)</label>
             <select name="default_rate_plan_id" defaultValue={unit?.default_rate_plan_id ?? ""} className={inputCls}>
-              <option value="">— no lock, cashier selects at check-in —</option>
+              <option value="">— cashier selects at check-in —</option>
               {ratePlans.map((p) => (
                 <option key={p.id} value={p.id}>{p.name} — ₱{p.base_rate.toLocaleString("en-PH")} / {p.base_hours}h</option>
               ))}
