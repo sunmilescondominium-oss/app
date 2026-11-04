@@ -137,6 +137,7 @@ async function fetchStayBillingByUnitDate(
       stayId: s.id,
       guestLabel: s.guest_label,
       roomCharge: rc,
+      extraPersonsQty: Number(s.extra_persons ?? 0),
       extraPersonTotal,
       incidentalsTotal,
       discountAmount,
@@ -433,12 +434,28 @@ export async function getTransmittal(id: string): Promise<TransmittalDetail | nu
     .order("created_at", { ascending: true });
 
   const d = data as Record<string, unknown>;
+  const txDate = d.transmittal_date as string;
+  const hotelUnitIds = [...new Set(
+    (cols ?? [])
+      .filter((c) => (c as Record<string, unknown>).business_line === "hotel" && (c as Record<string, unknown>).unit_id)
+      .map((c) => (c as Record<string, unknown>).unit_id as string),
+  )];
+  const billingMap = hotelUnitIds.length > 0
+    ? await fetchStayBillingByUnitDate(hotelUnitIds, txDate)
+    : new Map<string, StayBilling>();
+
   return {
     ...(data as unknown as Transmittal),
     total_amount: Number(d.total_amount),
     counted_cash: d.counted_cash == null ? null : Number(d.counted_cash),
     denomination_counts: (d.denomination_counts as Record<string, number> | null) ?? null,
     deposited_amount: d.deposited_amount == null ? null : Number(d.deposited_amount),
-    collections: (cols ?? []).map(mapCollection),
+    collections: (cols ?? []).map((c) => {
+      const mapped = mapCollection(c);
+      if (mapped.unit_id && billingMap.has(mapped.unit_id)) {
+        return { ...mapped, stayBilling: billingMap.get(mapped.unit_id) ?? null };
+      }
+      return mapped;
+    }),
   };
 }

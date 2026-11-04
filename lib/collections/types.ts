@@ -9,6 +9,7 @@ export interface StayBillingOrder {
 export interface StayBilling {
   stayId: string;
   roomCharge: number;
+  extraPersonsQty: number;
   extraPersonTotal: number;
   incidentalsTotal: number;
   discountAmount: number;

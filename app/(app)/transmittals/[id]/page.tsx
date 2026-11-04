@@ -244,6 +244,43 @@ export default async function TransmittalDetailPage({
             <span className="mr-6 text-[11px] font-bold">GRAND TOTAL (A1{checkRows.length > 0 ? " + A2" : ""}{onlineRows.length > 0 ? " + A3" : ""}):</span>
             <span className="min-w-28 text-right text-[11px] font-bold tabular-nums">{peso(summary.grandTotal)}</span>
           </div>
+
+          {/* Extra Person Supplement — only shown when any hotel collection has extra persons */}
+          {t.collections.some((c) => (c.stayBilling?.extraPersonTotal ?? 0) > 0) && (
+            <>
+              <p className="mb-1 mt-3 text-[11px] font-semibold">Extra Person Supplement (included in collection amounts above)</p>
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse border border-stone-700 text-[11px]">
+                  <thead>
+                    <tr className="border-b border-stone-700 bg-stone-50">
+                      <th className="w-24 border-r border-stone-400 px-2 py-1 text-left font-semibold">Unit / Room</th>
+                      <th className="w-28 border-r border-stone-400 px-2 py-1 text-left font-semibold">OR Number</th>
+                      <th className="w-16 border-r border-stone-400 px-2 py-1 text-center font-semibold">Persons</th>
+                      <th className="w-28 px-2 py-1 text-right font-semibold">Amount (₱)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {t.collections
+                      .filter((c) => (c.stayBilling?.extraPersonTotal ?? 0) > 0)
+                      .map((c) => (
+                        <tr key={c.id} className="border-b border-stone-200">
+                          <td className="border-r border-stone-400 px-2 py-0.5">{c.unit?.unit_number ?? ""}</td>
+                          <td className="border-r border-stone-400 px-2 py-0.5 tabular-nums">{c.or_number ?? ""}</td>
+                          <td className="border-r border-stone-400 px-2 py-0.5 text-center tabular-nums">{c.stayBilling!.extraPersonsQty}×</td>
+                          <td className="px-2 py-0.5 text-right tabular-nums">{peso(c.stayBilling!.extraPersonTotal)}</td>
+                        </tr>
+                      ))}
+                    <tr className="border-t border-stone-700 font-bold">
+                      <td colSpan={3} className="border-r border-stone-400 px-2 py-1">TOTAL EXTRA PERSONS</td>
+                      <td className="px-2 py-1 text-right tabular-nums">
+                        {peso(t.collections.reduce((s, c) => s + (c.stayBilling?.extraPersonTotal ?? 0), 0))}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Mismatch warning — screen only */}
